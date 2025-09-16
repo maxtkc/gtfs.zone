@@ -1,5 +1,7 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
+import { EditorView, basicSetup } from 'codemirror';
+import { EditorState } from '@codemirror/state';
 
 // GTFS file definitions
 const GTFS_FILES = {
@@ -10,7 +12,7 @@ const GTFS_FILES = {
     'stops.txt',
     'stop_times.txt',
     'calendar.txt',
-    'calendar_dates.txt'
+    'calendar_dates.txt',
   ],
   optional: [
     'shapes.txt',
@@ -19,8 +21,8 @@ const GTFS_FILES = {
     'feed_info.txt',
     'fare_attributes.txt',
     'fare_rules.txt',
-    'locations.geojson'
-  ]
+    'locations.geojson',
+  ],
 };
 
 class GTFSEditor {
@@ -100,10 +102,10 @@ class GTFSEditor {
 
   initializeMap() {
     // Initialize Leaflet map
-    this.map = L.map('map').setView([40.7128, -74.0060], 10); // Default to NYC
-    
+    this.map = L.map('map').setView([40.7128, -74.006], 10); // Default to NYC
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+      attribution: '© OpenStreetMap contributors',
     }).addTo(this.map);
 
     // Keep map overlay visible initially
@@ -111,66 +113,87 @@ class GTFSEditor {
   }
 
   initializeEditor() {
-    // Initialize with a simple textarea for now
-    // Monaco Editor will be loaded via CDN
     const editorContainer = document.getElementById('monaco-editor');
-    editorContainer.innerHTML = `
-      <textarea id="simple-editor" placeholder="Select a file from the sidebar to edit its content...">
-      </textarea>
-    `;
-    this.editor = document.getElementById('simple-editor');
+    editorContainer.innerHTML = ''; // Clear any existing content
+
+    // Initialize CodeMirror 6
+    this.editorState = EditorState.create({
+      doc: 'Select a file from the sidebar to edit its content...',
+      extensions: [basicSetup],
+    });
+
+    this.editor = new EditorView({
+      state: this.editorState,
+      parent: editorContainer,
+    });
+  }
+
+  // Helper methods for CodeMirror
+  setEditorValue(content) {
+    if (this.editor) {
+      this.editor.dispatch({
+        changes: {
+          from: 0,
+          to: this.editor.state.doc.length,
+          insert: content,
+        },
+      });
+    }
+  }
+
+  getEditorValue() {
+    return this.editor ? this.editor.state.doc.toString() : '';
   }
 
   async loadGTFSFile(file) {
     try {
       console.log('Loading GTFS file:', file.name);
-      
+
       // Show loading state
       this.showLoading();
-      
+
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(file);
-      
+
       // Parse all text files in the ZIP
-      const files = Object.keys(zipContent.files).filter(name => 
-        name.endsWith('.txt') || name.endsWith('.geojson')
+      const files = Object.keys(zipContent.files).filter(
+        (name) => name.endsWith('.txt') || name.endsWith('.geojson')
       );
-      
+
       this.gtfsData = {};
-      
+
       for (const fileName of files) {
         const fileContent = await zipContent.files[fileName].async('text');
-        
+
         if (fileName.endsWith('.txt')) {
           // Parse CSV files
           const parsed = Papa.parse(fileContent, {
             header: true,
-            skipEmptyLines: true
+            skipEmptyLines: true,
           });
           this.gtfsData[fileName] = {
             content: fileContent,
             data: parsed.data,
-            errors: parsed.errors
+            errors: parsed.errors,
           };
         } else if (fileName.endsWith('.geojson')) {
           // Handle GeoJSON files
           this.gtfsData[fileName] = {
             content: fileContent,
-            data: JSON.parse(fileContent)
+            data: JSON.parse(fileContent),
           };
         }
       }
-      
+
       console.log('Loaded GTFS data:', this.gtfsData);
-      
+
       // Update UI
       this.updateFileList();
       this.updateMap();
       this.hideMapOverlay();
-      
+
       // Enable export button
       document.getElementById('export-btn').disabled = false;
-      
     } catch (error) {
       console.error('Error loading GTFS file:', error);
       alert('Error loading GTFS file: ' + error.message);
@@ -180,47 +203,55 @@ class GTFSEditor {
   updateFileList() {
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
-    
+
     // Group files by required/optional
     const allFiles = Object.keys(this.gtfsData);
-    const requiredFiles = allFiles.filter(f => GTFS_FILES.required.includes(f));
-    const optionalFiles = allFiles.filter(f => GTFS_FILES.optional.includes(f));
-    const otherFiles = allFiles.filter(f => 
-      !GTFS_FILES.required.includes(f) && !GTFS_FILES.optional.includes(f)
+    const requiredFiles = allFiles.filter((f) =>
+      GTFS_FILES.required.includes(f)
     );
-    
+    const optionalFiles = allFiles.filter((f) =>
+      GTFS_FILES.optional.includes(f)
+    );
+    const otherFiles = allFiles.filter(
+      (f) =>
+        !GTFS_FILES.required.includes(f) && !GTFS_FILES.optional.includes(f)
+    );
+
     // Add required files section
     if (requiredFiles.length > 0) {
       const requiredHeader = document.createElement('div');
-      requiredHeader.className = 'px-3 py-1 text-xs text-gray-500 uppercase font-semibold';
+      requiredHeader.className =
+        'px-3 py-1 text-xs text-gray-500 uppercase font-semibold';
       requiredHeader.textContent = 'Required Files';
       fileList.appendChild(requiredHeader);
-      
-      requiredFiles.forEach(fileName => {
+
+      requiredFiles.forEach((fileName) => {
         this.addFileItem(fileList, fileName, true);
       });
     }
-    
+
     // Add optional files section
     if (optionalFiles.length > 0) {
       const optionalHeader = document.createElement('div');
-      optionalHeader.className = 'px-3 py-1 text-xs text-gray-500 uppercase font-semibold mt-2';
+      optionalHeader.className =
+        'px-3 py-1 text-xs text-gray-500 uppercase font-semibold mt-2';
       optionalHeader.textContent = 'Optional Files';
       fileList.appendChild(optionalHeader);
-      
-      optionalFiles.forEach(fileName => {
+
+      optionalFiles.forEach((fileName) => {
         this.addFileItem(fileList, fileName, false);
       });
     }
-    
+
     // Add other files section
     if (otherFiles.length > 0) {
       const otherHeader = document.createElement('div');
-      otherHeader.className = 'px-3 py-1 text-xs text-gray-500 uppercase font-semibold mt-2';
+      otherHeader.className =
+        'px-3 py-1 text-xs text-gray-500 uppercase font-semibold mt-2';
       otherHeader.textContent = 'Other Files';
       fileList.appendChild(otherHeader);
-      
-      otherFiles.forEach(fileName => {
+
+      otherFiles.forEach((fileName) => {
         this.addFileItem(fileList, fileName, false);
       });
     }
@@ -230,11 +261,11 @@ class GTFSEditor {
     const item = document.createElement('div');
     item.className = `file-item ${isRequired ? 'required' : ''}`;
     item.textContent = fileName;
-    
+
     // Add record count if available
     if (this.gtfsData[fileName] && this.gtfsData[fileName].data) {
-      const count = Array.isArray(this.gtfsData[fileName].data) 
-        ? this.gtfsData[fileName].data.length 
+      const count = Array.isArray(this.gtfsData[fileName].data)
+        ? this.gtfsData[fileName].data.length
         : 1;
       const countSpan = document.createElement('span');
       countSpan.className = 'text-gray-400 text-xs ml-auto';
@@ -243,42 +274,45 @@ class GTFSEditor {
       item.style.display = 'flex';
       item.style.alignItems = 'center';
     }
-    
+
     item.addEventListener('click', () => {
       this.openFile(fileName);
     });
-    
+
     container.appendChild(item);
   }
 
   openFile(fileName) {
-    if (!this.gtfsData[fileName]) return;
-    
+    if (!this.gtfsData[fileName]) {
+      return;
+    }
+
     // Update active file styling
-    document.querySelectorAll('.file-item').forEach(item => {
+    document.querySelectorAll('.file-item').forEach((item) => {
       item.classList.remove('active');
     });
     event.target.classList.add('active');
-    
+
     // Show editor panel
     const editorPanel = document.getElementById('editor-panel');
     const mapPanel = document.getElementById('map-panel');
-    
+
     editorPanel.classList.remove('hidden');
     mapPanel.classList.remove('flex-1');
     mapPanel.classList.add('w-1/2');
-    
+
     // Update current file
     this.currentFile = fileName;
     const fileNameElement = document.getElementById('current-file-name');
     if (fileNameElement) {
       fileNameElement.textContent = fileName;
     }
-    
+
     // Determine if file can be viewed as table (CSV files)
-    const canShowTable = fileName.endsWith('.txt') && this.gtfsData[fileName].data;
+    const canShowTable =
+      fileName.endsWith('.txt') && this.gtfsData[fileName].data;
     const tableBtn = document.getElementById('view-table-btn');
-    
+
     if (tableBtn) {
       if (canShowTable) {
         tableBtn.style.display = 'block';
@@ -291,15 +325,15 @@ class GTFSEditor {
     } else {
       this.switchToTextView();
     }
-    
+
     // Update editor content
-    this.editor.value = this.gtfsData[fileName].content;
-    
+    this.setEditorValue(this.gtfsData[fileName].content);
+
     // Update map if it's a spatial file
     if (fileName === 'stops.txt' || fileName === 'shapes.txt') {
       this.highlightFileData(fileName);
     }
-    
+
     // Force map resize after layout changes complete
     setTimeout(() => {
       this.forceMapResize();
@@ -307,21 +341,27 @@ class GTFSEditor {
   }
 
   updateMap() {
-    if (!this.gtfsData['stops.txt']) return;
-    
+    if (!this.gtfsData['stops.txt']) {
+      return;
+    }
+
     // Clear existing layers (keep tile layer)
-    this.map.eachLayer(layer => {
-      if (layer instanceof L.Marker || layer instanceof L.Polyline || layer instanceof L.CircleMarker) {
+    this.map.eachLayer((layer) => {
+      if (
+        layer instanceof L.Marker ||
+        layer instanceof L.Polyline ||
+        layer instanceof L.CircleMarker
+      ) {
         this.map.removeLayer(layer);
       }
     });
-    
+
     // Add enhanced stops to map
     this.addStopsToMap();
-    
+
     // Add routes visualization (without shapes)
     this.addRoutesToMap();
-    
+
     // Add shapes if available (this will overlay on routes)
     if (this.gtfsData['shapes.txt']) {
       this.addShapesToMap();
@@ -330,26 +370,31 @@ class GTFSEditor {
 
   addStopsToMap() {
     const stops = this.gtfsData['stops.txt'].data;
-    const validStops = stops.filter(stop => 
-      stop.stop_lat && stop.stop_lon && 
-      !isNaN(parseFloat(stop.stop_lat)) && !isNaN(parseFloat(stop.stop_lon))
+    const validStops = stops.filter(
+      (stop) =>
+        stop.stop_lat &&
+        stop.stop_lon &&
+        !isNaN(parseFloat(stop.stop_lat)) &&
+        !isNaN(parseFloat(stop.stop_lon))
     );
-    
-    if (validStops.length === 0) return;
+
+    if (validStops.length === 0) {
+      return;
+    }
 
     // Create stop markers with better styling
     const stopMarkers = [];
-    validStops.forEach(stop => {
+    validStops.forEach((stop) => {
       const lat = parseFloat(stop.stop_lat);
       const lon = parseFloat(stop.stop_lon);
-      
+
       // Determine stop type and color
       const stopType = stop.location_type || '0';
       let markerColor = '#2563eb'; // Default blue
       let markerSize = 8;
       let stopTypeText = 'Stop';
-      
-      switch(stopType) {
+
+      switch (stopType) {
         case '0': // Stop/platform
           markerColor = '#2563eb';
           stopTypeText = 'Stop';
@@ -379,7 +424,7 @@ class GTFSEditor {
 
       // Get routes serving this stop
       const routesAtStop = this.getRoutesForStop(stop.stop_id);
-      
+
       // Create enhanced circle marker
       const marker = L.circleMarker([lat, lon], {
         radius: markerSize,
@@ -387,15 +432,16 @@ class GTFSEditor {
         color: '#ffffff',
         weight: 2,
         opacity: 1,
-        fillOpacity: 0.8
+        fillOpacity: 0.8,
       }).addTo(this.map);
 
       // Enhanced popup with more information
-      const routesList = routesAtStop.length > 0 
-        ? `<br><strong>Routes:</strong> ${routesAtStop.map(r => r.route_short_name || r.route_id).join(', ')}`
-        : '';
-      
-      const wheelchairInfo = stop.wheelchair_boarding 
+      const routesList =
+        routesAtStop.length > 0
+          ? `<br><strong>Routes:</strong> ${routesAtStop.map((r) => r.route_short_name || r.route_id).join(', ')}`
+          : '';
+
+      const wheelchairInfo = stop.wheelchair_boarding
         ? `<br><strong>Wheelchair:</strong> ${this.getWheelchairText(stop.wheelchair_boarding)}`
         : '';
 
@@ -412,7 +458,7 @@ class GTFSEditor {
 
       stopMarkers.push(marker);
     });
-    
+
     // Fit map to show all stops
     if (stopMarkers.length > 0) {
       const group = new L.featureGroup(stopMarkers);
@@ -421,7 +467,11 @@ class GTFSEditor {
   }
 
   addRoutesToMap() {
-    if (!this.gtfsData['routes.txt'] || !this.gtfsData['trips.txt'] || !this.gtfsData['stop_times.txt']) {
+    if (
+      !this.gtfsData['routes.txt'] ||
+      !this.gtfsData['trips.txt'] ||
+      !this.gtfsData['stop_times.txt']
+    ) {
       return;
     }
 
@@ -432,19 +482,19 @@ class GTFSEditor {
 
     // Create a stops lookup for coordinates
     const stopsLookup = {};
-    stops.forEach(stop => {
+    stops.forEach((stop) => {
       if (stop.stop_lat && stop.stop_lon) {
         stopsLookup[stop.stop_id] = {
           lat: parseFloat(stop.stop_lat),
           lon: parseFloat(stop.stop_lon),
-          name: stop.stop_name
+          name: stop.stop_name,
         };
       }
     });
 
     // Group trips by route
     const tripsByRoute = {};
-    trips.forEach(trip => {
+    trips.forEach((trip) => {
       if (!tripsByRoute[trip.route_id]) {
         tripsByRoute[trip.route_id] = [];
       }
@@ -453,25 +503,35 @@ class GTFSEditor {
 
     // Route colors
     const routeColors = [
-      '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
-      '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+      '#ef4444',
+      '#3b82f6',
+      '#10b981',
+      '#f59e0b',
+      '#8b5cf6',
+      '#ec4899',
+      '#06b6d4',
+      '#84cc16',
     ];
 
     routes.forEach((route, index) => {
       const routeTrips = tripsByRoute[route.route_id] || [];
-      if (routeTrips.length === 0) return;
+      if (routeTrips.length === 0) {
+        return;
+      }
 
       // Get stops for this route from one of its trips
       const firstTrip = routeTrips[0];
       const tripStopTimes = stopTimes
-        .filter(st => st.trip_id === firstTrip.trip_id)
+        .filter((st) => st.trip_id === firstTrip.trip_id)
         .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
 
-      if (tripStopTimes.length < 2) return;
+      if (tripStopTimes.length < 2) {
+        return;
+      }
 
       // Create route path from stops
       const routePath = [];
-      tripStopTimes.forEach(st => {
+      tripStopTimes.forEach((st) => {
         const stopCoords = stopsLookup[st.stop_id];
         if (stopCoords) {
           routePath.push([stopCoords.lat, stopCoords.lon]);
@@ -480,13 +540,13 @@ class GTFSEditor {
 
       if (routePath.length >= 2) {
         const routeColor = routeColors[index % routeColors.length];
-        
+
         // Create route line
         const routeLine = L.polyline(routePath, {
           color: routeColor,
           weight: 4,
           opacity: 0.7,
-          dashArray: route.route_type === '3' ? '10, 5' : null // Dashed for buses
+          dashArray: route.route_type === '3' ? '10, 5' : null, // Dashed for buses
         }).addTo(this.map);
 
         // Route popup with information
@@ -506,7 +566,11 @@ class GTFSEditor {
   }
 
   getRoutesForStop(stopId) {
-    if (!this.gtfsData['routes.txt'] || !this.gtfsData['trips.txt'] || !this.gtfsData['stop_times.txt']) {
+    if (
+      !this.gtfsData['routes.txt'] ||
+      !this.gtfsData['trips.txt'] ||
+      !this.gtfsData['stop_times.txt']
+    ) {
       return [];
     }
 
@@ -516,39 +580,44 @@ class GTFSEditor {
 
     // Find trips that serve this stop
     const tripsAtStop = stopTimes
-      .filter(st => st.stop_id === stopId)
-      .map(st => st.trip_id);
+      .filter((st) => st.stop_id === stopId)
+      .map((st) => st.trip_id);
 
     // Find routes for those trips
-    const routeIds = [...new Set(
-      trips
-        .filter(trip => tripsAtStop.includes(trip.trip_id))
-        .map(trip => trip.route_id)
-    )];
+    const routeIds = [
+      ...new Set(
+        trips
+          .filter((trip) => tripsAtStop.includes(trip.trip_id))
+          .map((trip) => trip.route_id)
+      ),
+    ];
 
-    return routes.filter(route => routeIds.includes(route.route_id));
+    return routes.filter((route) => routeIds.includes(route.route_id));
   }
 
   getWheelchairText(wheelchairBoarding) {
-    switch(wheelchairBoarding) {
-      case '1': return 'Accessible';
-      case '2': return 'Not accessible';
-      default: return 'Unknown';
+    switch (wheelchairBoarding) {
+      case '1':
+        return 'Accessible';
+      case '2':
+        return 'Not accessible';
+      default:
+        return 'Unknown';
     }
   }
 
   getRouteTypeText(routeType) {
     const types = {
-      '0': 'Tram/Streetcar',
-      '1': 'Subway/Metro',
-      '2': 'Rail',
-      '3': 'Bus',
-      '4': 'Ferry',
-      '5': 'Cable Tram',
-      '6': 'Aerial Lift',
-      '7': 'Funicular',
-      '11': 'Trolleybus',
-      '12': 'Monorail'
+      0: 'Tram/Streetcar',
+      1: 'Subway/Metro',
+      2: 'Rail',
+      3: 'Bus',
+      4: 'Ferry',
+      5: 'Cable Tram',
+      6: 'Aerial Lift',
+      7: 'Funicular',
+      11: 'Trolleybus',
+      12: 'Monorail',
     };
     return types[routeType] || `Type ${routeType}`;
   }
@@ -556,32 +625,34 @@ class GTFSEditor {
   addShapesToMap() {
     const shapes = this.gtfsData['shapes.txt'].data;
     const shapeGroups = {};
-    
+
     // Group points by shape_id
-    shapes.forEach(point => {
+    shapes.forEach((point) => {
       if (!shapeGroups[point.shape_id]) {
         shapeGroups[point.shape_id] = [];
       }
       shapeGroups[point.shape_id].push({
         lat: parseFloat(point.shape_pt_lat),
         lon: parseFloat(point.shape_pt_lon),
-        sequence: parseInt(point.shape_pt_sequence) || 0
+        sequence: parseInt(point.shape_pt_sequence) || 0,
       });
     });
-    
+
     // Draw polylines for each shape
-    Object.keys(shapeGroups).forEach(shapeId => {
+    Object.keys(shapeGroups).forEach((shapeId) => {
       const points = shapeGroups[shapeId]
-        .filter(p => !isNaN(p.lat) && !isNaN(p.lon))
+        .filter((p) => !isNaN(p.lat) && !isNaN(p.lon))
         .sort((a, b) => a.sequence - b.sequence)
-        .map(p => [p.lat, p.lon]);
-      
+        .map((p) => [p.lat, p.lon]);
+
       if (points.length > 1) {
         L.polyline(points, {
           color: '#3388ff',
           weight: 3,
-          opacity: 0.7
-        }).addTo(this.map).bindPopup(`Shape ID: ${shapeId}`);
+          opacity: 0.7,
+        })
+          .addTo(this.map)
+          .bindPopup(`Shape ID: ${shapeId}`);
       }
     });
   }
@@ -611,22 +682,22 @@ class GTFSEditor {
   closeEditor() {
     const editorPanel = document.getElementById('editor-panel');
     const mapPanel = document.getElementById('map-panel');
-    
+
     // Save current changes
     this.saveCurrentFileChanges();
-    
+
     // Hide editor panel
     editorPanel.classList.add('hidden');
     mapPanel.classList.remove('w-1/2');
     mapPanel.classList.add('flex-1');
-    
+
     // Clear active file styling
-    document.querySelectorAll('.file-item').forEach(item => {
+    document.querySelectorAll('.file-item').forEach((item) => {
       item.classList.remove('active');
     });
-    
+
     this.currentFile = null;
-    
+
     // Force map resize after layout changes complete
     setTimeout(() => {
       this.forceMapResize();
@@ -634,57 +705,61 @@ class GTFSEditor {
   }
 
   forceMapResize() {
-    if (!this.map) return;
-    
+    if (!this.map) {
+      return;
+    }
+
     // Clear any pending resize operations to prevent multiple calls
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
     }
-    
+
     // Wait for CSS transition to complete (0.3s + small buffer) and stabilize
     this.resizeTimeout = setTimeout(() => {
       // Get current map center and zoom before resize
       const center = this.map.getCenter();
       const zoom = this.map.getZoom();
-      
+
       // Invalidate size to recalculate map dimensions
       this.map.invalidateSize({
         debounceMoveend: true,
-        pan: false // Prevent pan during resize
+        pan: false, // Prevent pan during resize
       });
-      
+
       // Restore center and zoom to prevent jumping
       this.map.setView(center, zoom, { animate: false });
-      
+
       this.resizeTimeout = null;
     }, 350);
   }
 
   switchToTextView() {
     this.isTableView = false;
-    
+
     // Update button states
     const textBtn = document.getElementById('view-text-btn');
     const tableBtn = document.getElementById('view-table-btn');
-    
+
     if (textBtn) {
-      textBtn.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
+      textBtn.className =
+        'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
     }
     if (tableBtn) {
-      tableBtn.className = 'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
+      tableBtn.className =
+        'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
     }
-    
+
     // Show text editor, hide table editor
     const textView = document.getElementById('text-editor-view');
     const tableView = document.getElementById('table-editor-view');
-    
+
     if (textView) {
       textView.classList.remove('hidden');
     }
     if (tableView) {
       tableView.classList.add('hidden');
     }
-    
+
     // Update text content from table if needed
     if (this.tableData) {
       this.syncTableToText();
@@ -692,72 +767,78 @@ class GTFSEditor {
   }
 
   switchToTableView() {
-    if (!this.currentFile || !this.gtfsData[this.currentFile].data) return;
-    
+    if (!this.currentFile || !this.gtfsData[this.currentFile].data) {
+      return;
+    }
+
     this.isTableView = true;
-    
+
     // Update button states
     const textBtn = document.getElementById('view-text-btn');
     const tableBtn = document.getElementById('view-table-btn');
-    
+
     if (textBtn) {
-      textBtn.className = 'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
+      textBtn.className =
+        'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
     }
     if (tableBtn) {
-      tableBtn.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
+      tableBtn.className =
+        'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
     }
-    
+
     // Show table editor, hide text editor
     const textView = document.getElementById('text-editor-view');
     const tableView = document.getElementById('table-editor-view');
-    
+
     if (textView) {
       textView.classList.add('hidden');
     }
     if (tableView) {
       tableView.classList.remove('hidden');
     }
-    
+
     // Build table
     this.buildTableEditor();
   }
 
   buildTableEditor() {
     const data = this.gtfsData[this.currentFile].data;
-    if (!data || data.length === 0) return;
-    
+    if (!data || data.length === 0) {
+      return;
+    }
+
     // Get headers from first row
     const headers = Object.keys(data[0]);
-    
+
     // Create table HTML
     let tableHTML = '<table id="data-table"><thead><tr>';
-    headers.forEach(header => {
+    headers.forEach((header) => {
       tableHTML += `<th>${header}</th>`;
     });
     tableHTML += '</tr></thead><tbody>';
-    
+
     // Add data rows
     data.forEach((row, rowIndex) => {
       tableHTML += '<tr>';
-      headers.forEach(header => {
+      headers.forEach((header) => {
         const value = row[header] || '';
         tableHTML += `<td><input type="text" value="${this.escapeHtml(value)}" data-row="${rowIndex}" data-col="${header}" /></td>`;
       });
       tableHTML += '</tr>';
     });
-    
+
     tableHTML += '</tbody></table>';
-    
+
     // Set table content in the container
     document.getElementById('table-editor').innerHTML = tableHTML;
-    
+
     // Add event listeners for cell changes
-    document.querySelectorAll('#data-table input').forEach(input => {
+    document.querySelectorAll('#data-table input').forEach((input) => {
       input.addEventListener('change', (e) => {
         this.updateTableCell(e.target);
       });
     });
-    
+
     // Store reference to table data
     this.tableData = data;
   }
@@ -766,30 +847,34 @@ class GTFSEditor {
     const row = parseInt(input.dataset.row);
     const col = input.dataset.col;
     const value = input.value;
-    
+
     if (this.tableData && this.tableData[row]) {
       this.tableData[row][col] = value;
     }
   }
 
   syncTableToText() {
-    if (!this.tableData) return;
-    
+    if (!this.tableData) {
+      return;
+    }
+
     // Convert table data back to CSV
     const csv = Papa.unparse(this.tableData);
-    this.editor.value = csv;
+    this.setEditorValue(csv);
     this.gtfsData[this.currentFile].content = csv;
   }
 
   saveCurrentFileChanges() {
-    if (!this.currentFile) return;
-    
+    if (!this.currentFile) {
+      return;
+    }
+
     if (this.isTableView && this.tableData) {
       // Save from table
       this.syncTableToText();
     } else if (this.editor) {
       // Save from text editor
-      this.gtfsData[this.currentFile].content = this.editor.value;
+      this.gtfsData[this.currentFile].content = this.getEditorValue();
     }
   }
 
@@ -804,21 +889,21 @@ class GTFSEditor {
       alert('No GTFS data to export');
       return;
     }
-    
+
     console.log('Exporting GTFS data...');
-    
+
     // Save current file changes
     this.saveCurrentFileChanges();
-    
+
     // Create ZIP file
     const zip = new JSZip();
-    
-    Object.keys(this.gtfsData).forEach(fileName => {
+
+    Object.keys(this.gtfsData).forEach((fileName) => {
       zip.file(fileName, this.gtfsData[fileName].content);
     });
-    
+
     // Generate and download
-    zip.generateAsync({ type: 'blob' }).then(content => {
+    zip.generateAsync({ type: 'blob' }).then((content) => {
       const url = URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = url;
@@ -835,7 +920,7 @@ class GTFSEditor {
     const hash = window.location.hash.substring(1);
     if (hash.startsWith('data=')) {
       const dataParam = hash.substring(5);
-      
+
       if (dataParam.startsWith('url:')) {
         // Load from URL
         const url = dataParam.substring(4);
@@ -849,15 +934,14 @@ class GTFSEditor {
     try {
       console.log('Loading GTFS from URL:', url);
       this.showLoading();
-      
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const blob = await response.blob();
       await this.loadGTFSFile(blob);
-      
     } catch (error) {
       console.error('Error loading GTFS from URL:', error);
       alert('Error loading GTFS from URL: ' + error.message);

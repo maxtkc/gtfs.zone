@@ -14,7 +14,10 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/"
   },
   "keywords": [
     "gtfs",
@@ -26,21 +29,27 @@
   "author": "gtfs.io contributors",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.35.0",
     "@playwright/test": "^1.55.0",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "concurrently": "^9.2.1",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
     "gh-pages": "^6.3.0",
     "live-server": "^1.2.2",
     "playwright": "^1.55.0",
+    "prettier": "^3.6.2",
     "rollup": "^4.50.2",
     "tailwindcss": "^4.1.13"
   },
   "dependencies": {
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.2",
+    "codemirror": "^6.0.2",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
-    "monaco-editor": "^0.53.0",
     "papaparse": "^5.5.3"
   }
 }

@@ -1,99 +1,139 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>gtfs.io - GTFS Transit Data Editor</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body class="bg-gray-100 m-0 p-0 h-screen overflow-hidden">
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-gray-100 m-0 p-0 h-screen overflow-hidden">
     <!-- Header -->
-    <header class="bg-white shadow-sm border-b px-4 py-2 flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-            <h1 class="text-xl font-bold text-gray-800">gtfs.io</h1>
-            <span class="text-sm text-gray-500">GTFS Transit Data Editor</span>
-        </div>
-        <div class="flex items-center space-x-2">
-            <button id="upload-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
-                Upload GTFS
-            </button>
-            <button id="export-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm" disabled>
-                Export
-            </button>
-        </div>
+    <header
+      class="bg-white shadow-sm border-b px-4 py-2 flex items-center justify-between"
+    >
+      <div class="flex items-center space-x-4">
+        <h1 class="text-xl font-bold text-gray-800">gtfs.io</h1>
+        <span class="text-sm text-gray-500">GTFS Transit Data Editor</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button
+          id="upload-btn"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm"
+        >
+          Upload GTFS
+        </button>
+        <button
+          id="export-btn"
+          class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm"
+          disabled
+        >
+          Export
+        </button>
+      </div>
     </header>
 
     <!-- Main Content Area -->
     <div class="flex h-calc-viewport">
-        <!-- File Explorer Sidebar -->
-        <div id="sidebar" class="w-64 bg-white border-r flex flex-col">
-            <div class="p-3 border-b bg-gray-50">
-                <h3 class="font-semibold text-gray-700 text-sm">GTFS Files</h3>
-            </div>
-            <div id="file-list" class="flex-1 overflow-y-auto">
-                <div class="p-4 text-gray-500 text-sm text-center">
-                    Upload a GTFS file to get started
-                </div>
-            </div>
+      <!-- File Explorer Sidebar -->
+      <div id="sidebar" class="w-64 bg-white border-r flex flex-col">
+        <div class="p-3 border-b bg-gray-50">
+          <h3 class="font-semibold text-gray-700 text-sm">GTFS Files</h3>
+        </div>
+        <div id="file-list" class="flex-1 overflow-y-auto">
+          <div class="p-4 text-gray-500 text-sm text-center">
+            Upload a GTFS file to get started
+          </div>
+        </div>
+      </div>
+
+      <!-- Editor and Map Container -->
+      <div class="flex-1 flex flex-col">
+        <!-- Editor Tabs -->
+        <div id="editor-tabs" class="bg-white border-b hidden">
+          <!-- Tabs will be dynamically added here -->
         </div>
 
-        <!-- Editor and Map Container -->
-        <div class="flex-1 flex flex-col">
-            <!-- Editor Tabs -->
-            <div id="editor-tabs" class="bg-white border-b hidden">
-                <!-- Tabs will be dynamically added here -->
+        <!-- Split Panel: Editor and Map -->
+        <div class="flex-1 flex">
+          <!-- Code Editor Panel -->
+          <div
+            id="editor-panel"
+            class="w-1/2 border-r bg-white hidden flex flex-col"
+          >
+            <!-- Editor Toolbar -->
+            <div
+              id="editor-toolbar"
+              class="flex items-center justify-between p-3 border-b bg-gray-50"
+            >
+              <div class="flex items-center space-x-4">
+                <h4 id="current-file-name" class="font-semibold text-gray-700">
+                  No file selected
+                </h4>
+                <div class="flex items-center space-x-2">
+                  <button
+                    id="view-text-btn"
+                    class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Text
+                  </button>
+                  <button
+                    id="view-table-btn"
+                    class="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                  >
+                    Table
+                  </button>
+                </div>
+              </div>
+              <button
+                id="close-editor-btn"
+                class="text-gray-500 hover:text-gray-700 text-lg font-bold"
+              >
+                &times;
+              </button>
             </div>
 
-            <!-- Split Panel: Editor and Map -->
-            <div class="flex-1 flex">
-                <!-- Code Editor Panel -->
-                <div id="editor-panel" class="w-1/2 border-r bg-white hidden flex flex-col">
-                    <!-- Editor Toolbar -->
-                    <div id="editor-toolbar" class="flex items-center justify-between p-3 border-b bg-gray-50">
-                        <div class="flex items-center space-x-4">
-                            <h4 id="current-file-name" class="font-semibold text-gray-700">No file selected</h4>
-                            <div class="flex items-center space-x-2">
-                                <button id="view-text-btn" class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Text</button>
-                                <button id="view-table-btn" class="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Table</button>
-                            </div>
-                        </div>
-                        <button id="close-editor-btn" class="text-gray-500 hover:text-gray-700 text-lg font-bold">&times;</button>
-                    </div>
-                    
-                    <!-- Text Editor View -->
-                    <div id="text-editor-view" class="flex-1">
-                        <div id="monaco-editor" class="h-full"></div>
-                    </div>
-                    
-                    <!-- Table Editor View -->
-                    <div id="table-editor-view" class="flex-1 hidden">
-                        <div id="table-container" class="h-full p-4">
-                            <div id="table-editor" class="h-full"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Map Panel -->
-                <div id="map-panel" class="flex-1 relative">
-                    <div id="map" class="h-full w-full"></div>
-                    <div id="map-overlay" class="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500">
-                        <div class="text-center">
-                            <div class="text-4xl mb-4">🚌</div>
-                            <h2 class="text-xl font-semibold mb-2">Welcome to gtfs.io</h2>
-                            <p class="text-sm">Upload a GTFS file to visualize transit routes and stops</p>
-                        </div>
-                    </div>
-                </div>
+            <!-- Text Editor View -->
+            <div id="text-editor-view" class="flex-1">
+              <div id="monaco-editor" class="h-full"></div>
             </div>
+
+            <!-- Table Editor View -->
+            <div id="table-editor-view" class="flex-1 hidden">
+              <div id="table-container" class="h-full p-4">
+                <div id="table-editor" class="h-full"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Map Panel -->
+          <div id="map-panel" class="flex-1 relative">
+            <div id="map" class="h-full w-full"></div>
+            <div
+              id="map-overlay"
+              class="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500"
+            >
+              <div class="text-center">
+                <div class="text-4xl mb-4">🚌</div>
+                <h2 class="text-xl font-semibold mb-2">Welcome to gtfs.io</h2>
+                <p class="text-sm">
+                  Upload a GTFS file to visualize transit routes and stops
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
 
     <!-- Hidden File Input -->
-    <input type="file" id="file-input" accept=".zip" style="display: none;">
+    <input type="file" id="file-input" accept=".zip" style="display: none" />
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="bundle.js"></script>
-</body>
+  </body>
 </html>
