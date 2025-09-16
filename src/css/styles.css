@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Monaco Editor styling */
+.monaco-editor {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* File list styling */
+.file-item {
+    @apply px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer border-l-2 border-transparent;
+}
+
+.file-item.active {
+    @apply bg-blue-50 border-l-blue-500 text-blue-700;
+}
+
+.file-item.required {
+    @apply font-semibold;
+}
+
+/* Tab styling */
+.tab {
+    @apply px-4 py-2 text-sm border-r border-b-2 border-b-transparent cursor-pointer hover:bg-gray-50;
+}
+
+.tab.active {
+    @apply bg-white border-b-blue-500 text-blue-700;
+}
+
+/* Map controls */
+.leaflet-control-container .leaflet-top.leaflet-right {
+    top: 10px;
+    right: 10px;
+}
+
+/* Ensure proper height calculations */
+.h-calc-viewport { height: calc(100vh - 60px); }
+
+/* Map container improvements */
+#map {
+  min-height: 400px;
+}
+
+/* Split panel layout improvements */
+#editor-panel {
+  min-width: 400px;
+  max-width: 50%;
+  width: 50%;
+}
+
+/* Editor textarea styling */
+#simple-editor {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 500px;
+  border: none;
+  padding: 15px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  background: #ffffff;
+  color: #333;
+}
+
+#map-panel {
+  min-height: 400px;
+}
+
+/* Better responsive layout for split view */
+@media (max-width: 768px) {
+  #editor-panel {
+    display: none !important;
+  }
+  
+  #map-panel {
+    width: 100% !important;
+  }
+}
+
+/* Ensure map takes full available space */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+}

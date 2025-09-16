@@ -1,0 +1,46 @@
+{
+  "name": "gtfs.io",
+  "version": "0.0.1",
+  "description": "A fast, simple editor for GTFS transit data - inspired by geojson.io",
+  "main": "src/index.html",
+  "type": "module",
+  "scripts": {
+    "start": "concurrently \"npm run build:watch\" \"npm run serve\"",
+    "serve": "live-server --host=localhost --port=8080 --watch=dist --open=dist",
+    "build": "rollup -c",
+    "build:watch": "rollup -c --watch",
+    "build:css": "tailwindcss -i src/css/styles.css -o dist/styles.css --watch",
+    "deploy": "npm run build && gh-pages -d dist",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug"
+  },
+  "keywords": [
+    "gtfs",
+    "transit",
+    "editor",
+    "transport",
+    "map"
+  ],
+  "author": "gtfs.io contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "concurrently": "^9.2.1",
+    "gh-pages": "^6.3.0",
+    "live-server": "^1.2.2",
+    "playwright": "^1.55.0",
+    "rollup": "^4.50.2",
+    "tailwindcss": "^4.1.13"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "leaflet": "^1.9.4",
+    "monaco-editor": "^0.53.0",
+    "papaparse": "^5.5.3"
+  }
+}
