@@ -254,47 +254,248 @@ class GTFSEditor {
   updateMap() {
     if (!this.gtfsData['stops.txt']) return;
     
-    // Clear existing layers
+    // Clear existing layers (keep tile layer)
     this.map.eachLayer(layer => {
-      if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+      if (layer instanceof L.Marker || layer instanceof L.Polyline || layer instanceof L.CircleMarker) {
         this.map.removeLayer(layer);
       }
     });
     
-    // Add stops to map
+    // Add enhanced stops to map
+    this.addStopsToMap();
+    
+    // Add routes visualization (without shapes)
+    this.addRoutesToMap();
+    
+    // Add shapes if available (this will overlay on routes)
+    if (this.gtfsData['shapes.txt']) {
+      this.addShapesToMap();
+    }
+  }
+
+  addStopsToMap() {
     const stops = this.gtfsData['stops.txt'].data;
     const validStops = stops.filter(stop => 
       stop.stop_lat && stop.stop_lon && 
       !isNaN(parseFloat(stop.stop_lat)) && !isNaN(parseFloat(stop.stop_lon))
     );
     
-    if (validStops.length > 0) {
-      // Add stop markers
-      validStops.forEach(stop => {
-        const lat = parseFloat(stop.stop_lat);
-        const lon = parseFloat(stop.stop_lon);
-        
-        L.marker([lat, lon])
-          .addTo(this.map)
-          .bindPopup(`
-            <strong>${stop.stop_name || 'Unnamed Stop'}</strong><br>
-            ID: ${stop.stop_id}<br>
-            ${stop.stop_desc ? `${stop.stop_desc}<br>` : ''}
-            Lat: ${lat}, Lon: ${lon}
-          `);
-      });
+    if (validStops.length === 0) return;
+
+    // Create stop markers with better styling
+    const stopMarkers = [];
+    validStops.forEach(stop => {
+      const lat = parseFloat(stop.stop_lat);
+      const lon = parseFloat(stop.stop_lon);
       
-      // Fit map to show all stops
-      const group = new L.featureGroup(this.map._layers);
-      if (Object.keys(group._layers).length > 0) {
-        this.map.fitBounds(group.getBounds().pad(0.1));
+      // Determine stop type and color
+      const stopType = stop.location_type || '0';
+      let markerColor = '#2563eb'; // Default blue
+      let markerSize = 8;
+      let stopTypeText = 'Stop';
+      
+      switch(stopType) {
+        case '0': // Stop/platform
+          markerColor = '#2563eb';
+          stopTypeText = 'Stop';
+          markerSize = 8;
+          break;
+        case '1': // Station
+          markerColor = '#dc2626';
+          stopTypeText = 'Station';
+          markerSize = 12;
+          break;
+        case '2': // Station entrance/exit
+          markerColor = '#16a34a';
+          stopTypeText = 'Entrance/Exit';
+          markerSize = 6;
+          break;
+        case '3': // Generic node
+          markerColor = '#ca8a04';
+          stopTypeText = 'Node';
+          markerSize = 6;
+          break;
+        case '4': // Boarding area
+          markerColor = '#7c3aed';
+          stopTypeText = 'Boarding Area';
+          markerSize = 8;
+          break;
       }
-    }
+
+      // Get routes serving this stop
+      const routesAtStop = this.getRoutesForStop(stop.stop_id);
+      
+      // Create enhanced circle marker
+      const marker = L.circleMarker([lat, lon], {
+        radius: markerSize,
+        fillColor: markerColor,
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8
+      }).addTo(this.map);
+
+      // Enhanced popup with more information
+      const routesList = routesAtStop.length > 0 
+        ? `<br><strong>Routes:</strong> ${routesAtStop.map(r => r.route_short_name || r.route_id).join(', ')}`
+        : '';
+      
+      const wheelchairInfo = stop.wheelchair_boarding 
+        ? `<br><strong>Wheelchair:</strong> ${this.getWheelchairText(stop.wheelchair_boarding)}`
+        : '';
+
+      marker.bindPopup(`
+        <div style="min-width: 200px;">
+          <strong>${stop.stop_name || 'Unnamed Stop'}</strong><br>
+          <span style="color: ${markerColor}; font-weight: bold;">${stopTypeText}</span><br>
+          <strong>ID:</strong> ${stop.stop_id}<br>
+          ${stop.stop_code ? `<strong>Code:</strong> ${stop.stop_code}<br>` : ''}
+          ${stop.stop_desc ? `<strong>Description:</strong> ${stop.stop_desc}<br>` : ''}
+          <strong>Location:</strong> ${lat.toFixed(6)}, ${lon.toFixed(6)}${routesList}${wheelchairInfo}
+        </div>
+      `);
+
+      stopMarkers.push(marker);
+    });
     
-    // Add shapes if available
-    if (this.gtfsData['shapes.txt']) {
-      this.addShapesToMap();
+    // Fit map to show all stops
+    if (stopMarkers.length > 0) {
+      const group = new L.featureGroup(stopMarkers);
+      this.map.fitBounds(group.getBounds().pad(0.1));
     }
+  }
+
+  addRoutesToMap() {
+    if (!this.gtfsData['routes.txt'] || !this.gtfsData['trips.txt'] || !this.gtfsData['stop_times.txt']) {
+      return;
+    }
+
+    const routes = this.gtfsData['routes.txt'].data;
+    const trips = this.gtfsData['trips.txt'].data;
+    const stopTimes = this.gtfsData['stop_times.txt'].data;
+    const stops = this.gtfsData['stops.txt'].data;
+
+    // Create a stops lookup for coordinates
+    const stopsLookup = {};
+    stops.forEach(stop => {
+      if (stop.stop_lat && stop.stop_lon) {
+        stopsLookup[stop.stop_id] = {
+          lat: parseFloat(stop.stop_lat),
+          lon: parseFloat(stop.stop_lon),
+          name: stop.stop_name
+        };
+      }
+    });
+
+    // Group trips by route
+    const tripsByRoute = {};
+    trips.forEach(trip => {
+      if (!tripsByRoute[trip.route_id]) {
+        tripsByRoute[trip.route_id] = [];
+      }
+      tripsByRoute[trip.route_id].push(trip);
+    });
+
+    // Route colors
+    const routeColors = [
+      '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
+      '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
+    ];
+
+    routes.forEach((route, index) => {
+      const routeTrips = tripsByRoute[route.route_id] || [];
+      if (routeTrips.length === 0) return;
+
+      // Get stops for this route from one of its trips
+      const firstTrip = routeTrips[0];
+      const tripStopTimes = stopTimes
+        .filter(st => st.trip_id === firstTrip.trip_id)
+        .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
+
+      if (tripStopTimes.length < 2) return;
+
+      // Create route path from stops
+      const routePath = [];
+      tripStopTimes.forEach(st => {
+        const stopCoords = stopsLookup[st.stop_id];
+        if (stopCoords) {
+          routePath.push([stopCoords.lat, stopCoords.lon]);
+        }
+      });
+
+      if (routePath.length >= 2) {
+        const routeColor = routeColors[index % routeColors.length];
+        
+        // Create route line
+        const routeLine = L.polyline(routePath, {
+          color: routeColor,
+          weight: 4,
+          opacity: 0.7,
+          dashArray: route.route_type === '3' ? '10, 5' : null // Dashed for buses
+        }).addTo(this.map);
+
+        // Route popup with information
+        const routeTypeText = this.getRouteTypeText(route.route_type);
+        routeLine.bindPopup(`
+          <div style="min-width: 200px;">
+            <strong>${route.route_short_name || route.route_long_name || route.route_id}</strong><br>
+            <span style="color: ${routeColor}; font-weight: bold;">${routeTypeText}</span><br>
+            ${route.route_long_name && route.route_short_name ? `<strong>Long name:</strong> ${route.route_long_name}<br>` : ''}
+            ${route.route_desc ? `<strong>Description:</strong> ${route.route_desc}<br>` : ''}
+            <strong>Stops:</strong> ${tripStopTimes.length}<br>
+            <strong>Agency:</strong> ${route.agency_id || 'Default'}
+          </div>
+        `);
+      }
+    });
+  }
+
+  getRoutesForStop(stopId) {
+    if (!this.gtfsData['routes.txt'] || !this.gtfsData['trips.txt'] || !this.gtfsData['stop_times.txt']) {
+      return [];
+    }
+
+    const routes = this.gtfsData['routes.txt'].data;
+    const trips = this.gtfsData['trips.txt'].data;
+    const stopTimes = this.gtfsData['stop_times.txt'].data;
+
+    // Find trips that serve this stop
+    const tripsAtStop = stopTimes
+      .filter(st => st.stop_id === stopId)
+      .map(st => st.trip_id);
+
+    // Find routes for those trips
+    const routeIds = [...new Set(
+      trips
+        .filter(trip => tripsAtStop.includes(trip.trip_id))
+        .map(trip => trip.route_id)
+    )];
+
+    return routes.filter(route => routeIds.includes(route.route_id));
+  }
+
+  getWheelchairText(wheelchairBoarding) {
+    switch(wheelchairBoarding) {
+      case '1': return 'Accessible';
+      case '2': return 'Not accessible';
+      default: return 'Unknown';
+    }
+  }
+
+  getRouteTypeText(routeType) {
+    const types = {
+      '0': 'Tram/Streetcar',
+      '1': 'Subway/Metro',
+      '2': 'Rail',
+      '3': 'Bus',
+      '4': 'Ferry',
+      '5': 'Cable Tram',
+      '6': 'Aerial Lift',
+      '7': 'Funicular',
+      '11': 'Trolleybus',
+      '12': 'Monorail'
+    };
+    return types[routeType] || `Type ${routeType}`;
   }
 
   addShapesToMap() {
