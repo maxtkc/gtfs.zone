@@ -300,8 +300,10 @@ class GTFSEditor {
       this.highlightFileData(fileName);
     }
     
-    // Force immediate map resize with multiple attempts
-    this.forceMapResize();
+    // Force map resize after layout changes complete
+    setTimeout(() => {
+      this.forceMapResize();
+    }, 20);
   }
 
   updateMap() {
@@ -625,36 +627,37 @@ class GTFSEditor {
     
     this.currentFile = null;
     
-    // Force immediate map resize
-    this.forceMapResize();
+    // Force map resize after layout changes complete
+    setTimeout(() => {
+      this.forceMapResize();
+    }, 20);
   }
 
   forceMapResize() {
     if (!this.map) return;
     
-    // Force immediate resize with true parameter to animate
-    this.map.invalidateSize(true);
+    // Clear any pending resize operations to prevent multiple calls
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
     
-    // Multiple resize attempts with different timing
-    requestAnimationFrame(() => {
-      this.map.invalidateSize(true);
-    });
-    
-    setTimeout(() => {
-      this.map.invalidateSize(true);
-    }, 50);
-    
-    setTimeout(() => {
-      this.map.invalidateSize(true);
-    }, 150);
-    
-    setTimeout(() => {
-      this.map.invalidateSize(true);
-    }, 300);
-    
-    setTimeout(() => {
-      this.map.invalidateSize(true);
-    }, 500);
+    // Wait for CSS transition to complete (0.3s + small buffer) and stabilize
+    this.resizeTimeout = setTimeout(() => {
+      // Get current map center and zoom before resize
+      const center = this.map.getCenter();
+      const zoom = this.map.getZoom();
+      
+      // Invalidate size to recalculate map dimensions
+      this.map.invalidateSize({
+        debounceMoveend: true,
+        pan: false // Prevent pan during resize
+      });
+      
+      // Restore center and zoom to prevent jumping
+      this.map.setView(center, zoom, { animate: false });
+      
+      this.resizeTimeout = null;
+    }, 350);
   }
 
   switchToTextView() {
@@ -727,7 +730,7 @@ class GTFSEditor {
     const headers = Object.keys(data[0]);
     
     // Create table HTML
-    let tableHTML = '<table id="table-editor"><thead><tr>';
+    let tableHTML = '<table id="data-table"><thead><tr>';
     headers.forEach(header => {
       tableHTML += `<th>${header}</th>`;
     });
@@ -745,11 +748,11 @@ class GTFSEditor {
     
     tableHTML += '</tbody></table>';
     
-    // Set table content
+    // Set table content in the container
     document.getElementById('table-editor').innerHTML = tableHTML;
     
     // Add event listeners for cell changes
-    document.querySelectorAll('#table-editor input').forEach(input => {
+    document.querySelectorAll('#data-table input').forEach(input => {
       input.addEventListener('change', (e) => {
         this.updateTableCell(e.target);
       });

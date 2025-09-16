@@ -60,6 +60,12 @@
 #map-panel {
   min-height: 400px;
   transition: width 0.3s ease;
+  flex: 1 1 50%; /* Allow flex grow and shrink, with 50% base */
+}
+
+/* Fix editor panel flex as well */
+#editor-panel:not(.hidden) {
+  flex: 1 1 50%; /* Allow flex grow and shrink, with 50% base */
 }
 
 /* Editor toolbar styling */
@@ -87,23 +93,37 @@
   color: #333;
 }
 
-/* Table editor styling */
+/* Table editor container - constrained scrollable container */
+#table-container {
+  height: 100%;
+  overflow: hidden; /* Parent should not scroll */
+}
+
 #table-editor {
+  height: 100%;
+  max-height: 500px; /* Set a reasonable max height to force scrolling */
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+}
+
+/* Actual table inside the container */
+#data-table {
   border-collapse: collapse;
   width: 100%;
   font-size: 12px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
-#table-editor th,
-#table-editor td {
+#data-table th,
+#data-table td {
   border: 1px solid #e5e7eb;
   padding: 6px 8px;
   text-align: left;
   vertical-align: top;
+  min-width: 100px;
 }
 
-#table-editor th {
+#data-table th {
   background-color: #f9fafb;
   font-weight: 600;
   position: sticky;
@@ -111,22 +131,23 @@
   z-index: 10;
 }
 
-#table-editor input {
+#data-table input {
   width: 100%;
   border: none;
   background: transparent;
   padding: 2px;
   font-size: 12px;
   font-family: inherit;
+  min-width: 80px;
 }
 
-#table-editor input:focus {
+#data-table input:focus {
   outline: 2px solid #3b82f6;
   outline-offset: -2px;
   background: #fff;
 }
 
-#table-editor tr:hover {
+#data-table tr:hover {
   background-color: #f8fafc;
 }
 
