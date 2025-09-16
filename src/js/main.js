@@ -300,12 +300,8 @@ class GTFSEditor {
       this.highlightFileData(fileName);
     }
     
-    // Trigger map resize to ensure proper rendering
-    setTimeout(() => {
-      if (this.map) {
-        this.map.invalidateSize();
-      }
-    }, 300);
+    // Force immediate map resize with multiple attempts
+    this.forceMapResize();
   }
 
   updateMap() {
@@ -629,12 +625,36 @@ class GTFSEditor {
     
     this.currentFile = null;
     
-    // Trigger map resize
+    // Force immediate map resize
+    this.forceMapResize();
+  }
+
+  forceMapResize() {
+    if (!this.map) return;
+    
+    // Force immediate resize with true parameter to animate
+    this.map.invalidateSize(true);
+    
+    // Multiple resize attempts with different timing
+    requestAnimationFrame(() => {
+      this.map.invalidateSize(true);
+    });
+    
     setTimeout(() => {
-      if (this.map) {
-        this.map.invalidateSize();
-      }
+      this.map.invalidateSize(true);
+    }, 50);
+    
+    setTimeout(() => {
+      this.map.invalidateSize(true);
+    }, 150);
+    
+    setTimeout(() => {
+      this.map.invalidateSize(true);
     }, 300);
+    
+    setTimeout(() => {
+      this.map.invalidateSize(true);
+    }, 500);
   }
 
   switchToTextView() {
