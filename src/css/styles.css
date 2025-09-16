@@ -46,15 +46,36 @@
 /* Split panel layout improvements */
 #editor-panel {
   min-width: 400px;
-  max-width: 50%;
-  width: 50%;
+  max-width: 60%;
+  transition: width 0.3s ease;
+}
+
+#editor-panel.hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  border: none !important;
+  overflow: hidden;
+}
+
+#map-panel {
+  min-height: 400px;
+  transition: width 0.3s ease;
+}
+
+/* Editor toolbar styling */
+#editor-toolbar {
+  flex-shrink: 0;
+}
+
+#editor-toolbar button {
+  transition: all 0.2s ease;
 }
 
 /* Editor textarea styling */
 #simple-editor {
   width: 100% !important;
   height: 100% !important;
-  min-height: 500px;
+  min-height: 400px;
   border: none;
   padding: 15px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
@@ -66,14 +87,69 @@
   color: #333;
 }
 
-#map-panel {
-  min-height: 400px;
+/* Table editor styling */
+#table-editor {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+#table-editor th,
+#table-editor td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+#table-editor th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+#table-editor input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+#table-editor input:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+  background: #fff;
+}
+
+#table-editor tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Button states for view toggle */
+.view-btn-active {
+  @apply bg-blue-500 text-white;
+}
+
+.view-btn-inactive {
+  @apply bg-gray-300 text-gray-700;
 }
 
 /* Better responsive layout for split view */
 @media (max-width: 768px) {
   #editor-panel {
-    display: none !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   
   #map-panel {

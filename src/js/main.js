@@ -29,6 +29,8 @@ class GTFSEditor {
     this.currentFile = null;
     this.editor = null;
     this.map = null;
+    this.isTableView = false;
+    this.tableData = null;
     this.init();
   }
 
@@ -56,6 +58,28 @@ class GTFSEditor {
     document.getElementById('export-btn').addEventListener('click', () => {
       this.exportGTFS();
     });
+
+    // Editor controls - add listeners only when elements exist
+    const closeBtn = document.getElementById('close-editor-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.closeEditor();
+      });
+    }
+
+    const textBtn = document.getElementById('view-text-btn');
+    if (textBtn) {
+      textBtn.addEventListener('click', () => {
+        this.switchToTextView();
+      });
+    }
+
+    const tableBtn = document.getElementById('view-table-btn');
+    if (tableBtn) {
+      tableBtn.addEventListener('click', () => {
+        this.switchToTableView();
+      });
+    }
 
     // Drag and drop
     const body = document.body;
@@ -237,18 +261,51 @@ class GTFSEditor {
     event.target.classList.add('active');
     
     // Show editor panel
-    document.getElementById('editor-panel').classList.remove('hidden');
-    document.getElementById('map-panel').classList.remove('flex-1');
-    document.getElementById('map-panel').classList.add('w-1/2');
+    const editorPanel = document.getElementById('editor-panel');
+    const mapPanel = document.getElementById('map-panel');
+    
+    editorPanel.classList.remove('hidden');
+    mapPanel.classList.remove('flex-1');
+    mapPanel.classList.add('w-1/2');
+    
+    // Update current file
+    this.currentFile = fileName;
+    const fileNameElement = document.getElementById('current-file-name');
+    if (fileNameElement) {
+      fileNameElement.textContent = fileName;
+    }
+    
+    // Determine if file can be viewed as table (CSV files)
+    const canShowTable = fileName.endsWith('.txt') && this.gtfsData[fileName].data;
+    const tableBtn = document.getElementById('view-table-btn');
+    
+    if (tableBtn) {
+      if (canShowTable) {
+        tableBtn.style.display = 'block';
+        // Default to table view for CSV files
+        this.switchToTableView();
+      } else {
+        tableBtn.style.display = 'none';
+        this.switchToTextView();
+      }
+    } else {
+      this.switchToTextView();
+    }
     
     // Update editor content
-    this.currentFile = fileName;
     this.editor.value = this.gtfsData[fileName].content;
     
     // Update map if it's a spatial file
     if (fileName === 'stops.txt' || fileName === 'shapes.txt') {
       this.highlightFileData(fileName);
     }
+    
+    // Trigger map resize to ensure proper rendering
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+      }
+    }, 300);
   }
 
   updateMap() {
@@ -553,6 +610,172 @@ class GTFSEditor {
     overlay.style.display = 'flex';
   }
 
+  closeEditor() {
+    const editorPanel = document.getElementById('editor-panel');
+    const mapPanel = document.getElementById('map-panel');
+    
+    // Save current changes
+    this.saveCurrentFileChanges();
+    
+    // Hide editor panel
+    editorPanel.classList.add('hidden');
+    mapPanel.classList.remove('w-1/2');
+    mapPanel.classList.add('flex-1');
+    
+    // Clear active file styling
+    document.querySelectorAll('.file-item').forEach(item => {
+      item.classList.remove('active');
+    });
+    
+    this.currentFile = null;
+    
+    // Trigger map resize
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+      }
+    }, 300);
+  }
+
+  switchToTextView() {
+    this.isTableView = false;
+    
+    // Update button states
+    const textBtn = document.getElementById('view-text-btn');
+    const tableBtn = document.getElementById('view-table-btn');
+    
+    if (textBtn) {
+      textBtn.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
+    }
+    if (tableBtn) {
+      tableBtn.className = 'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
+    }
+    
+    // Show text editor, hide table editor
+    const textView = document.getElementById('text-editor-view');
+    const tableView = document.getElementById('table-editor-view');
+    
+    if (textView) {
+      textView.classList.remove('hidden');
+    }
+    if (tableView) {
+      tableView.classList.add('hidden');
+    }
+    
+    // Update text content from table if needed
+    if (this.tableData) {
+      this.syncTableToText();
+    }
+  }
+
+  switchToTableView() {
+    if (!this.currentFile || !this.gtfsData[this.currentFile].data) return;
+    
+    this.isTableView = true;
+    
+    // Update button states
+    const textBtn = document.getElementById('view-text-btn');
+    const tableBtn = document.getElementById('view-table-btn');
+    
+    if (textBtn) {
+      textBtn.className = 'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
+    }
+    if (tableBtn) {
+      tableBtn.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
+    }
+    
+    // Show table editor, hide text editor
+    const textView = document.getElementById('text-editor-view');
+    const tableView = document.getElementById('table-editor-view');
+    
+    if (textView) {
+      textView.classList.add('hidden');
+    }
+    if (tableView) {
+      tableView.classList.remove('hidden');
+    }
+    
+    // Build table
+    this.buildTableEditor();
+  }
+
+  buildTableEditor() {
+    const data = this.gtfsData[this.currentFile].data;
+    if (!data || data.length === 0) return;
+    
+    // Get headers from first row
+    const headers = Object.keys(data[0]);
+    
+    // Create table HTML
+    let tableHTML = '<table id="table-editor"><thead><tr>';
+    headers.forEach(header => {
+      tableHTML += `<th>${header}</th>`;
+    });
+    tableHTML += '</tr></thead><tbody>';
+    
+    // Add data rows
+    data.forEach((row, rowIndex) => {
+      tableHTML += '<tr>';
+      headers.forEach(header => {
+        const value = row[header] || '';
+        tableHTML += `<td><input type="text" value="${this.escapeHtml(value)}" data-row="${rowIndex}" data-col="${header}" /></td>`;
+      });
+      tableHTML += '</tr>';
+    });
+    
+    tableHTML += '</tbody></table>';
+    
+    // Set table content
+    document.getElementById('table-editor').innerHTML = tableHTML;
+    
+    // Add event listeners for cell changes
+    document.querySelectorAll('#table-editor input').forEach(input => {
+      input.addEventListener('change', (e) => {
+        this.updateTableCell(e.target);
+      });
+    });
+    
+    // Store reference to table data
+    this.tableData = data;
+  }
+
+  updateTableCell(input) {
+    const row = parseInt(input.dataset.row);
+    const col = input.dataset.col;
+    const value = input.value;
+    
+    if (this.tableData && this.tableData[row]) {
+      this.tableData[row][col] = value;
+    }
+  }
+
+  syncTableToText() {
+    if (!this.tableData) return;
+    
+    // Convert table data back to CSV
+    const csv = Papa.unparse(this.tableData);
+    this.editor.value = csv;
+    this.gtfsData[this.currentFile].content = csv;
+  }
+
+  saveCurrentFileChanges() {
+    if (!this.currentFile) return;
+    
+    if (this.isTableView && this.tableData) {
+      // Save from table
+      this.syncTableToText();
+    } else if (this.editor) {
+      // Save from text editor
+      this.gtfsData[this.currentFile].content = this.editor.value;
+    }
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   exportGTFS() {
     if (Object.keys(this.gtfsData).length === 0) {
       alert('No GTFS data to export');
@@ -561,10 +784,8 @@ class GTFSEditor {
     
     console.log('Exporting GTFS data...');
     
-    // Update current file content if editor is open
-    if (this.currentFile && this.editor) {
-      this.gtfsData[this.currentFile].content = this.editor.value;
-    }
+    // Save current file changes
+    this.saveCurrentFileChanges();
     
     // Create ZIP file
     const zip = new JSZip();
