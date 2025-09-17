@@ -6,10 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "concurrently \"npm run build:watch\" \"npm run serve\"",
-    "serve": "live-server --host=localhost --port=8080 --watch=dist --open=dist",
+    "serve": "cd dist && live-server --host=localhost --port=8080",
     "build": "rollup -c",
     "build:watch": "rollup -c --watch",
-    "build:css": "tailwindcss -i src/css/styles.css -o dist/styles.css --watch",
     "deploy": "npm run build && gh-pages -d dist",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
@@ -32,6 +31,7 @@
     "@eslint/js": "^9.35.0",
     "@playwright/test": "^1.55.0",
     "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-html": "^2.0.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "concurrently": "^9.2.1",
@@ -42,6 +42,8 @@
     "playwright": "^1.55.0",
     "prettier": "^3.6.2",
     "rollup": "^4.50.2",
+    "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-postcss": "^4.0.2",
     "tailwindcss": "^4.1.13"
   },
   "dependencies": {
