@@ -1,8 +1,54 @@
 import Papa from 'papaparse';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { placeholder } from '@codemirror/view';
+import { StreamLanguage } from '@codemirror/language';
+import Clusterize from 'clusterize.js';
+
+// Simple Mathematica-inspired syntax highlighting for CSV
+const csvMathematicaMode = {
+  name: 'csv-mathematica',
+  startState: function() {
+    return { lineStart: true, firstLine: true };
+  },
+  token: function(stream, state) {
+    // Handle quoted strings first
+    if (stream.match(/"[^"]*"/)) {
+      return 'string'; // Quoted values as strings (green)
+    }
+    
+    // Handle numbers (integers and floats)
+    if (stream.match(/\b\d+\.?\d*\b/)) {
+      return 'number'; // Numbers (orange/red)
+    }
+    
+    // Handle commas
+    if (stream.match(/,/)) {
+      return 'operator'; // Commas as operators
+    }
+    
+    // Handle headers on first line
+    if (state.firstLine && stream.match(/[A-Za-z][A-Za-z0-9_]*/)) {
+      return 'keyword'; // Headers as keywords (blue)
+    }
+    
+    // Handle IDs and identifiers
+    if (stream.match(/[A-Za-z][A-Za-z0-9_]*/)) {
+      return 'variable'; // Regular text as variables
+    }
+    
+    // Reset firstLine at end of first line
+    if (stream.eol() && state.firstLine) {
+      state.firstLine = false;
+    }
+    
+    // Default - consume one character
+    if (!stream.eol()) {
+      stream.next();
+    }
+    return null;
+  }
+};
 
 export class Editor {
   constructor(editorElementId = 'simple-editor') {
@@ -14,6 +60,8 @@ export class Editor {
     this.tableData = null;
     this.gtfsParser = null;
     this.viewPreference = this.loadViewPreference();
+    this.clusterize = null;
+    this.headers = [];
   }
 
   initialize(gtfsParser) {
@@ -30,6 +78,7 @@ export class Editor {
       doc: '',
       extensions: [
         basicSetup,
+        StreamLanguage.define(csvMathematicaMode),
         placeholder('Select a file from the sidebar to edit its content...'),
         // Use a light theme by default, could add theme switching later
         EditorView.theme({
@@ -160,6 +209,13 @@ export class Editor {
   closeEditor() {
     // Save current changes
     this.saveCurrentFileChanges();
+    
+    // Clean up Clusterize instance
+    if (this.clusterize) {
+      this.clusterize.destroy();
+      this.clusterize = null;
+    }
+    
     this.currentFile = null;
   }
 
@@ -234,39 +290,62 @@ export class Editor {
     }
 
     // Get headers from first row
-    const headers = Object.keys(data[0]);
-
-    // Create table HTML
-    let tableHTML = '<table id="data-table"><thead><tr>';
-    headers.forEach((header) => {
-      tableHTML += `<th>${header}</th>`;
-    });
-    tableHTML += '</tr></thead><tbody>';
-
-    // Add data rows
-    data.forEach((row, rowIndex) => {
-      tableHTML += '<tr>';
-      headers.forEach((header) => {
-        const value = row[header] || '';
-        tableHTML += `<td><input type="text" value="${this.escapeHtml(value)}" data-row="${rowIndex}" data-col="${header}" /></td>`;
-      });
-      tableHTML += '</tr>';
-    });
-
-    tableHTML += '</tbody></table>';
-
-    // Set table content in the container
-    document.getElementById('table-editor').innerHTML = tableHTML;
-
-    // Add event listeners for cell changes
-    document.querySelectorAll('#data-table input').forEach((input) => {
-      input.addEventListener('change', (e) => {
-        this.updateTableCell(e.target);
-      });
-    });
-
-    // Store reference to table data
+    this.headers = Object.keys(data[0]);
     this.tableData = data;
+
+    // Create table container with proper structure for Clusterize.js
+    const tableContainer = document.getElementById('table-editor');
+    tableContainer.innerHTML = `
+      <div class="clusterize-scroll" id="scrollArea">
+        <table class="clusterize-table">
+          <thead>
+            <tr>
+              ${this.headers.map(header => `<th>${this.escapeHtml(header)}</th>`).join('')}
+            </tr>
+          </thead>
+        </table>
+        <div class="clusterize-content" id="contentArea"></div>
+      </div>
+    `;
+
+    // Generate row data for Clusterize.js
+    const rows = data.map((row, rowIndex) => {
+      const cells = this.headers.map((header) => {
+        const value = row[header] || '';
+        return `<td><input type="text" value="${this.escapeHtml(value)}" data-row="${rowIndex}" data-col="${header}" /></td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    });
+
+    // Destroy existing Clusterize instance if it exists
+    if (this.clusterize) {
+      this.clusterize.destroy();
+    }
+
+    // Initialize Clusterize.js
+    this.clusterize = new Clusterize({
+      rows: rows,
+      scrollId: 'scrollArea',
+      contentId: 'contentArea',
+      rows_in_block: 50, // Number of rows to render at once
+      blocks_in_cluster: 4, // Number of blocks to keep in memory
+      tag: 'tr' // Table row tag
+    });
+
+    // Add event delegation for input changes since rows are dynamically created
+    const scrollArea = document.getElementById('scrollArea');
+    scrollArea.addEventListener('change', (e) => {
+      if (e.target.tagName === 'INPUT' && e.target.dataset.row) {
+        this.updateTableCell(e.target);
+      }
+    });
+
+    // Add input event for real-time updates
+    scrollArea.addEventListener('input', (e) => {
+      if (e.target.tagName === 'INPUT' && e.target.dataset.row) {
+        this.updateTableCell(e.target);
+      }
+    });
   }
 
   updateTableCell(input) {

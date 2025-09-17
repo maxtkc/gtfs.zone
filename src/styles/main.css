@@ -413,6 +413,7 @@ body {
 
 #simple-editor-container {
   height: 100%;
+  overflow: hidden;
 }
 
 #simple-editor {
@@ -429,6 +430,17 @@ body {
   color: #2c3e50;
 }
 
+/* CodeMirror 6 specific styles for scrolling */
+#simple-editor .cm-editor {
+  height: 100%;
+  max-height: 400px;
+}
+
+#simple-editor .cm-scroller {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 #simple-editor::placeholder {
   color: #bdc3c7;
 }
@@ -436,27 +448,40 @@ body {
 /* Table Editor */
 #table-container {
   height: 100%;
-  overflow: auto;
+  max-height: 400px;
   padding: 8px;
 }
 
 #table-editor {
   width: 100%;
-  border-collapse: collapse;
   font-size: 11px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
-#table-editor th,
-#table-editor td {
+/* Clusterize.js styles */
+.clusterize-scroll {
+  max-height: 380px;
+  overflow: auto;
+  position: relative;
+}
+
+.clusterize-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.clusterize-table th,
+.clusterize-content tr td {
   border: 1px solid #ecf0f1;
   padding: 4px 8px;
   text-align: left;
   vertical-align: top;
   min-width: 80px;
+  word-wrap: break-word;
 }
 
-#table-editor th {
+.clusterize-table th {
   background: #f8f9fa;
   font-weight: 600;
   color: #2c3e50;
@@ -465,7 +490,20 @@ body {
   z-index: 10;
 }
 
-#table-editor input {
+.clusterize-content {
+  position: relative;
+}
+
+.clusterize-content tr {
+  border-collapse: collapse;
+  display: table-row;
+}
+
+.clusterize-content tr td {
+  display: table-cell;
+}
+
+.clusterize-content input {
   width: 100%;
   border: none;
   background: transparent;
@@ -475,10 +513,26 @@ body {
   padding: 2px;
 }
 
-#table-editor input:focus {
+.clusterize-content input:focus {
   outline: 2px solid #3498db;
   outline-offset: -2px;
   background: #ffffff;
+}
+
+/* Clusterize clusters */
+.clusterize-extra-row {
+  outline: 0 !important;
+}
+
+.clusterize-keep-parity tr:nth-child(odd) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.clusterize-no-data {
+  text-align: center;
+  color: #95a5a6;
+  padding: 20px;
+  font-style: italic;
 }
 
 /* Welcome Overlay */
