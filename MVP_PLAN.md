@@ -1,4 +1,4 @@
-# GTFS.io MVP Plan
+# GTFS.zone MVP Plan
 
 ## Overview
 Create a web-based GTFS editor inspired by geojson.io, allowing users to upload, edit, and export GTFS feeds with no login required.
@@ -39,12 +39,12 @@ Create a web-based GTFS editor inspired by geojson.io, allowing users to upload,
 - Save editor changes before export
 
 ### 5. URL API
-- Load GTFS from URL: `gtfs.io#data=url:https://example.com/gtfs.zip` (pending)
+- Load GTFS from URL: `gtfs.zone#data=url:https://example.com/gtfs.zip` (pending)
 - Share capability for small GTFS feeds (pending)
 
 ## File Structure
 ```
-gtfs.io/
+gtfs.zone/
 ├── src/
 │   ├── js/
 │   │   └── main.js          # Main application
@@ -136,4 +136,4 @@ To test the MVP:
 5. Click files in sidebar to edit
 6. Export modified GTFS
 
-The MVP successfully demonstrates core functionality and provides a solid foundation for the full gtfs.io vision.
+The MVP successfully demonstrates core functionality and provides a solid foundation for the full gtfs.zone vision.

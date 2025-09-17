@@ -1,4 +1,3 @@
-import { GTFS_FILES } from './gtfs-parser.js';
 
 export class UIController {
   constructor() {
@@ -48,19 +47,33 @@ export class UIController {
       });
     }
 
-    const textBtn = document.getElementById('view-text-btn');
-    if (textBtn) {
-      textBtn.addEventListener('click', () => {
-        this.editor.switchToTextView();
+    const viewToggle = document.getElementById('view-toggle-checkbox');
+    if (viewToggle) {
+      viewToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          this.editor.switchToTableView();
+        } else {
+          this.editor.switchToTextView();
+        }
       });
     }
 
-    const tableBtn = document.getElementById('view-table-btn');
-    if (tableBtn) {
-      tableBtn.addEventListener('click', () => {
-        this.editor.switchToTableView();
-      });
-    }
+    // Add click handlers for the toggle text options using event delegation
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('toggle-text')) {
+        const viewToggle = document.getElementById('view-toggle-checkbox');
+        if (viewToggle) {
+          const view = e.target.dataset.view;
+          if (view === 'text') {
+            viewToggle.checked = false;
+            this.editor.switchToTextView();
+          } else if (view === 'table') {
+            viewToggle.checked = true;
+            this.editor.switchToTableView();
+          }
+        }
+      }
+    });
 
     // Drag and drop
     const body = document.body;
@@ -198,14 +211,14 @@ export class UIController {
       item.appendChild(countSpan);
     }
 
-    item.addEventListener('click', () => {
-      this.openFile(fileName);
+    item.addEventListener('click', (event) => {
+      this.openFile(fileName, event.currentTarget);
     });
 
     container.appendChild(item);
   }
 
-  openFile(fileName) {
+  openFile(fileName, clickedElement = null) {
     if (!this.gtfsParser.getFileContent(fileName)) {
       return;
     }
@@ -214,7 +227,9 @@ export class UIController {
     document.querySelectorAll('.file-item').forEach((item) => {
       item.classList.remove('active');
     });
-    event.target.classList.add('active');
+    if (clickedElement) {
+      clickedElement.classList.add('active');
+    }
 
     // Show editor panel
     const editorPanel = document.getElementById('editor-panel');

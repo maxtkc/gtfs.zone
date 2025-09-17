@@ -171,12 +171,12 @@ export class GTFSParser {
 
   getWheelchairText(wheelchairBoarding) {
     switch (wheelchairBoarding) {
-      case '1':
-        return 'Accessible';
-      case '2':
-        return 'Not accessible';
-      default:
-        return 'Unknown';
+    case '1':
+      return 'Accessible';
+    case '2':
+      return 'Not accessible';
+    default:
+      return 'Unknown';
     }
   }
 

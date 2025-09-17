@@ -1,5 +1,5 @@
 {
-  "name": "gtfs.io",
+  "name": "gtfs.zone",
   "version": "0.0.1",
   "description": "A fast, simple editor for GTFS transit data - inspired by geojson.io",
   "main": "src/index.html",
@@ -25,7 +25,7 @@
     "transport",
     "map"
   ],
-  "author": "gtfs.io contributors",
+  "author": "gtfs.zone contributors",
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.35.0",

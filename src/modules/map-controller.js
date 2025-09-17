@@ -53,7 +53,9 @@ export class MapController {
 
   addStopsToMap() {
     const stops = this.gtfsParser.getFileData('stops.txt');
-    if (!stops) return;
+    if (!stops) {
+      return;
+    }
 
     const validStops = stops.filter(
       (stop) =>
@@ -80,31 +82,31 @@ export class MapController {
       let stopTypeText = 'Stop';
 
       switch (stopType) {
-        case '0': // Stop/platform
-          markerColor = '#2563eb';
-          stopTypeText = 'Stop';
-          markerSize = 8;
-          break;
-        case '1': // Station
-          markerColor = '#dc2626';
-          stopTypeText = 'Station';
-          markerSize = 12;
-          break;
-        case '2': // Station entrance/exit
-          markerColor = '#16a34a';
-          stopTypeText = 'Entrance/Exit';
-          markerSize = 6;
-          break;
-        case '3': // Generic node
-          markerColor = '#ca8a04';
-          stopTypeText = 'Node';
-          markerSize = 6;
-          break;
-        case '4': // Boarding area
-          markerColor = '#7c3aed';
-          stopTypeText = 'Boarding Area';
-          markerSize = 8;
-          break;
+      case '0': // Stop/platform
+        markerColor = '#2563eb';
+        stopTypeText = 'Stop';
+        markerSize = 8;
+        break;
+      case '1': // Station
+        markerColor = '#dc2626';
+        stopTypeText = 'Station';
+        markerSize = 12;
+        break;
+      case '2': // Station entrance/exit
+        markerColor = '#16a34a';
+        stopTypeText = 'Entrance/Exit';
+        markerSize = 6;
+        break;
+      case '3': // Generic node
+        markerColor = '#ca8a04';
+        stopTypeText = 'Node';
+        markerSize = 6;
+        break;
+      case '4': // Boarding area
+        markerColor = '#7c3aed';
+        stopTypeText = 'Boarding Area';
+        markerSize = 8;
+        break;
       }
 
       // Get routes serving this stop
@@ -248,7 +250,9 @@ export class MapController {
 
   addShapesToMap() {
     const shapes = this.gtfsParser.getFileData('shapes.txt');
-    if (!shapes) return;
+    if (!shapes) {
+      return;
+    }
 
     const shapeGroups = {};
 

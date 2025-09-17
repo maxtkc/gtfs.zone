@@ -2,16 +2,16 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 
 // Test application loading and basic UI
-test.describe('GTFS.io Basic Functionality', () => {
+test.describe('GTFS.zone Basic Functionality', () => {
   
   test('should load the application successfully', async ({ page }) => {
     await page.goto('/');
     
     // Check page title
-    await expect(page).toHaveTitle('gtfs.io - GTFS Transit Data Editor');
+    await expect(page).toHaveTitle('gtfs.zone - GTFS Transit Data Editor');
     
     // Check main header
-    await expect(page.locator('h1')).toContainText('gtfs.io');
+    await expect(page.locator('h1')).toContainText('gtfs.zone');
     
     // Check upload button exists
     await expect(page.locator('#upload-btn')).toBeVisible();
@@ -22,7 +22,7 @@ test.describe('GTFS.io Basic Functionality', () => {
     
     // Check initial state shows welcome message
     await expect(page.locator('#map-overlay')).toBeVisible();
-    await expect(page.locator('#map-overlay')).toContainText('Welcome to gtfs.io');
+    await expect(page.locator('#map-overlay')).toContainText('Welcome to gtfs.zone');
   });
 
   test('should show file tree sidebar', async ({ page }) => {

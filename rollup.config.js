@@ -36,7 +36,7 @@ export default {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>gtfs.io - GTFS Transit Data Editor</title>
+    <title>gtfs.zone - GTFS Transit Data Editor</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -47,7 +47,7 @@ export default {
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <h1 class="site-title">gtfs.io</h1>
+        <h1 class="site-title">gtfs.zone</h1>
         <span class="site-subtitle">powered by OpenStreetMap</span>
       </div>
       <div class="header-actions">
@@ -86,8 +86,14 @@ export default {
       <div id="editor-panel" class="editor-panel hidden">
         <div class="editor-header">
           <div class="editor-tabs">
-            <button id="view-text-btn" class="tab-btn active">JSON</button>
-            <button id="view-table-btn" class="tab-btn">Table</button>
+            <div class="view-toggle">
+              <span class="toggle-text text-option" data-view="text">Text</span>
+              <input type="checkbox" id="view-toggle-checkbox" class="toggle-checkbox">
+              <label for="view-toggle-checkbox" class="toggle-label">
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-text table-option" data-view="table">Table</span>
+            </div>
           </div>
           <button id="close-editor-btn" class="close-btn">×</button>
         </div>
@@ -113,7 +119,7 @@ export default {
       <div id="welcome-overlay" class="welcome-overlay">
         <div class="welcome-content">
           <div class="welcome-icon">🚌</div>
-          <h2>Welcome to gtfs.io</h2>
+          <h2>Welcome to gtfs.zone</h2>
           <p>Upload a GTFS file to visualize transit routes and stops</p>
         </div>
       </div>

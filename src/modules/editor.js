@@ -1,5 +1,3 @@
-import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
 import Papa from 'papaparse';
 
 export class Editor {
@@ -10,6 +8,7 @@ export class Editor {
     this.isTableView = false;
     this.tableData = null;
     this.gtfsParser = null;
+    this.viewPreference = this.loadViewPreference();
   }
 
   initialize(gtfsParser) {
@@ -18,8 +17,47 @@ export class Editor {
     // Use simple textarea instead of CodeMirror for now
     this.editor = document.getElementById(this.editorElementId);
     if (!this.editor) {
-      console.warn(`Editor element with ID '${this.editorElementId}' not found`);
       return;
+    }
+
+    // Initialize toggle state
+    this.updateToggleLabels();
+    
+    // Initially hide toggle until a file is opened
+    const viewToggle = document.getElementById('view-toggle-checkbox');
+    if (viewToggle && viewToggle.parentElement) {
+      viewToggle.parentElement.style.display = 'none';
+    }
+  }
+
+  loadViewPreference() {
+    try {
+      return window.localStorage.getItem('gtfs-editor-view-preference') === 'table';
+    } catch {
+      return false; // Default to text view
+    }
+  }
+
+  saveViewPreference(isTableView) {
+    try {
+      window.localStorage.setItem('gtfs-editor-view-preference', isTableView ? 'table' : 'text');
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+
+  updateToggleLabels() {
+    const textOption = document.querySelector('.toggle-text.text-option');
+    const tableOption = document.querySelector('.toggle-text.table-option');
+    
+    if (textOption && tableOption) {
+      if (this.isTableView) {
+        textOption.classList.remove('active');
+        tableOption.classList.add('active');
+      } else {
+        textOption.classList.add('active');
+        tableOption.classList.remove('active');
+      }
     }
   }
 
@@ -48,18 +86,23 @@ export class Editor {
 
     // Determine if file can be viewed as table (CSV files)
     const canShowTable = fileName.endsWith('.txt') && this.gtfsParser.getFileData(fileName);
-    const tableBtn = document.getElementById('view-table-btn');
+    const viewToggle = document.getElementById('view-toggle-checkbox');
 
-    if (tableBtn) {
-      if (canShowTable) {
-        tableBtn.style.display = 'block';
-        // Default to table view for CSV files
-        this.switchToTableView();
-      } else {
-        tableBtn.style.display = 'none';
-        this.switchToTextView();
+    if (canShowTable) {
+      // Show toggle and set to saved preference
+      if (viewToggle) {
+        viewToggle.parentElement.style.display = 'flex';
+        if (this.viewPreference) {
+          this.switchToTableView();
+        } else {
+          this.switchToTextView();
+        }
       }
     } else {
+      // Hide toggle and switch to text view
+      if (viewToggle) {
+        viewToggle.parentElement.style.display = 'none';
+      }
       this.switchToTextView();
     }
 
@@ -75,19 +118,17 @@ export class Editor {
 
   switchToTextView() {
     this.isTableView = false;
+    this.viewPreference = false;
+    this.saveViewPreference(false);
 
-    // Update button states
-    const textBtn = document.getElementById('view-text-btn');
-    const tableBtn = document.getElementById('view-table-btn');
+    // Update toggle state
+    const viewToggle = document.getElementById('view-toggle-checkbox');
+    if (viewToggle) {
+      viewToggle.checked = false;
+    }
 
-    if (textBtn) {
-      textBtn.className =
-        'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
-    }
-    if (tableBtn) {
-      tableBtn.className =
-        'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
-    }
+    // Update text labels
+    this.updateToggleLabels();
 
     // Show text editor, hide table editor
     const textView = document.getElementById('text-editor-view');
@@ -112,19 +153,17 @@ export class Editor {
     }
 
     this.isTableView = true;
+    this.viewPreference = true;
+    this.saveViewPreference(true);
 
-    // Update button states
-    const textBtn = document.getElementById('view-text-btn');
-    const tableBtn = document.getElementById('view-table-btn');
+    // Update toggle state
+    const viewToggle = document.getElementById('view-toggle-checkbox');
+    if (viewToggle) {
+      viewToggle.checked = true;
+    }
 
-    if (textBtn) {
-      textBtn.className =
-        'px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400';
-    }
-    if (tableBtn) {
-      tableBtn.className =
-        'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
-    }
+    // Update text labels
+    this.updateToggleLabels();
 
     // Show table editor, hide text editor
     const textView = document.getElementById('text-editor-view');

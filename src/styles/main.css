@@ -307,6 +307,77 @@ body {
   background: rgba(52, 73, 94, 0.15);
 }
 
+/* Modern Toggle Switch */
+.view-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.toggle-text {
+  color: #7f8c8d;
+  transition: color 0.2s ease;
+  padding: 2px 4px;
+}
+
+.toggle-text.active {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 22px;
+  background: rgba(52, 73, 94, 0.2);
+  border-radius: 11px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(52, 73, 94, 0.3);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-slider {
+  background: #3498db;
+  border-color: #3498db;
+}
+
+.toggle-checkbox:checked + .toggle-label .toggle-slider::before {
+  transform: translateX(22px);
+}
+
+.toggle-label:hover .toggle-slider {
+  background: rgba(52, 73, 94, 0.3);
+}
+
+.toggle-checkbox:checked + .toggle-label:hover .toggle-slider {
+  background: #2980b9;
+}
+
 .close-btn {
   background: none;
   border: none;
