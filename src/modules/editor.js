@@ -1,8 +1,13 @@
 import Papa from 'papaparse';
+import { EditorView, basicSetup } from 'codemirror';
+import { EditorState } from '@codemirror/state';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { placeholder } from '@codemirror/view';
 
 export class Editor {
   constructor(editorElementId = 'simple-editor') {
     this.editor = null;
+    this.editorView = null;
     this.editorElementId = editorElementId;
     this.currentFile = null;
     this.isTableView = false;
@@ -14,11 +19,44 @@ export class Editor {
   initialize(gtfsParser) {
     this.gtfsParser = gtfsParser;
     
-    // Use simple textarea instead of CodeMirror for now
+    // Initialize CodeMirror editor
     this.editor = document.getElementById(this.editorElementId);
     if (!this.editor) {
       return;
     }
+
+    // Create CodeMirror editor instance
+    const startState = EditorState.create({
+      doc: '',
+      extensions: [
+        basicSetup,
+        placeholder('Select a file from the sidebar to edit its content...'),
+        // Use a light theme by default, could add theme switching later
+        EditorView.theme({
+          '&': {
+            fontSize: '14px',
+            height: '100%'
+          },
+          '.cm-content': {
+            padding: '10px'
+          },
+          '.cm-focused': {
+            outline: 'none'
+          },
+          '.cm-placeholder': {
+            color: '#999',
+            fontSize: '14px'
+          }
+        })
+      ]
+    });
+
+    // Clear the container and create CodeMirror view
+    this.editor.innerHTML = '';
+    this.editorView = new EditorView({
+      state: startState,
+      parent: this.editor
+    });
 
     // Initialize toggle state
     this.updateToggleLabels();
@@ -61,21 +99,30 @@ export class Editor {
     }
   }
 
-  // Helper methods for simple textarea
+  // Helper methods for CodeMirror
   setEditorValue(content) {
-    if (this.editor) {
-      this.editor.value = content;
+    if (this.editorView) {
+      this.editorView.dispatch({
+        changes: {
+          from: 0,
+          to: this.editorView.state.doc.length,
+          insert: content
+        }
+      });
     }
   }
 
   getEditorValue() {
-    return this.editor ? this.editor.value : '';
+    return this.editorView ? this.editorView.state.doc.toString() : '';
   }
 
   openFile(fileName) {
     if (!this.gtfsParser || !this.gtfsParser.getFileContent(fileName)) {
       return;
     }
+
+    // Clear table data when switching to a new file
+    this.tableData = null;
 
     // Update current file
     this.currentFile = fileName;
@@ -255,8 +302,8 @@ export class Editor {
     if (this.isTableView && this.tableData) {
       // Save from table
       this.syncTableToText();
-    } else if (this.editor) {
-      // Save from text editor
+    } else if (this.editorView) {
+      // Save from CodeMirror editor
       const content = this.getEditorValue();
       this.gtfsParser.updateFileContent(this.currentFile, content);
     }
