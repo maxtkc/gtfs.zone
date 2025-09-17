@@ -181,13 +181,13 @@ export class UIController {
     }
 
     // Auto-expand sidebar if collapsed and files are loaded
-    const sidebar = document.getElementById('file-sidebar');
+    const sidebar = document.getElementById('sidebar');
     if (sidebar.classList.contains('collapsed')) {
       sidebar.classList.remove('collapsed');
     }
 
     // Hide welcome overlay
-    const welcomeOverlay = document.getElementById('welcome-overlay');
+    const welcomeOverlay = document.getElementById('map-overlay');
     if (welcomeOverlay) {
       welcomeOverlay.classList.add('hidden');
     }
@@ -270,7 +270,7 @@ export class UIController {
   }
 
   toggleSidebar() {
-    const sidebar = document.getElementById('file-sidebar');
+    const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('collapsed');
     
     // Force map resize after layout changes complete

@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Test application loading and basic UI
 test.describe('GTFS.zone Basic Functionality', () => {

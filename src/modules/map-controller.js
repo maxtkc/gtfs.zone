@@ -17,7 +17,7 @@ export class MapController {
     }).addTo(this.map);
 
     // Keep welcome overlay visible initially
-    const welcomeOverlay = document.getElementById('welcome-overlay');
+    const welcomeOverlay = document.getElementById('map-overlay');
     if (welcomeOverlay) {
       welcomeOverlay.classList.remove('hidden');
     }
@@ -294,20 +294,14 @@ export class MapController {
   }
 
   hideMapOverlay() {
-    const welcomeOverlay = document.getElementById('welcome-overlay');
+    const welcomeOverlay = document.getElementById('map-overlay');
     if (welcomeOverlay) {
       welcomeOverlay.classList.add('hidden');
-    }
-    
-    // Legacy support - remove old overlay if it exists
-    const mapOverlay = document.getElementById('map-overlay');
-    if (mapOverlay) {
-      mapOverlay.style.display = 'none';
     }
   }
 
   showLoading() {
-    const welcomeOverlay = document.getElementById('welcome-overlay');
+    const welcomeOverlay = document.getElementById('map-overlay');
     if (welcomeOverlay) {
       const welcomeContent = welcomeOverlay.querySelector('.welcome-content');
       if (welcomeContent) {
