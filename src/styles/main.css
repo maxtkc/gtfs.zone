@@ -472,7 +472,7 @@ body {
 }
 
 .clusterize-table th,
-.clusterize-content tr td {
+.clusterize-table td {
   border: 1px solid #ecf0f1;
   padding: 4px 8px;
   text-align: left;
@@ -494,16 +494,7 @@ body {
   position: relative;
 }
 
-.clusterize-content tr {
-  border-collapse: collapse;
-  display: table-row;
-}
-
-.clusterize-content tr td {
-  display: table-cell;
-}
-
-.clusterize-content input {
+.clusterize-table input {
   width: 100%;
   border: none;
   background: transparent;
@@ -513,7 +504,7 @@ body {
   padding: 2px;
 }
 
-.clusterize-content input:focus {
+.clusterize-table input:focus {
   outline: 2px solid #3498db;
   outline-offset: -2px;
   background: #ffffff;

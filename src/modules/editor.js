@@ -297,14 +297,15 @@ export class Editor {
     const tableContainer = document.getElementById('table-editor');
     tableContainer.innerHTML = `
       <div class="clusterize-scroll" id="scrollArea">
-        <table class="clusterize-table">
+        <table class="clusterize-table" id="table">
           <thead>
             <tr>
               ${this.headers.map(header => `<th>${this.escapeHtml(header)}</th>`).join('')}
             </tr>
           </thead>
+          <tbody class="clusterize-content" id="contentArea">
+          </tbody>
         </table>
-        <div class="clusterize-content" id="contentArea"></div>
       </div>
     `;
 
