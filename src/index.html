@@ -10,85 +10,267 @@
     />
     <link rel="stylesheet" href="styles/main.css" />
   </head>
-  <body class="font-sans bg-slate-800 text-white overflow-hidden h-screen">
-    <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 h-15 bg-slate-700/95 backdrop-blur-sm border-b border-white/10 flex items-center justify-between px-5 z-50">
-      <div class="flex items-center gap-3">
-        <h1 class="text-2xl font-semibold text-white">gtfs.zone</h1>
-        <span class="text-xs text-white/70 font-normal">powered by OpenStreetMap</span>
-      </div>
-      <div class="flex gap-2">
-        <button id="upload-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">Upload</button>
-        <button id="export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors" disabled>Export</button>
-        <button id="new-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors">New</button>
-        <button id="help-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors">Help</button>
-      </div>
-    </header>
-
-    <!-- Main Map Container -->
-    <div id="map-container" class="pt-15 h-screen bg-slate-800">
-      <div id="map-panel" class="relative w-full h-full">
-        <div id="map" class="w-full h-full"></div>
-      </div>
+  <body class="font-sans bg-slate-800 text-white h-screen overflow-hidden">
+    <!-- App Container with CSS Grid -->
+    <div class="app-container grid grid-cols-[320px_1fr_400px] grid-rows-[60px_1fr] h-screen">
       
-      <!-- Map Controls -->
-      <div id="map-controls" class="absolute top-20 right-4 z-40">
-        <div class="bg-white rounded-lg shadow-lg p-2">
-          <input type="text" id="map-search" placeholder="Search" class="w-48 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <!-- Header -->
+      <header class="col-span-3 bg-slate-700/95 backdrop-blur-sm border-b border-white/10 flex items-center justify-between px-5">
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl font-semibold text-white">gtfs.zone</h1>
+          <span class="text-xs text-white/70 font-normal">powered by OpenStreetMap</span>
         </div>
-      </div>
+        <div class="flex gap-2">
+          <button id="upload-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">Upload</button>
+          <button id="export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors" disabled>Export</button>
+          <button id="new-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors">New</button>
+        </div>
+      </header>
 
-      <!-- File Sidebar (Collapsible) -->
-      <div id="sidebar" class="fixed left-0 top-15 bottom-0 w-80 bg-slate-700 border-r border-slate-600 transform -translate-x-full transition-transform duration-300 z-40 collapsed">
-        <div class="p-4 border-b border-slate-600">
-          <button id="sidebar-toggle" class="absolute top-20 -right-12 bg-slate-700 text-white p-2 rounded-r-md hover:bg-slate-600 transition-colors">📁</button>
-          <h3 class="text-lg font-semibold text-white">GTFS Files</h3>
-        </div>
-        <div id="file-list" class="p-4 overflow-y-auto h-full">
-          <div class="text-slate-400 text-sm text-center py-8">
-            Upload a GTFS file to get started
-          </div>
-        </div>
-      </div>
-
-      <!-- Editor Panel (Right overlay) -->
-      <div id="editor-panel" class="fixed right-0 top-15 bottom-0 w-1/2 bg-white border-l border-slate-300 z-30 transform translate-x-full transition-transform duration-300 hidden">
-        <div class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
-          <div class="flex items-center gap-4">
-            <div class="flex bg-slate-200 rounded-lg p-1">
-              <span class="px-3 py-1 text-sm font-medium text-slate-700 bg-white rounded-md shadow-sm cursor-pointer toggle-text text-option active" data-view="text">Text</span>
-              <input type="checkbox" id="view-toggle-checkbox" class="hidden">
-              <span class="px-3 py-1 text-sm font-medium text-slate-700 cursor-pointer toggle-text table-option" data-view="table">Table</span>
-            </div>
-          </div>
-          <button id="close-editor-btn" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-md transition-colors">×</button>
+      <!-- Left Panel -->
+      <div class="left-panel bg-slate-700 border-r border-slate-600 flex flex-col">
+        <!-- Left Panel Tabs -->
+        <div class="flex border-b border-slate-600">
+          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium text-white hover:bg-slate-600 border-b-2 border-blue-500" data-tab="files">Files</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-slate-300 hover:bg-slate-600 border-b-2 border-transparent" data-tab="objects">Objects</button>
         </div>
         
+        <!-- Left Panel Content -->
         <div class="flex-1 overflow-hidden">
-          <!-- Text Editor View -->
-          <div id="text-editor-view" class="h-full">
-            <div id="simple-editor-container" class="h-full">
-              <div id="simple-editor" class="h-full"></div>
+          <!-- Files Tab Content -->
+          <div id="files-tab" class="tab-content h-full">
+            <div id="file-list" class="p-4 overflow-y-auto h-full">
+              <div class="text-slate-400 text-sm text-center py-8">
+                No GTFS files loaded
+              </div>
             </div>
           </div>
-
-          <!-- Table Editor View -->
-          <div id="table-editor-view" class="h-full hidden">
-            <div id="table-container" class="h-full overflow-auto">
-              <div id="table-editor" class="h-full"></div>
+          
+          <!-- Objects Tab Content -->
+          <div id="objects-tab" class="tab-content h-full hidden">
+            <div id="objects-navigation" class="p-4 overflow-y-auto h-full">
+              <div class="text-slate-400 text-sm text-center py-8">
+                No GTFS data to explore
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Welcome Overlay -->
-      <div id="map-overlay" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm flex items-center justify-center z-20">
-        <div class="text-center">
-          <div class="text-6xl mb-4">🚌</div>
-          <h2 class="text-3xl font-bold text-white mb-4">Welcome to gtfs.zone</h2>
-          <p class="text-lg text-slate-300">Upload a GTFS file to visualize transit routes and stops</p>
+      <!-- Map Container -->
+      <div class="map-container relative bg-slate-800">
+        <div id="map" class="w-full h-full"></div>
+        
+        <!-- Map Controls -->
+        <div id="map-controls" class="absolute top-4 right-4 z-40">
+          <div class="bg-white rounded-lg shadow-lg p-2">
+            <input type="text" id="map-search" placeholder="Search" class="w-48 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <!-- Welcome Overlay -->
+        <div id="map-overlay" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm flex items-center justify-center z-20">
+          <div class="text-center">
+            <div class="text-6xl mb-4">🚌</div>
+            <h2 class="text-3xl font-bold text-white mb-4">Welcome to gtfs.zone</h2>
+            <p class="text-lg text-slate-300">Create a new GTFS feed or upload an existing one</p>
+          </div>
         </div>
       </div>
+
+      <!-- Right Panel -->
+      <div class="right-panel bg-white border-l border-slate-300 flex flex-col">
+        <!-- Right Panel Tabs -->
+        <div class="flex border-b border-slate-200 bg-slate-50">
+          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 border-b-2 border-blue-500" data-tab="editor">Editor</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-100 border-b-2 border-transparent" data-tab="info">Info</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-slate-500 hover:bg-slate-100 border-b-2 border-transparent" data-tab="help">Help</button>
+        </div>
+        
+        <!-- Right Panel Content -->
+        <div class="flex-1 overflow-hidden">
+          <!-- Editor Tab Content -->
+          <div id="editor-tab" class="tab-content h-full">
+            <div class="h-full flex flex-col">
+              <!-- Editor Controls -->
+              <div class="flex items-center gap-4 p-4 border-b border-slate-200">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-slate-700">Current file:</span>
+                  <span id="current-file-name" class="text-sm text-slate-500">None</span>
+                </div>
+                
+                <!-- View Toggle -->
+                <div class="flex items-center gap-2">
+                  <span class="toggle-text text-option active text-sm font-medium text-slate-700 cursor-pointer px-2 py-1 bg-white rounded shadow">Text</span>
+                  <input type="checkbox" id="view-toggle-checkbox" class="hidden">
+                  <span class="toggle-text table-option text-sm font-medium text-slate-700 cursor-pointer px-2 py-1 hover:bg-slate-100 rounded">Table</span>
+                </div>
+              </div>
+              
+              <!-- Editor Content -->
+              <div class="flex-1 overflow-hidden">
+                <div id="text-editor-view" class="h-full">
+                  <div id="simple-editor-container" class="h-full">
+                    <div id="simple-editor" class="h-full"></div>
+                  </div>
+                </div>
+                <div id="table-editor-view" class="h-full hidden">
+                  <div id="table-container" class="h-full overflow-auto">
+                    <div id="table-editor" class="h-full"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Info Tab Content -->
+          <div id="info-tab" class="tab-content h-full hidden">
+            <div class="p-4 overflow-y-auto h-full">
+              <div class="text-slate-500 text-sm">
+                Select an object to see details
+              </div>
+            </div>
+          </div>
+          
+          <!-- Help Tab Content -->
+          <div id="help-tab" class="tab-content h-full hidden">
+            <div class="p-4 overflow-y-auto h-full">
+              <div class="text-slate-700">
+                
+                <!-- Getting Started Section -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">🚀 Getting Started</h3>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 class="font-medium mb-2">Quick Start Guide</h4>
+                  <ol class="text-sm space-y-2 list-decimal list-inside">
+                    <li><strong>Create a new feed:</strong> Click "New" to start with sample GTFS data</li>
+                    <li><strong>Upload existing data:</strong> Click "Upload" or drag & drop a GTFS ZIP file</li>
+                    <li><strong>Explore your data:</strong> Use the "Objects" tab to navigate agencies, routes, trips, and stops</li>
+                    <li><strong>Edit files:</strong> Click any file in the "Files" tab to edit with syntax highlighting</li>
+                    <li><strong>Visualize on map:</strong> See your transit data plotted automatically on the map</li>
+                    <li><strong>Export:</strong> Click "Export" to download your modified GTFS feed</li>
+                  </ol>
+                </div>
+
+                <!-- Features Section -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">✨ Features</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <h4 class="font-medium text-slate-800 mb-2">🗺️ Interactive Map</h4>
+                    <p class="text-sm text-slate-600">Visualize stops, routes, and shapes on an interactive map. Search for specific stops or routes using the map search.</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <h4 class="font-medium text-slate-800 mb-2">📝 Smart Editor</h4>
+                    <p class="text-sm text-slate-600">Edit GTFS files with CSV syntax highlighting. Switch between text and table views for easier editing.</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <h4 class="font-medium text-slate-800 mb-2">🔍 Data Explorer</h4>
+                    <p class="text-sm text-slate-600">Navigate your GTFS data hierarchically: Agencies → Routes → Trips → Stop Times. Search and filter objects.</p>
+                  </div>
+                  <div class="bg-slate-50 rounded-lg p-3">
+                    <h4 class="font-medium text-slate-800 mb-2">✅ Validation</h4>
+                    <p class="text-sm text-slate-600">Automatic GTFS validation with detailed error reports, warnings, and feed statistics.</p>
+                  </div>
+                </div>
+
+                <!-- GTFS Resources Section -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">📚 GTFS Resources</h3>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <h4 class="font-medium mb-3">Official GTFS Documentation</h4>
+                  <div class="space-y-2 text-sm">
+                    <div><a href="https://gtfs.org/" target="_blank" class="text-blue-600 hover:underline">📖 GTFS.org - Official specification</a></div>
+                    <div><a href="https://gtfs.org/reference/" target="_blank" class="text-blue-600 hover:underline">📋 GTFS Reference - File formats and fields</a></div>
+                    <div><a href="https://gtfs.org/examples/" target="_blank" class="text-blue-600 hover:underline">💡 GTFS Examples - Sample feeds and use cases</a></div>
+                    <div><a href="https://gtfs.org/best-practices/" target="_blank" class="text-blue-600 hover:underline">⭐ GTFS Best Practices - Recommendations</a></div>
+                  </div>
+                </div>
+
+                <!-- Sample Data Section -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">🗃️ Sample GTFS Feeds</h3>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <h4 class="font-medium mb-3">Try These Sample Feeds</h4>
+                  <div class="space-y-2 text-sm">
+                    <div><a href="https://developers.google.com/transit/gtfs/examples/gtfs-feed" target="_blank" class="text-blue-600 hover:underline">🚌 Google Sample Feed - Simple bus system</a></div>
+                    <div><a href="https://www.transitland.org/" target="_blank" class="text-blue-600 hover:underline">🌍 Transitland - Real-world feeds database</a></div>
+                    <div><a href="https://openmobilitydata.org/" target="_blank" class="text-blue-600 hover:underline">📊 OpenMobilityData - GTFS feeds worldwide</a></div>
+                  </div>
+                </div>
+
+                <!-- Keyboard Shortcuts Section -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">⌨️ Keyboard Shortcuts</h3>
+                <div class="bg-slate-50 rounded-lg p-4 mb-6">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 class="font-medium mb-2">File Operations</h4>
+                      <ul class="text-sm space-y-1">
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Ctrl+N</code> New feed</li>
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Ctrl+O</code> Upload file</li>
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Ctrl+S</code> Save current file</li>
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Ctrl+E</code> Export feed</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 class="font-medium mb-2">Navigation</h4>
+                      <ul class="text-sm space-y-1">
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Tab</code> Switch between panels</li>
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Ctrl+F</code> Search on map</li>
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">Esc</code> Clear search/close dialogs</li>
+                        <li><code class="bg-slate-200 px-2 py-1 rounded text-xs">F1</code> Show this help</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- File Format Guide -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">📄 GTFS File Guide</h3>
+                <div class="space-y-3 mb-6">
+                  <div class="border border-slate-200 rounded-lg p-3">
+                    <h4 class="font-medium text-slate-800 mb-1">Required Files</h4>
+                    <div class="text-sm text-slate-600 grid grid-cols-2 gap-1">
+                      <div>• agency.txt - Transit agencies</div>
+                      <div>• routes.txt - Transit routes</div>
+                      <div>• trips.txt - Individual trips</div>
+                      <div>• stops.txt - Stop locations</div>
+                      <div>• stop_times.txt - Trip schedules</div>
+                      <div>• calendar.txt - Service dates</div>
+                    </div>
+                  </div>
+                  <div class="border border-slate-200 rounded-lg p-3">
+                    <h4 class="font-medium text-slate-800 mb-1">Optional Files</h4>
+                    <div class="text-sm text-slate-600 grid grid-cols-2 gap-1">
+                      <div>• shapes.txt - Route geometry</div>
+                      <div>• calendar_dates.txt - Service exceptions</div>
+                      <div>• fare_attributes.txt - Fare information</div>
+                      <div>• fare_rules.txt - Fare rules</div>
+                      <div>• frequencies.txt - Headway-based service</div>
+                      <div>• transfers.txt - Transfer rules</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tips Section -->
+                <h3 class="text-lg font-semibold mb-3 text-slate-800">💡 Tips & Tricks</h3>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <ul class="text-sm space-y-2">
+                    <li>• <strong>Large files:</strong> Use the table view for easier editing of large CSV files</li>
+                    <li>• <strong>Validation:</strong> Check the Info tab for validation results and feed statistics</li>
+                    <li>• <strong>Map navigation:</strong> Click on stops or routes in the Objects tab to highlight them on the map</li>
+                    <li>• <strong>Search:</strong> Use the search bar on the map or in the Objects tab to find specific data</li>
+                    <li>• <strong>Export format:</strong> Exported files maintain the original structure and can be used with any GTFS-compatible software</li>
+                  </ul>
+                </div>
+
+                <!-- Support Section -->
+                <div class="mt-6 pt-4 border-t border-slate-200">
+                  <h4 class="font-medium text-slate-800 mb-2">Need Help?</h4>
+                  <p class="text-sm text-slate-600">gtfs.zone is an open-source project. Visit our GitHub repository for documentation, examples, and support.</p>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
     </div>
 
     <!-- Hidden File Input -->

@@ -1,16 +1,23 @@
 
+import { notifications } from './notification-system.js';
+
 export class UIController {
   constructor() {
     this.gtfsParser = null;
     this.editor = null;
     this.mapController = null;
+    this.objectsNavigation = null;
+    this.validateCallback = null;
   }
 
-  initialize(gtfsParser, editor, mapController) {
+  initialize(gtfsParser, editor, mapController, objectsNavigation, validateCallback = null) {
     this.gtfsParser = gtfsParser;
     this.editor = editor;
     this.mapController = mapController;
+    this.objectsNavigation = objectsNavigation;
+    this.validateCallback = validateCallback;
     this.setupEventListeners();
+    this.initializeTabs();
   }
 
   setupEventListeners() {
@@ -31,21 +38,10 @@ export class UIController {
       this.exportGTFS();
     });
 
-    // Sidebar toggle
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    if (sidebarToggle) {
-      sidebarToggle.addEventListener('click', () => {
-        this.toggleSidebar();
-      });
-    }
-
-    // Editor controls - add listeners only when elements exist
-    const closeBtn = document.getElementById('close-editor-btn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        this.closeEditor();
-      });
-    }
+    // New GTFS feed button
+    document.getElementById('new-btn').addEventListener('click', () => {
+      this.createNewFeed();
+    });
 
     const viewToggle = document.getElementById('view-toggle-checkbox');
     if (viewToggle) {
@@ -92,12 +88,71 @@ export class UIController {
     });
   }
 
+  initializeTabs() {
+    // Initialize tab functionality
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tab-btn')) {
+        this.switchTab(e.target);
+      }
+    });
+  }
+
+  switchTab(button) {
+    const tabId = button.dataset.tab;
+    const panel = button.closest('.left-panel, .right-panel');
+    
+    if (!panel) return;
+    
+    // Remove active state from all tabs in this panel
+    panel.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+      btn.classList.add('text-slate-300', 'border-transparent');
+      btn.classList.remove('text-white', 'border-blue-500');
+    });
+    
+    // Hide all tab content in this panel
+    panel.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.add('hidden');
+    });
+    
+    // Activate clicked tab
+    button.classList.add('active');
+    button.classList.remove('text-slate-300', 'border-transparent');
+    button.classList.add('text-white', 'border-blue-500');
+    
+    // Show corresponding content
+    const content = document.getElementById(`${tabId}-tab`);
+    if (content) {
+      content.classList.remove('hidden');
+    }
+    
+    // If switching to Objects tab, refresh the navigation
+    if (tabId === 'objects' && this.objectsNavigation) {
+      this.objectsNavigation.refresh();
+    }
+  }
+
   async loadGTFSFile(file) {
+    let loadingNotificationId = null;
+    
     try {
       console.log('Loading GTFS file:', file.name);
 
-      // Show loading state
+      // Show loading notification
+      loadingNotificationId = notifications.showLoading(`Loading GTFS file: ${file.name}`);
+      
+      // Show loading state on map
       this.mapController.showLoading();
+
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith('.zip')) {
+        throw new Error('Please upload a ZIP file containing GTFS data');
+      }
+
+      // Check file size (warn if > 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        notifications.showWarning('Large file detected. Processing may take a moment...');
+      }
 
       // Parse the file
       await this.gtfsParser.parseFile(file);
@@ -106,19 +161,66 @@ export class UIController {
       this.updateFileList();
       this.mapController.updateMap();
       this.mapController.hideMapOverlay();
+      
+      // Refresh Objects navigation if available
+      if (this.objectsNavigation) {
+        this.objectsNavigation.refresh();
+      }
+
+      // Run validation if callback is available
+      if (this.validateCallback) {
+        this.validateCallback();
+      }
 
       // Enable export button
       document.getElementById('export-btn').disabled = false;
+
+      // Remove loading notification and show success
+      if (loadingNotificationId) {
+        notifications.removeNotification(loadingNotificationId);
+      }
+      notifications.showSuccess(`Successfully loaded GTFS file: ${file.name}`);
+      
     } catch (error) {
       console.error('Error loading GTFS file:', error);
-      alert('Error loading GTFS file: ' + error.message);
+      
+      // Remove loading notification
+      if (loadingNotificationId) {
+        notifications.removeNotification(loadingNotificationId);
+      }
+      
+      // Show error notification with helpful message
+      let errorMessage = 'Failed to load GTFS file';
+      if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      notifications.showError(errorMessage, {
+        actions: [
+          {
+            id: 'retry',
+            label: 'Try Again',
+            primary: true,
+            handler: () => {
+              document.getElementById('file-input').click();
+            }
+          }
+        ]
+      });
+      
       this.mapController.hideMapOverlay();
     }
   }
 
   async loadGTFSFromURL(url) {
+    let loadingNotificationId = null;
+    
     try {
       console.log('Loading GTFS from URL:', url);
+      
+      // Show loading notification
+      loadingNotificationId = notifications.showLoading(`Loading GTFS from URL: ${url}`);
+      
       this.mapController.showLoading();
 
       await this.gtfsParser.parseFromURL(url);
@@ -127,12 +229,56 @@ export class UIController {
       this.updateFileList();
       this.mapController.updateMap();
       this.mapController.hideMapOverlay();
+      
+      // Refresh Objects navigation if available
+      if (this.objectsNavigation) {
+        this.objectsNavigation.refresh();
+      }
+
+      // Run validation if callback is available
+      if (this.validateCallback) {
+        this.validateCallback();
+      }
 
       // Enable export button
       document.getElementById('export-btn').disabled = false;
+
+      // Remove loading notification and show success
+      if (loadingNotificationId) {
+        notifications.removeNotification(loadingNotificationId);
+      }
+      notifications.showSuccess(`Successfully loaded GTFS from URL`);
+      
     } catch (error) {
       console.error('Error loading GTFS from URL:', error);
-      alert('Error loading GTFS from URL: ' + error.message);
+      
+      // Remove loading notification
+      if (loadingNotificationId) {
+        notifications.removeNotification(loadingNotificationId);
+      }
+      
+      // Show error notification with helpful message
+      let errorMessage = 'Failed to load GTFS from URL';
+      if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      notifications.showError(errorMessage, {
+        actions: [
+          {
+            id: 'help',
+            label: 'Need Help?',
+            handler: () => {
+              // Switch to help tab
+              const helpTab = document.querySelector('[data-tab="help"]');
+              if (helpTab) {
+                helpTab.click();
+              }
+            }
+          }
+        ]
+      });
+      
       this.mapController.hideMapOverlay();
     }
   }
@@ -180,17 +326,9 @@ export class UIController {
       });
     }
 
-    // Auto-expand sidebar if collapsed and files are loaded
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar.classList.contains('collapsed')) {
-      sidebar.classList.remove('collapsed');
-    }
-
-    // Hide welcome overlay
-    const welcomeOverlay = document.getElementById('map-overlay');
-    if (welcomeOverlay) {
-      welcomeOverlay.classList.add('hidden');
-    }
+    // Enable export button if we have files
+    const hasFiles = required.length > 0 || optional.length > 0 || other.length > 0;
+    document.getElementById('export-btn').disabled = !hasFiles;
   }
 
   addFileItem(container, fileName, isRequired) {
@@ -231,9 +369,11 @@ export class UIController {
       clickedElement.classList.add('active');
     }
 
-    // Show editor panel
-    const editorPanel = document.getElementById('editor-panel');
-    editorPanel.classList.remove('hidden');
+    // Switch to editor tab
+    const editorTab = document.querySelector('[data-tab="editor"]');
+    if (editorTab && !editorTab.classList.contains('active')) {
+      editorTab.click();
+    }
 
     // Open file in editor
     this.editor.openFile(fileName);
@@ -242,51 +382,51 @@ export class UIController {
     if (fileName === 'stops.txt' || fileName === 'shapes.txt') {
       this.mapController.highlightFileData(fileName);
     }
-
-    // Force map resize after layout changes complete
-    setTimeout(() => {
-      this.mapController.forceMapResize();
-    }, 20);
   }
 
-  closeEditor() {
-    const editorPanel = document.getElementById('editor-panel');
 
-    // Close editor
-    this.editor.closeEditor();
+  createNewFeed() {
+    try {
+      // Reset to empty GTFS feed
+      this.gtfsParser.initializeEmpty();
+      this.updateFileList();
+      this.mapController.updateMap();
+      
+      // Clear editor
+      this.editor.clearEditor();
+      
+      // Refresh Objects navigation if available
+      if (this.objectsNavigation) {
+        this.objectsNavigation.refresh();
+      }
 
-    // Hide editor panel
-    editorPanel.classList.add('hidden');
-
-    // Clear active file styling
-    document.querySelectorAll('.file-item').forEach((item) => {
-      item.classList.remove('active');
-    });
-
-    // Force map resize after layout changes complete
-    setTimeout(() => {
-      this.mapController.forceMapResize();
-    }, 20);
-  }
-
-  toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('collapsed');
-    
-    // Force map resize after layout changes complete
-    setTimeout(() => {
-      this.mapController.forceMapResize();
-    }, 300);
+      // Run validation if callback is available
+      if (this.validateCallback) {
+        this.validateCallback();
+      }
+      
+      notifications.showSuccess('New GTFS feed created with sample data!');
+      console.log('Created new GTFS feed');
+      
+    } catch (error) {
+      console.error('Error creating new GTFS feed:', error);
+      notifications.showError(`Failed to create new GTFS feed: ${error.message}`);
+    }
   }
 
   async exportGTFS() {
+    let loadingNotificationId = null;
+    
     try {
       if (!this.gtfsParser || this.gtfsParser.getAllFileNames().length === 0) {
-        alert('No GTFS data to export');
+        notifications.showWarning('No GTFS data to export. Please load a GTFS feed first.');
         return;
       }
 
       console.log('Exporting GTFS data...');
+
+      // Show loading notification
+      loadingNotificationId = notifications.showLoading('Preparing GTFS export...');
 
       // Save current file changes
       this.editor.saveCurrentFileChanges();
@@ -303,9 +443,22 @@ export class UIController {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
+      // Remove loading notification and show success
+      if (loadingNotificationId) {
+        notifications.removeNotification(loadingNotificationId);
+      }
+      notifications.showSuccess('GTFS data exported successfully!');
+      
     } catch (error) {
       console.error('Error exporting GTFS:', error);
-      alert('Error exporting GTFS: ' + error.message);
+      
+      // Remove loading notification
+      if (loadingNotificationId) {
+        notifications.removeNotification(loadingNotificationId);
+      }
+      
+      notifications.showError(`Failed to export GTFS data: ${error.message}`);
     }
   }
 

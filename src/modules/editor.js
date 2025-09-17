@@ -219,6 +219,22 @@ export class Editor {
     this.currentFile = null;
   }
 
+  clearEditor() {
+    // Clear the editor content
+    this.setEditorValue('');
+    this.currentFile = null;
+    
+    // Clear table view
+    if (this.clusterize) {
+      this.clusterize.destroy();
+      this.clusterize = null;
+    }
+    this.tableData = null;
+    
+    // Switch to text view
+    this.switchToTextView();
+  }
+
   switchToTextView() {
     this.isTableView = false;
     this.viewPreference = false;

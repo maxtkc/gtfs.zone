@@ -293,6 +293,233 @@ export class MapController {
     console.log(`Highlighting data for ${fileName}`);
   }
 
+  // Object highlighting methods for Objects navigation
+  highlightAgencyRoutes(agencyId) {
+    const routes = this.gtfsParser.getFileData('routes.txt') || [];
+    const agencyRoutes = routes.filter(route => route.agency_id === agencyId);
+    
+    if (agencyRoutes.length === 0) return;
+    
+    // Clear existing highlights
+    this.clearHighlights();
+    
+    // Highlight all routes for this agency
+    agencyRoutes.forEach(route => {
+      this.highlightRoute(route.route_id, '#ff6b35', 6); // Orange, thicker
+    });
+    
+    // Fit map to show highlighted routes
+    this.fitToRoutes(agencyRoutes.map(r => r.route_id));
+  }
+
+  highlightRoute(routeId, color = '#ff6b35', weight = 6) {
+    const trips = this.gtfsParser.getFileData('trips.txt') || [];
+    const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    
+    // Find trips for this route
+    const routeTrips = trips.filter(trip => trip.route_id === routeId);
+    if (routeTrips.length === 0) return;
+    
+    // Create stops lookup
+    const stopsLookup = {};
+    stops.forEach(stop => {
+      if (stop.stop_lat && stop.stop_lon) {
+        stopsLookup[stop.stop_id] = {
+          lat: parseFloat(stop.stop_lat),
+          lon: parseFloat(stop.stop_lon),
+          name: stop.stop_name
+        };
+      }
+    });
+    
+    // Use first trip to create route path
+    const firstTrip = routeTrips[0];
+    const tripStopTimes = stopTimes
+      .filter(st => st.trip_id === firstTrip.trip_id)
+      .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
+    
+    const routePath = [];
+    tripStopTimes.forEach(st => {
+      const stopCoords = stopsLookup[st.stop_id];
+      if (stopCoords) {
+        routePath.push([stopCoords.lat, stopCoords.lon]);
+      }
+    });
+    
+    if (routePath.length >= 2) {
+      const highlightLine = L.polyline(routePath, {
+        color: color,
+        weight: weight,
+        opacity: 0.9,
+        className: 'highlight-route'
+      }).addTo(this.map);
+      
+      // Store for cleanup
+      if (!this.highlightLayers) this.highlightLayers = [];
+      this.highlightLayers.push(highlightLine);
+    }
+  }
+
+  highlightTrip(tripId, color = '#e74c3c', weight = 5) {
+    const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    
+    // Clear existing highlights
+    this.clearHighlights();
+    
+    // Create stops lookup
+    const stopsLookup = {};
+    stops.forEach(stop => {
+      if (stop.stop_lat && stop.stop_lon) {
+        stopsLookup[stop.stop_id] = {
+          lat: parseFloat(stop.stop_lat),
+          lon: parseFloat(stop.stop_lon),
+          name: stop.stop_name
+        };
+      }
+    });
+    
+    // Get stop times for this trip
+    const tripStopTimes = stopTimes
+      .filter(st => st.trip_id === tripId)
+      .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
+    
+    const tripPath = [];
+    const tripStops = [];
+    
+    tripStopTimes.forEach(st => {
+      const stopCoords = stopsLookup[st.stop_id];
+      if (stopCoords) {
+        tripPath.push([stopCoords.lat, stopCoords.lon]);
+        tripStops.push(stopCoords);
+      }
+    });
+    
+    if (tripPath.length >= 2) {
+      // Draw trip route
+      const highlightLine = L.polyline(tripPath, {
+        color: color,
+        weight: weight,
+        opacity: 0.9,
+        className: 'highlight-trip'
+      }).addTo(this.map);
+      
+      // Highlight stops on this trip
+      tripStops.forEach((stop, index) => {
+        const isFirst = index === 0;
+        const isLast = index === tripStops.length - 1;
+        const marker = L.circleMarker([stop.lat, stop.lon], {
+          radius: 8,
+          fillColor: isFirst ? '#27ae60' : isLast ? '#e74c3c' : color,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9,
+          className: 'highlight-stop'
+        }).addTo(this.map);
+        
+        marker.bindPopup(`
+          <strong>${stop.name}</strong><br>
+          ${isFirst ? '<span style="color: #27ae60;">First Stop</span>' : 
+            isLast ? '<span style="color: #e74c3c;">Last Stop</span>' : 'Trip Stop'}
+        `);
+        
+        if (!this.highlightLayers) this.highlightLayers = [];
+        this.highlightLayers.push(marker);
+      });
+      
+      // Store for cleanup
+      if (!this.highlightLayers) this.highlightLayers = [];
+      this.highlightLayers.push(highlightLine);
+      
+      // Fit map to trip
+      if (tripPath.length > 0) {
+        const group = new L.featureGroup([highlightLine]);
+        this.map.fitBounds(group.getBounds().pad(0.1));
+      }
+    }
+  }
+
+  highlightStop(stopId, color = '#e74c3c', radius = 12) {
+    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    
+    // Clear existing highlights
+    this.clearHighlights();
+    
+    const stop = stops.find(s => s.stop_id === stopId);
+    if (!stop || !stop.stop_lat || !stop.stop_lon) return;
+    
+    const lat = parseFloat(stop.stop_lat);
+    const lon = parseFloat(stop.stop_lon);
+    
+    // Create highlight marker
+    const highlightMarker = L.circleMarker([lat, lon], {
+      radius: radius,
+      fillColor: color,
+      color: '#ffffff',
+      weight: 3,
+      opacity: 1,
+      fillOpacity: 0.9,
+      className: 'highlight-stop-selected'
+    }).addTo(this.map);
+    
+    highlightMarker.bindPopup(`
+      <div style="min-width: 200px;">
+        <strong>${stop.stop_name || 'Unnamed Stop'}</strong><br>
+        <strong>ID:</strong> ${stop.stop_id}<br>
+        ${stop.stop_code ? `<strong>Code:</strong> ${stop.stop_code}<br>` : ''}
+        <strong>Location:</strong> ${lat.toFixed(6)}, ${lon.toFixed(6)}
+      </div>
+    `).openPopup();
+    
+    // Store for cleanup
+    if (!this.highlightLayers) this.highlightLayers = [];
+    this.highlightLayers.push(highlightMarker);
+    
+    // Center map on stop
+    this.map.setView([lat, lon], Math.max(this.map.getZoom(), 15));
+  }
+
+  clearHighlights() {
+    if (this.highlightLayers) {
+      this.highlightLayers.forEach(layer => {
+        this.map.removeLayer(layer);
+      });
+      this.highlightLayers = [];
+    }
+  }
+
+  fitToRoutes(routeIds) {
+    const trips = this.gtfsParser.getFileData('trips.txt') || [];
+    const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    
+    // Find all stops for these routes
+    const allStops = new Set();
+    
+    routeIds.forEach(routeId => {
+      const routeTrips = trips.filter(trip => trip.route_id === routeId);
+      routeTrips.forEach(trip => {
+        const tripStopTimes = stopTimes.filter(st => st.trip_id === trip.trip_id);
+        tripStopTimes.forEach(st => allStops.add(st.stop_id));
+      });
+    });
+    
+    // Get coordinates for all stops
+    const coordinates = [];
+    stops.forEach(stop => {
+      if (allStops.has(stop.stop_id) && stop.stop_lat && stop.stop_lon) {
+        coordinates.push([parseFloat(stop.stop_lat), parseFloat(stop.stop_lon)]);
+      }
+    });
+    
+    if (coordinates.length > 0) {
+      const group = new L.featureGroup(coordinates.map(coord => L.marker(coord)));
+      this.map.fitBounds(group.getBounds().pad(0.1));
+    }
+  }
+
   hideMapOverlay() {
     const welcomeOverlay = document.getElementById('map-overlay');
     if (welcomeOverlay) {

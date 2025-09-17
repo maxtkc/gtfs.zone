@@ -2,6 +2,14 @@ import { GTFSParser } from './modules/gtfs-parser.js';
 import { MapController } from './modules/map-controller.js';
 import { Editor } from './modules/editor.js';
 import { UIController } from './modules/ui.js';
+import { TabManager } from './modules/tab-manager.js';
+import { GTFSRelationships } from './modules/gtfs-relationships.js';
+import { ObjectsNavigation } from './modules/objects-navigation.js';
+import { InfoDisplay } from './modules/info-display.js';
+import { SearchController } from './modules/search-controller.js';
+import { GTFSValidator } from './modules/gtfs-validator.js';
+import { KeyboardShortcuts } from './modules/keyboard-shortcuts.js';
+import { notifications } from './modules/notification-system.js';
 import './styles/main.css';
 
 class GTFSEditor {
@@ -10,18 +18,74 @@ class GTFSEditor {
     this.mapController = new MapController();
     this.editor = new Editor();
     this.uiController = new UIController();
+    this.tabManager = new TabManager();
+    this.relationships = new GTFSRelationships(this.gtfsParser);
+    this.infoDisplay = new InfoDisplay(this.relationships);
+    this.objectsNavigation = new ObjectsNavigation(this.relationships, this.mapController, this.infoDisplay);
+    this.searchController = new SearchController(this.gtfsParser, this.mapController);
+    this.validator = new GTFSValidator(this.gtfsParser);
+    this.keyboardShortcuts = new KeyboardShortcuts(this);
     
     this.init();
   }
 
   init() {
-    // Initialize all modules
-    this.mapController.initialize(this.gtfsParser);
-    this.editor.initialize(this.gtfsParser);
-    this.uiController.initialize(this.gtfsParser, this.editor, this.mapController);
+    try {
+      // Initialize notification system
+      notifications.initialize();
+      
+      // Initialize empty GTFS feed
+      this.gtfsParser.initializeEmpty();
+      
+      // Initialize all modules
+      this.mapController.initialize(this.gtfsParser);
+      this.editor.initialize(this.gtfsParser);
+      this.infoDisplay.initialize('info-tab');
+      this.uiController.initialize(this.gtfsParser, this.editor, this.mapController, this.objectsNavigation, () => this.validateAndUpdateInfo());
+      
+      // Initialize Objects navigation
+      this.objectsNavigation.initialize('objects-navigation');
+      
+      // Initialize search controller
+      this.searchController.initialize();
+      
+      // Initialize keyboard shortcuts
+      this.keyboardShortcuts.initialize();
+      
+      // Initialize tab manager
+      this.tabManager.initialize();
+      
+      // Run initial validation and update InfoDisplay
+      this.validateAndUpdateInfo();
+      
+      // Hide welcome overlay since we always have a feed now
+      const overlay = document.getElementById('map-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+      }
+      
+      // Check for URL parameters
+      this.uiController.checkURLParams();
+      
+      // Show welcome notification
+      notifications.showInfo('Welcome to gtfs.zone! Create a new GTFS feed or upload an existing one to get started.');
+      
+    } catch (error) {
+      console.error('Failed to initialize application:', error);
+      notifications.showError('Failed to initialize application. Please refresh the page and try again.');
+    }
+  }
+
+  validateAndUpdateInfo() {
+    // Run validation
+    const validationResults = this.validator.validateFeed();
     
-    // Check for URL parameters
-    this.uiController.checkURLParams();
+    // Update InfoDisplay with validation results
+    if (this.infoDisplay && this.relationships.hasData()) {
+      this.infoDisplay.showFeedStatistics(validationResults);
+    }
+    
+    return validationResults;
   }
 }
 
