@@ -58,7 +58,7 @@
     "clusterize.js": "^1.0.0",
     "codemirror": "^6.0.2",
     "jszip": "^3.10.1",
-    "leaflet": "^1.9.4",
+    "maplibre-gl": "^5.7.2",
     "papaparse": "^5.5.3",
     "priceless-mathematica": "github:JerryI/codemirror6-mathematica-sugar"
   }
