@@ -16,6 +16,11 @@ export class TabManager {
     const tabId = button.dataset.tab;
     const panel = button.closest('.left-panel, .right-panel');
     
+    if (!panel) {
+      console.error('TabManager: Could not find panel for button', button);
+      return;
+    }
+    
     // Remove active state from all tabs in this panel
     const allTabs = panel.querySelectorAll('.tab-btn');
     const allContent = panel.querySelectorAll('.tab-content');
