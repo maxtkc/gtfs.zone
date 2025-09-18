@@ -43,6 +43,36 @@ export class UIController {
       this.createNewFeed();
     });
 
+    // Help button
+    const helpBtn = document.getElementById('help-btn');
+    if (helpBtn) {
+      helpBtn.addEventListener('click', () => {
+        this.showHelpPanel();
+      });
+    }
+
+    // Panel toggle buttons
+    const toggleLeftBtn = document.getElementById('toggle-left-panel');
+    if (toggleLeftBtn) {
+      toggleLeftBtn.addEventListener('click', () => {
+        this.toggleLeftPanel();
+      });
+    }
+
+    const closeLeftBtn = document.getElementById('close-left-panel');
+    if (closeLeftBtn) {
+      closeLeftBtn.addEventListener('click', () => {
+        this.hideLeftPanel();
+      });
+    }
+
+    const closeRightBtn = document.getElementById('close-right-panel');
+    if (closeRightBtn) {
+      closeRightBtn.addEventListener('click', () => {
+        this.hideRightPanel();
+      });
+    }
+
     const viewToggle = document.getElementById('view-toggle-checkbox');
     if (viewToggle) {
       viewToggle.addEventListener('change', (e) => {
@@ -88,6 +118,54 @@ export class UIController {
     });
   }
 
+  // Panel management methods
+  toggleLeftPanel() {
+    const panel = document.getElementById('left-panel');
+    if (panel) {
+      if (panel.classList.contains('hidden')) {
+        this.showLeftPanel();
+      } else {
+        this.hideLeftPanel();
+      }
+    }
+  }
+
+  showLeftPanel() {
+    const panel = document.getElementById('left-panel');
+    if (panel) {
+      panel.classList.remove('hidden');
+    }
+  }
+
+  hideLeftPanel() {
+    const panel = document.getElementById('left-panel');
+    if (panel) {
+      panel.classList.add('hidden');
+    }
+  }
+
+  showRightPanel() {
+    const panel = document.getElementById('right-panel');
+    if (panel) {
+      panel.classList.remove('hidden');
+    }
+  }
+
+  hideRightPanel() {
+    const panel = document.getElementById('right-panel');
+    if (panel) {
+      panel.classList.add('hidden');
+    }
+  }
+
+  showHelpPanel() {
+    this.showRightPanel();
+    const helpTab = document.querySelector('[data-tab="help"]');
+    if (helpTab) {
+      helpTab.click();
+    }
+  }
+
   initializeTabs() {
     // Initialize tab functionality
     document.addEventListener('click', (e) => {
@@ -106,8 +184,8 @@ export class UIController {
     // Remove active state from all tabs in this panel
     panel.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.remove('active');
-      btn.classList.add('text-slate-300', 'border-transparent');
-      btn.classList.remove('text-white', 'border-blue-500');
+      btn.classList.add('text-gray-500', 'border-transparent');
+      btn.classList.remove('text-gray-900', 'border-blue-500');
     });
     
     // Hide all tab content in this panel
@@ -117,8 +195,8 @@ export class UIController {
     
     // Activate clicked tab
     button.classList.add('active');
-    button.classList.remove('text-slate-300', 'border-transparent');
-    button.classList.add('text-white', 'border-blue-500');
+    button.classList.remove('text-gray-500', 'border-transparent');
+    button.classList.add('text-gray-900', 'border-blue-500');
     
     // Show corresponding content
     const content = document.getElementById(`${tabId}-tab`);
@@ -161,6 +239,9 @@ export class UIController {
       this.updateFileList();
       this.mapController.updateMap();
       this.mapController.hideMapOverlay();
+      
+      // Show left panel with files
+      this.showLeftPanel();
       
       // Refresh Objects navigation if available
       if (this.objectsNavigation) {
@@ -369,7 +450,8 @@ export class UIController {
       clickedElement.classList.add('active');
     }
 
-    // Switch to editor tab
+    // Show right panel and switch to editor tab
+    this.showRightPanel();
     const editorTab = document.querySelector('[data-tab="editor"]');
     if (editorTab && !editorTab.classList.contains('active')) {
       editorTab.click();
