@@ -10,31 +10,31 @@
     />
     <link rel="stylesheet" href="styles/main.css" />
   </head>
-  <body class="font-sans bg-gray-50 text-gray-900 h-screen overflow-hidden">
+  <body class="font-sans bg-surface-secondary text-primary h-screen overflow-hidden">
     <!-- App Container -->
     <div class="app-container h-screen grid grid-cols-[300px_1fr_400px] grid-rows-[auto_1fr]">
       
       <!-- Header -->
-      <header class="col-span-3 bg-white border-b border-gray-200 flex items-center justify-between px-6 py-4 shadow-sm">
+      <header class="col-span-3 bg-surface border-b border-primary flex items-center justify-between px-6 py-4 shadow-sm">
         <div class="flex items-center gap-3">
-          <h1 class="text-xl font-semibold text-gray-900">gtfs.zone</h1>
-          <span class="text-xs text-gray-500">powered by OpenStreetMap</span>
+          <h1 class="text-xl font-semibold text-primary">gtfs.zone</h1>
+          <span class="text-xs text-tertiary">powered by OpenStreetMap</span>
         </div>
         <div class="flex gap-3">
-          <button id="upload-btn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm">Upload</button>
-          <button id="export-btn" class="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium transition-colors shadow-sm" disabled>Export</button>
-          <button id="new-btn" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm">New</button>
-          <button id="help-btn" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md text-sm font-medium transition-colors shadow-sm">Help</button>
+          <button id="upload-btn" class="px-4 py-2 bg-primary hover:bg-primary-hover text-inverse rounded-md text-sm font-medium transition-colors shadow-sm">Upload</button>
+          <button id="export-btn" class="px-4 py-2 bg-secondary hover:bg-secondary-hover disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-inverse rounded-md text-sm font-medium transition-colors shadow-sm" disabled>Export</button>
+          <button id="new-btn" class="px-4 py-2 bg-neutral hover:bg-neutral-hover text-inverse rounded-md text-sm font-medium transition-colors shadow-sm">New</button>
+          <button id="help-btn" class="px-4 py-2 bg-neutral hover:bg-neutral-hover text-inverse rounded-md text-sm font-medium transition-colors shadow-sm">Help</button>
         </div>
       </header>
 
       <!-- Left Panel -->
-      <div class="bg-white border-r border-gray-200 flex flex-col">
+      <div class="bg-surface border-r border-primary flex flex-col">
         
         <!-- Left Panel Tabs -->
-        <div class="flex border-b border-gray-200 bg-gray-50">
-          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium text-blue-600 bg-white border-b-2 border-blue-500" data-tab="files">Files</button>
-          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 border-b-2 border-transparent" data-tab="objects">Objects</button>
+        <div class="flex border-b border-primary bg-surface-tertiary">
+          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="files">Files</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="objects">Objects</button>
         </div>
         
         <!-- Left Panel Content -->
@@ -42,7 +42,7 @@
           <!-- Files Tab Content -->
           <div id="files-tab" class="tab-content h-full">
             <div id="file-list" class="p-4 overflow-y-auto h-full">
-              <div class="text-gray-500 text-sm text-center py-8">
+              <div class="text-tertiary text-sm text-center py-8">
                 No GTFS files loaded
               </div>
             </div>
@@ -51,7 +51,7 @@
           <!-- Objects Tab Content -->
           <div id="objects-tab" class="tab-content h-full hidden">
             <div id="objects-navigation" class="p-4 overflow-y-auto h-full">
-              <div class="text-gray-500 text-sm text-center py-8">
+              <div class="text-tertiary text-sm text-center py-8">
                 No GTFS data to explore
               </div>
             </div>
@@ -65,29 +65,29 @@
         
         <!-- Map Controls -->
         <div id="map-controls" class="absolute top-4 right-4 z-40">
-          <div class="bg-white rounded-lg shadow-lg p-2">
-            <input type="text" id="map-search" placeholder="Search" class="w-48 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div class="bg-surface rounded-lg shadow-lg p-2">
+            <input type="text" id="map-search" placeholder="Search" class="w-48 px-3 py-2 border border-primary rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
 
         <!-- Welcome Overlay -->
-        <div id="map-overlay" class="absolute inset-0 bg-white flex items-center justify-center z-20">
+        <div id="map-overlay" class="absolute inset-0 bg-surface flex items-center justify-center z-20">
           <div class="text-center max-w-md mx-auto px-6">
             <div class="text-6xl mb-6">🚌</div>
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">Welcome to gtfs.zone</h2>
-            <p class="text-lg text-gray-600">Upload a GTFS file to visualize transit routes and stops</p>
+            <h2 class="text-3xl font-bold text-primary mb-4">Welcome to gtfs.zone</h2>
+            <p class="text-lg text-secondary">Upload a GTFS file to visualize transit routes and stops</p>
           </div>
         </div>
       </div>
 
       <!-- Right Panel -->
-      <div class="bg-white border-l border-gray-200 flex flex-col">
+      <div class="bg-surface border-l border-primary flex flex-col">
         
         <!-- Right Panel Tabs -->
-        <div class="flex border-b border-gray-200 bg-gray-50">
-          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium text-blue-600 bg-white border-b-2 border-blue-500" data-tab="editor">Editor</button>
-          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 border-b-2 border-transparent" data-tab="info">Info</button>
-          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-100 border-b-2 border-transparent" data-tab="help">Help</button>
+        <div class="flex border-b border-primary bg-surface-tertiary">
+          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="editor">Editor</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="info">Info</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="help">Help</button>
         </div>
         
         <!-- Right Panel Content -->
@@ -96,17 +96,17 @@
           <div id="editor-tab" class="tab-content h-full">
             <div class="h-full flex flex-col">
               <!-- Editor Controls -->
-              <div class="flex items-center gap-4 p-4 border-b border-gray-200">
+              <div class="flex items-center gap-4 p-4 border-b border-primary">
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium text-gray-700">Current file:</span>
-                  <span id="current-file-name" class="text-sm text-gray-500">None</span>
+                  <span class="text-sm font-medium text-secondary">Current file:</span>
+                  <span id="current-file-name" class="text-sm text-tertiary">None</span>
                 </div>
                 
                 <!-- View Toggle -->
                 <div class="flex items-center gap-2">
-                  <span class="toggle-text text-option active text-sm font-medium text-gray-700 cursor-pointer px-2 py-1 bg-white rounded shadow">Text</span>
+                  <span class="toggle-text text-option active text-sm font-medium text-secondary cursor-pointer px-2 py-1 bg-surface rounded shadow">Text</span>
                   <input type="checkbox" id="view-toggle-checkbox" class="hidden">
-                  <span class="toggle-text table-option text-sm font-medium text-gray-700 cursor-pointer px-2 py-1 hover:bg-gray-100 rounded">Table</span>
+                  <span class="toggle-text table-option text-sm font-medium text-secondary cursor-pointer px-2 py-1 hover:bg-hover rounded">Table</span>
                 </div>
               </div>
               
@@ -129,7 +129,7 @@
           <!-- Info Tab Content -->
           <div id="info-tab" class="tab-content h-full hidden">
             <div class="p-4 overflow-y-auto h-full">
-              <div class="text-gray-500 text-sm">
+              <div class="text-tertiary text-sm">
                 Select an object to see details
               </div>
             </div>
@@ -138,7 +138,7 @@
           <!-- Help Tab Content -->
           <div id="help-tab" class="tab-content h-full hidden">
             <div class="p-4 overflow-y-auto h-full">
-              <div class="text-gray-700">
+              <div class="text-secondary">
                 
                 <!-- Getting Started Section -->
                 <h3 class="text-lg font-semibold mb-3 text-slate-800">🚀 Getting Started</h3>
