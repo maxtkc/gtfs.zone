@@ -1,6 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
+import typescript from '@rollup/plugin-typescript';
 // import html from '@rollup/plugin-html';
 import copy from 'rollup-plugin-copy';
 import postcss from 'rollup-plugin-postcss';
@@ -8,13 +9,20 @@ import postcss from 'rollup-plugin-postcss';
 const isProduction = process.env.NODE_ENV === 'production';
 
 export default {
-  input: 'src/index.js',
+  input: 'src/index.ts',
   output: {
     file: 'dist/bundle.js',
     format: 'iife',
     sourcemap: true
   },
   plugins: [
+    // TypeScript compilation
+    typescript({
+      sourceMap: true,
+      declaration: false,
+      target: 'ES2020'
+    }),
+    
     // Resolve and bundle dependencies
     resolve({
       browser: true,
