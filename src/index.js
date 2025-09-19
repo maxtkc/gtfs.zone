@@ -21,7 +21,7 @@ class GTFSEditor {
     this.tabManager = new TabManager();
     this.relationships = new GTFSRelationships(this.gtfsParser);
     this.infoDisplay = new InfoDisplay(this.relationships);
-    this.objectsNavigation = new ObjectsNavigation(this.relationships, this.mapController, this.infoDisplay);
+    this.objectsNavigation = new ObjectsNavigation(this.relationships, this.mapController);
     this.searchController = new SearchController(this.gtfsParser, this.mapController);
     this.validator = new GTFSValidator(this.gtfsParser);
     this.keyboardShortcuts = new KeyboardShortcuts(this);
@@ -40,11 +40,14 @@ class GTFSEditor {
       // Initialize all modules
       this.mapController.initialize(this.gtfsParser);
       this.editor.initialize(this.gtfsParser);
-      this.infoDisplay.initialize('info-tab');
+      // Note: InfoDisplay is not used in the new UI structure
       this.uiController.initialize(this.gtfsParser, this.editor, this.mapController, this.objectsNavigation, () => this.validateAndUpdateInfo());
       
       // Initialize Objects navigation
       this.objectsNavigation.initialize('objects-navigation');
+      
+      // Set up circular reference
+      this.objectsNavigation.uiController = this.uiController;
       
       // Initialize search controller
       this.searchController.initialize();
@@ -80,10 +83,8 @@ class GTFSEditor {
     // Run validation
     const validationResults = this.validator.validateFeed();
     
-    // Update InfoDisplay with validation results
-    if (this.infoDisplay && this.relationships.hasData()) {
-      this.infoDisplay.showFeedStatistics(validationResults);
-    }
+    // Note: InfoDisplay is not used in the new UI structure
+    // Validation results are displayed in the object details view when relevant
     
     return validationResults;
   }

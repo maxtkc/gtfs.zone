@@ -5,10 +5,10 @@
  */
 
 export class ObjectsNavigation {
-  constructor(gtfsRelationships, mapController, infoDisplay = null) {
+  constructor(gtfsRelationships, mapController) {
     this.relationships = gtfsRelationships;
     this.mapController = mapController;
-    this.infoDisplay = infoDisplay;
+    this.uiController = null; // Will be set after initialization
     this.currentView = 'agencies'; // agencies, routes, trips, stop-times, stop-detail
     this.breadcrumb = [];
     this.container = null;
@@ -475,57 +475,68 @@ export class ObjectsNavigation {
     const agency = agencies.find(a => a.id === agencyId);
     
     if (agency) {
-      this.breadcrumb = [{ id: agencyId, name: agency.name, type: 'agency' }];
-      this.currentView = 'routes';
-      this.render();
+      // Get routes for this agency to show as related objects
+      const routes = this.relationships.getRoutesForAgency(agencyId);
+      const relatedObjects = routes.map(route => ({
+        name: route.shortName ? `${route.shortName} - ${route.longName || route.id}` : (route.longName || route.id),
+        type: 'Route',
+        data: route,
+        relatedObjects: [] // We can add trips here later if needed
+      }));
+      
+      // Show agency details in the object details view
+      if (this.uiController) {
+        this.uiController.showObjectDetails('Agency', agency, relatedObjects);
+      }
       
       // Highlight agency routes on map
       this.highlightAgencyOnMap(agencyId);
-      
-      // Show agency details in Info tab
-      if (this.infoDisplay) {
-        this.infoDisplay.showAgencyDetails(agencyId);
-      }
     }
   }
 
   navigateToRoute(routeId) {
-    const currentAgency = this.breadcrumb[0];
-    const routes = this.relationships.getRoutesForAgency(currentAgency.id);
-    const route = routes.find(r => r.id === routeId);
+    const route = this.relationships.getRouteById(routeId);
     
     if (route) {
-      this.breadcrumb[1] = { id: routeId, name: route.shortName || route.longName || routeId, type: 'route' };
-      this.currentView = 'trips';
-      this.render();
+      // Get trips for this route to show as related objects
+      const trips = this.relationships.getTripsForRoute(routeId);
+      const relatedObjects = trips.map(trip => ({
+        name: trip.headsign || trip.id,
+        type: 'Trip',
+        data: trip,
+        relatedObjects: []
+      }));
+      
+      // Show route details in the object details view
+      if (this.uiController) {
+        this.uiController.showObjectDetails('Route', route, relatedObjects);
+      }
       
       // Highlight route on map
       this.highlightRouteOnMap(routeId);
-      
-      // Show route details in Info tab
-      if (this.infoDisplay) {
-        this.infoDisplay.showRouteDetails(routeId);
-      }
     }
   }
 
   navigateToTrip(tripId) {
-    const currentRoute = this.breadcrumb[1];
-    const trips = this.relationships.getTripsForRoute(currentRoute.id);
-    const trip = trips.find(t => t.id === tripId);
+    const trip = this.relationships.getTripById(tripId);
     
     if (trip) {
-      this.breadcrumb[2] = { id: tripId, name: trip.headsign || tripId, type: 'trip' };
-      this.currentView = 'stop-times';
-      this.render();
+      // Get stop times for this trip to show as related objects
+      const stopTimes = this.relationships.getStopTimesForTrip(tripId);
+      const relatedObjects = stopTimes.map(stopTime => ({
+        name: stopTime.stop ? stopTime.stop.name : stopTime.stopId,
+        type: 'Stop',
+        data: stopTime.stop || { stop_id: stopTime.stopId },
+        relatedObjects: []
+      }));
+      
+      // Show trip details in the object details view
+      if (this.uiController) {
+        this.uiController.showObjectDetails('Trip', trip, relatedObjects);
+      }
       
       // Highlight trip on map
       this.highlightTripOnMap(tripId);
-      
-      // Show trip details in Info tab
-      if (this.infoDisplay) {
-        this.infoDisplay.showTripDetails(tripId);
-      }
     }
   }
 
@@ -533,17 +544,22 @@ export class ObjectsNavigation {
     const stop = this.relationships.getStopById(stopId);
     
     if (stop) {
-      this.breadcrumb[3] = { id: stopId, name: stop.name, type: 'stop' };
-      this.currentView = 'stop-detail';
-      this.render();
+      // Get trips for this stop to show as related objects
+      const trips = this.relationships.getTripsForStop(stopId);
+      const relatedObjects = trips.map(trip => ({
+        name: trip.headsign || trip.id,
+        type: 'Trip',
+        data: trip,
+        relatedObjects: []
+      }));
+      
+      // Show stop details in the object details view
+      if (this.uiController) {
+        this.uiController.showObjectDetails('Stop', stop, relatedObjects);
+      }
       
       // Highlight stop on map
       this.highlightStopOnMap(stopId);
-      
-      // Show stop details in Info tab
-      if (this.infoDisplay) {
-        this.infoDisplay.showStopDetails(stopId);
-      }
     }
   }
 

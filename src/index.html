@@ -12,10 +12,10 @@
   </head>
   <body class="font-sans bg-surface-secondary text-primary h-screen overflow-hidden">
     <!-- App Container -->
-    <div class="app-container h-screen grid grid-cols-[300px_1fr_400px] grid-rows-[auto_1fr]">
+    <div class="app-container h-screen grid grid-cols-[1fr_400px] grid-rows-[auto_1fr]">
       
       <!-- Header -->
-      <header class="col-span-3 bg-surface border-b border-primary flex items-center justify-between px-6 py-4 shadow-sm">
+      <header class="col-span-2 bg-surface border-b border-primary flex items-center justify-between px-6 py-4 shadow-sm">
         <div class="flex items-center gap-3">
           <h1 class="text-xl font-semibold text-primary">gtfs.zone</h1>
           <span class="text-xs text-tertiary">powered by OpenStreetMap</span>
@@ -27,37 +27,6 @@
           <button id="help-btn" class="px-4 py-2 bg-neutral hover:bg-neutral-hover text-inverse rounded-md text-sm font-medium transition-colors shadow-sm">Help</button>
         </div>
       </header>
-
-      <!-- Left Panel -->
-      <div class="left-panel bg-surface border-r border-primary flex flex-col">
-        
-        <!-- Left Panel Tabs -->
-        <div class="flex border-b border-primary bg-surface-tertiary">
-          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="files">Files</button>
-          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="objects">Objects</button>
-        </div>
-        
-        <!-- Left Panel Content -->
-        <div class="flex-1 overflow-hidden">
-          <!-- Files Tab Content -->
-          <div id="files-tab" class="tab-content h-full">
-            <div id="file-list" class="p-4 overflow-y-auto h-full">
-              <div class="text-tertiary text-sm text-center py-8">
-                No GTFS files loaded
-              </div>
-            </div>
-          </div>
-          
-          <!-- Objects Tab Content -->
-          <div id="objects-tab" class="tab-content h-full hidden">
-            <div id="objects-navigation" class="p-4 overflow-y-auto h-full">
-              <div class="text-tertiary text-sm text-center py-8">
-                No GTFS data to explore
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- Map Container -->
       <div class="relative bg-gray-100">
@@ -85,52 +54,100 @@
         
         <!-- Right Panel Tabs -->
         <div class="flex border-b border-primary bg-surface-tertiary">
-          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="editor">Editor</button>
-          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="info">Info</button>
+          <button class="tab-btn active flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="files">Files</button>
+          <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="objects">Objects</button>
           <button class="tab-btn flex-1 px-4 py-3 text-sm font-medium border-b-2" data-tab="help">Help</button>
         </div>
         
         <!-- Right Panel Content -->
         <div class="flex-1 overflow-hidden">
-          <!-- Editor Tab Content -->
-          <div id="editor-tab" class="tab-content h-full">
-            <div class="h-full flex flex-col">
-              <!-- Editor Controls -->
-              <div class="flex items-center gap-4 p-4 border-b border-primary">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium text-secondary">Current file:</span>
-                  <span id="current-file-name" class="text-sm text-tertiary">None</span>
-                </div>
-                
-                <!-- View Toggle -->
-                <div class="flex items-center gap-2">
-                  <span class="toggle-text text-option active text-sm font-medium text-secondary cursor-pointer px-2 py-1 bg-surface rounded shadow">Text</span>
-                  <input type="checkbox" id="view-toggle-checkbox" class="hidden">
-                  <span class="toggle-text table-option text-sm font-medium text-secondary cursor-pointer px-2 py-1 hover:bg-hover rounded">Table</span>
+          <!-- Files Tab Content -->
+          <div id="files-tab" class="tab-content h-full">
+            <!-- File List View -->
+            <div id="file-list-view" class="h-full">
+              <div id="file-list" class="p-4 overflow-y-auto h-full">
+                <div class="text-tertiary text-sm text-center py-8">
+                  No GTFS files loaded
                 </div>
               </div>
-              
-              <!-- Editor Content -->
-              <div class="flex-1 overflow-hidden">
-                <div id="text-editor-view" class="h-full">
-                  <div id="simple-editor-container" class="h-full">
-                    <div id="simple-editor" class="h-full"></div>
+            </div>
+            
+            <!-- File Editor View -->
+            <div id="file-editor-view" class="h-full hidden">
+              <div class="h-full flex flex-col">
+                <!-- Editor Header -->
+                <div class="flex items-center gap-4 p-4 border-b border-primary">
+                  <button id="back-to-files" class="text-sm text-secondary hover:text-primary">← Back to Files</button>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-secondary">Editing:</span>
+                    <span id="current-file-name" class="text-sm text-primary font-medium">None</span>
+                  </div>
+                  
+                  <!-- View Toggle -->
+                  <div class="flex items-center gap-2 ml-auto">
+                    <span class="toggle-text text-option active text-sm font-medium text-secondary cursor-pointer px-2 py-1 bg-surface rounded shadow" data-view="text">Text</span>
+                    <input type="checkbox" id="view-toggle-checkbox" class="hidden">
+                    <span class="toggle-text table-option text-sm font-medium text-secondary cursor-pointer px-2 py-1 hover:bg-hover rounded" data-view="table">Table</span>
                   </div>
                 </div>
-                <div id="table-editor-view" class="h-full hidden">
-                  <div id="table-container" class="h-full overflow-auto">
-                    <div id="table-editor" class="h-full"></div>
+                
+                <!-- Editor Content -->
+                <div class="flex-1 overflow-hidden">
+                  <div id="text-editor-view" class="h-full">
+                    <div id="simple-editor-container" class="h-full">
+                      <div id="simple-editor" class="h-full"></div>
+                    </div>
+                  </div>
+                  <div id="table-editor-view" class="h-full hidden">
+                    <div id="table-container" class="h-full overflow-auto">
+                      <div id="table-editor" class="h-full"></div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           
-          <!-- Info Tab Content -->
-          <div id="info-tab" class="tab-content h-full hidden">
-            <div class="p-4 overflow-y-auto h-full">
-              <div class="text-tertiary text-sm">
-                Select an object to see details
+          <!-- Objects Tab Content -->
+          <div id="objects-tab" class="tab-content h-full hidden">
+            <!-- Objects List View -->
+            <div id="objects-list-view" class="h-full">
+              <div id="objects-navigation" class="p-4 overflow-y-auto h-full">
+                <div class="text-tertiary text-sm text-center py-8">
+                  No GTFS data to explore
+                </div>
+              </div>
+            </div>
+            
+            <!-- Object Details View -->
+            <div id="object-details-view" class="h-full hidden">
+              <div class="h-full flex flex-col">
+                <!-- Object Header -->
+                <div class="flex items-center gap-4 p-4 border-b border-primary">
+                  <button id="back-to-objects" class="text-sm text-secondary hover:text-primary">← Back to Objects</button>
+                  <div class="flex items-center gap-2">
+                    <span id="object-type" class="text-sm font-medium text-secondary">Agency</span>
+                    <span id="object-name" class="text-sm text-primary font-medium">None</span>
+                  </div>
+                </div>
+                
+                <!-- Object Properties -->
+                <div class="flex-1 overflow-y-auto">
+                  <div class="p-4">
+                    <h3 class="text-sm font-semibold text-primary mb-3">Properties</h3>
+                    <div id="object-properties" class="space-y-3">
+                      <!-- Properties will be populated here -->
+                    </div>
+                  </div>
+                  
+                  <!-- Related Objects -->
+                  <div class="border-t border-primary p-4">
+                    <h3 class="text-sm font-semibold text-primary mb-3">Related Objects</h3>
+                    <div id="related-objects" class="space-y-2">
+                      <!-- Related objects will be populated here -->
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

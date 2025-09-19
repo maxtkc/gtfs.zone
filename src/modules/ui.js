@@ -51,6 +51,22 @@ export class UIController {
       });
     }
 
+    // Back to files button
+    const backToFilesBtn = document.getElementById('back-to-files');
+    if (backToFilesBtn) {
+      backToFilesBtn.addEventListener('click', () => {
+        this.showFileList();
+      });
+    }
+
+    // Back to objects button
+    const backToObjectsBtn = document.getElementById('back-to-objects');
+    if (backToObjectsBtn) {
+      backToObjectsBtn.addEventListener('click', () => {
+        this.showObjectsList();
+      });
+    }
+
     // Panel toggle buttons
     const toggleLeftBtn = document.getElementById('toggle-left-panel');
     if (toggleLeftBtn) {
@@ -118,48 +134,8 @@ export class UIController {
     });
   }
 
-  // Panel management methods
-  toggleLeftPanel() {
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      if (panel.classList.contains('hidden')) {
-        this.showLeftPanel();
-      } else {
-        this.hideLeftPanel();
-      }
-    }
-  }
-
-  showLeftPanel() {
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      panel.classList.remove('hidden');
-    }
-  }
-
-  hideLeftPanel() {
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      panel.classList.add('hidden');
-    }
-  }
-
-  showRightPanel() {
-    const panel = document.getElementById('right-panel');
-    if (panel) {
-      panel.classList.remove('hidden');
-    }
-  }
-
-  hideRightPanel() {
-    const panel = document.getElementById('right-panel');
-    if (panel) {
-      panel.classList.add('hidden');
-    }
-  }
 
   showHelpPanel() {
-    this.showRightPanel();
     const helpTab = document.querySelector('[data-tab="help"]');
     if (helpTab) {
       helpTab.click();
@@ -240,8 +216,8 @@ export class UIController {
       this.mapController.updateMap();
       this.mapController.hideMapOverlay();
       
-      // Show left panel with files
-      this.showLeftPanel();
+      // Show files tab
+      this.showFileList();
       
       // Refresh Objects navigation if available
       if (this.objectsNavigation) {
@@ -450,20 +426,135 @@ export class UIController {
       clickedElement.classList.add('active');
     }
 
-    // Show right panel and switch to editor tab
-    this.showRightPanel();
-    const editorTab = document.querySelector('[data-tab="editor"]');
-    if (editorTab && !editorTab.classList.contains('active')) {
-      editorTab.click();
-    }
-
-    // Open file in editor
-    this.editor.openFile(fileName);
+    // Show file editor view
+    this.showFileEditor(fileName);
 
     // Update map if it's a spatial file
     if (fileName === 'stops.txt' || fileName === 'shapes.txt') {
       this.mapController.highlightFileData(fileName);
     }
+  }
+
+  showFileList() {
+    const listView = document.getElementById('file-list-view');
+    const editorView = document.getElementById('file-editor-view');
+    if (listView && editorView) {
+      listView.classList.remove('hidden');
+      editorView.classList.add('hidden');
+    }
+  }
+
+  showFileEditor(fileName) {
+    const listView = document.getElementById('file-list-view');
+    const editorView = document.getElementById('file-editor-view');
+    if (listView && editorView) {
+      listView.classList.add('hidden');
+      editorView.classList.remove('hidden');
+      
+      // Update file name display
+      const currentFileNameEl = document.getElementById('current-file-name');
+      if (currentFileNameEl) {
+        currentFileNameEl.textContent = fileName;
+      }
+      
+      // Open file in editor
+      this.editor.openFile(fileName);
+    }
+  }
+
+  showObjectsList() {
+    const listView = document.getElementById('objects-list-view');
+    const detailsView = document.getElementById('object-details-view');
+    if (listView && detailsView) {
+      listView.classList.remove('hidden');
+      detailsView.classList.add('hidden');
+    }
+  }
+
+  showObjectDetails(objectType, objectData, relatedObjects = []) {
+    const listView = document.getElementById('objects-list-view');
+    const detailsView = document.getElementById('object-details-view');
+    if (listView && detailsView) {
+      listView.classList.add('hidden');
+      detailsView.classList.remove('hidden');
+      
+      // Update object info
+      const objectTypeEl = document.getElementById('object-type');
+      const objectNameEl = document.getElementById('object-name');
+      if (objectTypeEl && objectNameEl) {
+        objectTypeEl.textContent = objectType;
+        objectNameEl.textContent = objectData.agency_name || objectData.route_short_name || objectData.stop_name || objectData.trip_id || 'Unknown';
+      }
+      
+      // Populate properties
+      this.populateObjectProperties(objectData);
+      
+      // Populate related objects
+      this.populateRelatedObjects(relatedObjects);
+    }
+  }
+
+  populateObjectProperties(objectData) {
+    const container = document.getElementById('object-properties');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    Object.entries(objectData).forEach(([key, value]) => {
+      const propertyEl = document.createElement('div');
+      propertyEl.className = 'flex flex-col gap-1';
+      
+      const labelEl = document.createElement('label');
+      labelEl.className = 'text-xs font-medium text-secondary';
+      labelEl.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      
+      const inputEl = document.createElement('input');
+      inputEl.className = 'text-sm px-2 py-1 border border-primary rounded focus:outline-none focus:ring-1 focus:ring-blue-500';
+      inputEl.type = 'text';
+      inputEl.value = value || '';
+      inputEl.dataset.property = key;
+      
+      propertyEl.appendChild(labelEl);
+      propertyEl.appendChild(inputEl);
+      container.appendChild(propertyEl);
+    });
+  }
+
+  populateRelatedObjects(relatedObjects) {
+    const container = document.getElementById('related-objects');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (relatedObjects.length === 0) {
+      const noRelatedEl = document.createElement('div');
+      noRelatedEl.className = 'text-tertiary text-sm';
+      noRelatedEl.textContent = 'No related objects';
+      container.appendChild(noRelatedEl);
+      return;
+    }
+    
+    relatedObjects.forEach(obj => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'flex items-center justify-between p-2 bg-surface-secondary rounded cursor-pointer hover:bg-hover';
+      
+      const nameEl = document.createElement('span');
+      nameEl.className = 'text-sm text-primary';
+      nameEl.textContent = obj.name;
+      
+      const typeEl = document.createElement('span');
+      typeEl.className = 'text-xs text-tertiary';
+      typeEl.textContent = obj.type;
+      
+      itemEl.appendChild(nameEl);
+      itemEl.appendChild(typeEl);
+      
+      itemEl.addEventListener('click', () => {
+        this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
+      });
+      
+      container.appendChild(itemEl);
+    });
   }
 
 
