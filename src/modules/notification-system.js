@@ -18,7 +18,7 @@ export class NotificationSystem {
     const {
       autoHide = true,
       duration = this.autoHideDelay,
-      actions = []
+      actions = [],
     } = options;
 
     const notification = {
@@ -28,7 +28,7 @@ export class NotificationSystem {
       autoHide,
       duration,
       actions,
-      element: null
+      element: null,
     };
 
     this.notifications.push(notification);
@@ -36,8 +36,11 @@ export class NotificationSystem {
 
     // Remove oldest notifications if we exceed the limit
     if (this.notifications.length > this.maxNotifications) {
-      const toRemove = this.notifications.splice(0, this.notifications.length - this.maxNotifications);
-      toRemove.forEach(n => this.removeNotification(n.id));
+      const toRemove = this.notifications.splice(
+        0,
+        this.notifications.length - this.maxNotifications
+      );
+      toRemove.forEach((n) => this.removeNotification(n.id));
     }
 
     // Auto-hide if enabled
@@ -51,19 +54,35 @@ export class NotificationSystem {
   }
 
   showError(message, options = {}) {
-    return this.show(message, 'error', { autoHide: true, duration: 8000, ...options });
+    return this.show(message, 'error', {
+      autoHide: true,
+      duration: 8000,
+      ...options,
+    });
   }
 
   showWarning(message, options = {}) {
-    return this.show(message, 'warning', { autoHide: true, duration: 6000, ...options });
+    return this.show(message, 'warning', {
+      autoHide: true,
+      duration: 6000,
+      ...options,
+    });
   }
 
   showSuccess(message, options = {}) {
-    return this.show(message, 'success', { autoHide: true, duration: 4000, ...options });
+    return this.show(message, 'success', {
+      autoHide: true,
+      duration: 4000,
+      ...options,
+    });
   }
 
   showInfo(message, options = {}) {
-    return this.show(message, 'info', { autoHide: true, duration: 5000, ...options });
+    return this.show(message, 'info', {
+      autoHide: true,
+      duration: 5000,
+      ...options,
+    });
   }
 
   showLoading(message, options = {}) {
@@ -78,7 +97,7 @@ export class NotificationSystem {
       warning: '⚠️',
       success: '✅',
       info: 'ℹ️',
-      loading: '⏳'
+      loading: '⏳',
     };
 
     const colorMap = {
@@ -86,7 +105,7 @@ export class NotificationSystem {
       warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
       success: 'bg-green-50 border-green-200 text-green-800',
       info: 'bg-blue-50 border-blue-200 text-blue-800',
-      loading: 'bg-gray-50 border-gray-200 text-gray-800'
+      loading: 'bg-gray-50 border-gray-200 text-gray-800',
     };
 
     const element = document.createElement('div');
@@ -98,14 +117,18 @@ export class NotificationSystem {
     if (actions.length > 0) {
       actionsHtml = `
         <div class="mt-3 flex gap-2">
-          ${actions.map(action => `
+          ${actions
+            .map(
+              (action) => `
             <button 
               class="notification-action text-xs px-2 py-1 rounded ${action.primary ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'} hover:opacity-80"
               data-action="${action.id}"
             >
               ${action.label}
             </button>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       `;
     }
@@ -143,10 +166,10 @@ export class NotificationSystem {
 
     // Add action listeners
     const actionBtns = element.querySelectorAll('.notification-action');
-    actionBtns.forEach(btn => {
+    actionBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const actionId = btn.dataset.action;
-        const action = actions.find(a => a.id === actionId);
+        const action = actions.find((a) => a.id === actionId);
         if (action && action.handler) {
           action.handler();
         }
@@ -156,11 +179,15 @@ export class NotificationSystem {
   }
 
   removeNotification(id) {
-    const notificationIndex = this.notifications.findIndex(n => n.id === id);
-    if (notificationIndex === -1) return;
+    const notificationIndex = this.notifications.findIndex((n) => n.id === id);
+    if (notificationIndex === -1) {
+      return;
+    }
 
     const notification = this.notifications[notificationIndex];
-    if (!notification.element) return;
+    if (!notification.element) {
+      return;
+    }
 
     // Animate out
     notification.element.style.opacity = '0';
@@ -175,14 +202,16 @@ export class NotificationSystem {
   }
 
   removeAllNotifications() {
-    this.notifications.forEach(notification => {
+    this.notifications.forEach((notification) => {
       this.removeNotification(notification.id);
     });
   }
 
   updateNotification(id, newMessage, newType = null) {
-    const notification = this.notifications.find(n => n.id === id);
-    if (!notification) return;
+    const notification = this.notifications.find((n) => n.id === id);
+    if (!notification) {
+      return;
+    }
 
     notification.message = newMessage;
     if (newType) {
@@ -192,7 +221,7 @@ export class NotificationSystem {
     // Re-render the notification
     const oldElement = notification.element;
     this.renderNotification(notification);
-    
+
     if (oldElement && oldElement.parentNode) {
       oldElement.parentNode.replaceChild(notification.element, oldElement);
     }

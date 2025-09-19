@@ -36,14 +36,14 @@ export class GTFSParser {
           agency_id: 'metro-transit',
           agency_name: 'Metro Transit',
           agency_url: 'https://metro.example.com',
-          agency_timezone: 'America/New_York'
+          agency_timezone: 'America/New_York',
         },
         {
           agency_id: 'city-bus',
           agency_name: 'City Bus',
           agency_url: 'https://citybus.example.com',
-          agency_timezone: 'America/New_York'
-        }
+          agency_timezone: 'America/New_York',
+        },
       ],
       'routes.txt': [
         {
@@ -51,87 +51,87 @@ export class GTFSParser {
           agency_id: 'metro-transit',
           route_short_name: '1',
           route_long_name: 'Downtown Express',
-          route_type: '3'
+          route_type: '3',
         },
         {
           route_id: 'metro-2',
           agency_id: 'metro-transit',
           route_short_name: '2',
           route_long_name: 'Uptown Local',
-          route_type: '3'
+          route_type: '3',
         },
         {
           route_id: 'city-a',
           agency_id: 'city-bus',
           route_short_name: 'A',
           route_long_name: 'Airport Shuttle',
-          route_type: '3'
+          route_type: '3',
         },
         {
           route_id: 'city-b',
           agency_id: 'city-bus',
           route_short_name: 'B',
           route_long_name: 'Beach Route',
-          route_type: '3'
-        }
+          route_type: '3',
+        },
       ],
       'trips.txt': [
         {
           route_id: 'metro-1',
           service_id: 'weekday',
           trip_id: 'metro-1-downtown',
-          trip_headsign: 'Downtown'
+          trip_headsign: 'Downtown',
         },
         {
           route_id: 'metro-1',
           service_id: 'weekday',
           trip_id: 'metro-1-uptown',
-          trip_headsign: 'Uptown'
+          trip_headsign: 'Uptown',
         },
         {
           route_id: 'metro-2',
           service_id: 'weekday',
           trip_id: 'metro-2-local',
-          trip_headsign: 'Local Service'
+          trip_headsign: 'Local Service',
         },
         {
           route_id: 'city-a',
           service_id: 'everyday',
           trip_id: 'city-a-airport',
-          trip_headsign: 'Airport Terminal'
-        }
+          trip_headsign: 'Airport Terminal',
+        },
       ],
       'stops.txt': [
         {
           stop_id: 'downtown-station',
           stop_name: 'Downtown Station',
           stop_lat: '40.7128',
-          stop_lon: '-74.0060'
+          stop_lon: '-74.0060',
         },
         {
           stop_id: 'main-street',
           stop_name: 'Main Street & 5th Ave',
           stop_lat: '40.7614',
-          stop_lon: '-73.9776'
+          stop_lon: '-73.9776',
         },
         {
           stop_id: 'uptown-plaza',
           stop_name: 'Uptown Plaza',
           stop_lat: '40.7831',
-          stop_lon: '-73.9712'
+          stop_lon: '-73.9712',
         },
         {
           stop_id: 'airport-terminal',
           stop_name: 'Airport Terminal',
           stop_lat: '40.6892',
-          stop_lon: '-74.1745'
+          stop_lon: '-74.1745',
         },
         {
           stop_id: 'beach-pier',
           stop_name: 'Beach Pier',
           stop_lat: '40.5795',
-          stop_lon: '-73.8370'
-        }
+          stop_lon: '-73.8370',
+        },
       ],
       'stop_times.txt': [
         // Metro Route 1 - Downtown
@@ -140,21 +140,21 @@ export class GTFSParser {
           arrival_time: '08:00:00',
           departure_time: '08:00:00',
           stop_id: 'uptown-plaza',
-          stop_sequence: '1'
+          stop_sequence: '1',
         },
         {
           trip_id: 'metro-1-downtown',
           arrival_time: '08:15:00',
           departure_time: '08:15:00',
           stop_id: 'main-street',
-          stop_sequence: '2'
+          stop_sequence: '2',
         },
         {
           trip_id: 'metro-1-downtown',
           arrival_time: '08:30:00',
           departure_time: '08:30:00',
           stop_id: 'downtown-station',
-          stop_sequence: '3'
+          stop_sequence: '3',
         },
         // City Route A - Airport
         {
@@ -162,15 +162,15 @@ export class GTFSParser {
           arrival_time: '09:00:00',
           departure_time: '09:00:00',
           stop_id: 'downtown-station',
-          stop_sequence: '1'
+          stop_sequence: '1',
         },
         {
           trip_id: 'city-a-airport',
           arrival_time: '09:45:00',
           departure_time: '09:45:00',
           stop_id: 'airport-terminal',
-          stop_sequence: '2'
-        }
+          stop_sequence: '2',
+        },
       ],
       'calendar.txt': [
         {
@@ -183,7 +183,7 @@ export class GTFSParser {
           saturday: '0',
           sunday: '0',
           start_date: '20240101',
-          end_date: '20241231'
+          end_date: '20241231',
         },
         {
           service_id: 'everyday',
@@ -195,9 +195,9 @@ export class GTFSParser {
           saturday: '1',
           sunday: '1',
           start_date: '20240101',
-          end_date: '20241231'
-        }
-      ]
+          end_date: '20241231',
+        },
+      ],
     };
 
     // Convert to expected format with content and data properties
@@ -208,17 +208,19 @@ export class GTFSParser {
         const headers = Object.keys(data[0]);
         const csvContent = [
           headers.join(','),
-          ...data.map(row => headers.map(header => row[header] || '').join(','))
+          ...data.map((row) =>
+            headers.map((header) => row[header] || '').join(',')
+          ),
         ].join('\n');
-        
+
         this.gtfsData[fileName] = {
           content: csvContent,
           data: data,
-          errors: []
+          errors: [],
         };
       }
     }
-    
+
     console.log('Initialized empty GTFS feed with sample data');
     console.log('Final gtfsData structure:', this.gtfsData);
   }
@@ -288,7 +290,7 @@ export class GTFSParser {
   updateFileContent(fileName, content) {
     if (this.gtfsData[fileName]) {
       this.gtfsData[fileName].content = content;
-      
+
       // Re-parse CSV if it's a text file
       if (fileName.endsWith('.txt')) {
         const parsed = Papa.parse(content, {
@@ -319,7 +321,8 @@ export class GTFSParser {
       required: allFiles.filter((f) => GTFS_FILES.required.includes(f)),
       optional: allFiles.filter((f) => GTFS_FILES.optional.includes(f)),
       other: allFiles.filter(
-        (f) => !GTFS_FILES.required.includes(f) && !GTFS_FILES.optional.includes(f)
+        (f) =>
+          !GTFS_FILES.required.includes(f) && !GTFS_FILES.optional.includes(f)
       ),
     };
   }
@@ -366,12 +369,12 @@ export class GTFSParser {
 
   getWheelchairText(wheelchairBoarding) {
     switch (wheelchairBoarding) {
-    case '1':
-      return 'Accessible';
-    case '2':
-      return 'Not accessible';
-    default:
-      return 'Unknown';
+      case '1':
+        return 'Accessible';
+      case '2':
+        return 'Not accessible';
+      default:
+        return 'Unknown';
     }
   }
 
@@ -394,42 +397,58 @@ export class GTFSParser {
   // Search functionality
   searchStops(query) {
     const stops = this.getFileData('stops.txt') || [];
-    if (!query || query.trim().length < 2) return [];
-    
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
     const searchTerm = query.toLowerCase().trim();
-    
-    return stops.filter(stop => {
-      return (
-        (stop.stop_name && stop.stop_name.toLowerCase().includes(searchTerm)) ||
-        (stop.stop_id && stop.stop_id.toLowerCase().includes(searchTerm)) ||
-        (stop.stop_code && stop.stop_code.toLowerCase().includes(searchTerm)) ||
-        (stop.stop_desc && stop.stop_desc.toLowerCase().includes(searchTerm))
-      );
-    }).slice(0, 10); // Limit to 10 results
+
+    return stops
+      .filter((stop) => {
+        return (
+          (stop.stop_name &&
+            stop.stop_name.toLowerCase().includes(searchTerm)) ||
+          (stop.stop_id && stop.stop_id.toLowerCase().includes(searchTerm)) ||
+          (stop.stop_code &&
+            stop.stop_code.toLowerCase().includes(searchTerm)) ||
+          (stop.stop_desc && stop.stop_desc.toLowerCase().includes(searchTerm))
+        );
+      })
+      .slice(0, 10); // Limit to 10 results
   }
 
   searchRoutes(query) {
     const routes = this.getFileData('routes.txt') || [];
-    if (!query || query.trim().length < 2) return [];
-    
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
     const searchTerm = query.toLowerCase().trim();
-    
-    return routes.filter(route => {
-      return (
-        (route.route_short_name && route.route_short_name.toLowerCase().includes(searchTerm)) ||
-        (route.route_long_name && route.route_long_name.toLowerCase().includes(searchTerm)) ||
-        (route.route_id && route.route_id.toLowerCase().includes(searchTerm)) ||
-        (route.route_desc && route.route_desc.toLowerCase().includes(searchTerm))
-      );
-    }).slice(0, 10); // Limit to 10 results
+
+    return routes
+      .filter((route) => {
+        return (
+          (route.route_short_name &&
+            route.route_short_name.toLowerCase().includes(searchTerm)) ||
+          (route.route_long_name &&
+            route.route_long_name.toLowerCase().includes(searchTerm)) ||
+          (route.route_id &&
+            route.route_id.toLowerCase().includes(searchTerm)) ||
+          (route.route_desc &&
+            route.route_desc.toLowerCase().includes(searchTerm))
+        );
+      })
+      .slice(0, 10); // Limit to 10 results
   }
 
   searchAll(query) {
-    if (!query || query.trim().length < 2) return { stops: [], routes: [] };
-    
+    if (!query || query.trim().length < 2) {
+      return { stops: [], routes: [] };
+    }
+
     return {
       stops: this.searchStops(query),
-      routes: this.searchRoutes(query)
+      routes: this.searchRoutes(query),
     };
   }
 }

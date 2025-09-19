@@ -6,8 +6,10 @@ export class KeyboardShortcuts {
   }
 
   initialize() {
-    if (this.initialized) return;
-    
+    if (this.initialized) {
+      return;
+    }
+
     this.setupShortcuts();
     this.bindEventListeners();
     this.initialized = true;
@@ -15,58 +17,106 @@ export class KeyboardShortcuts {
 
   setupShortcuts() {
     // File operations
-    this.addShortcut('ctrl+n', () => {
-      this.gtfsEditor.uiController.createNewFeed();
-    }, 'Create new GTFS feed');
+    this.addShortcut(
+      'ctrl+n',
+      () => {
+        this.gtfsEditor.uiController.createNewFeed();
+      },
+      'Create new GTFS feed'
+    );
 
-    this.addShortcut('ctrl+o', () => {
-      document.getElementById('file-input')?.click();
-    }, 'Upload GTFS file');
+    this.addShortcut(
+      'ctrl+o',
+      () => {
+        document.getElementById('file-input')?.click();
+      },
+      'Upload GTFS file'
+    );
 
-    this.addShortcut('ctrl+s', (e) => {
-      e.preventDefault();
-      this.gtfsEditor.editor.saveCurrentFileChanges();
-    }, 'Save current file');
+    this.addShortcut(
+      'ctrl+s',
+      (e) => {
+        e.preventDefault();
+        this.gtfsEditor.editor.saveCurrentFileChanges();
+      },
+      'Save current file'
+    );
 
-    this.addShortcut('ctrl+e', () => {
-      this.gtfsEditor.uiController.exportGTFS();
-    }, 'Export GTFS feed');
+    this.addShortcut(
+      'ctrl+e',
+      () => {
+        this.gtfsEditor.uiController.exportGTFS();
+      },
+      'Export GTFS feed'
+    );
 
     // Navigation
-    this.addShortcut('f1', (e) => {
-      e.preventDefault();
-      this.showHelp();
-    }, 'Show help');
+    this.addShortcut(
+      'f1',
+      (e) => {
+        e.preventDefault();
+        this.showHelp();
+      },
+      'Show help'
+    );
 
-    this.addShortcut('ctrl+f', (e) => {
-      e.preventDefault();
-      this.focusMapSearch();
-    }, 'Focus map search');
+    this.addShortcut(
+      'ctrl+f',
+      (e) => {
+        e.preventDefault();
+        this.focusMapSearch();
+      },
+      'Focus map search'
+    );
 
-    this.addShortcut('escape', () => {
-      this.clearSearches();
-    }, 'Clear searches and close dialogs');
+    this.addShortcut(
+      'escape',
+      () => {
+        this.clearSearches();
+      },
+      'Clear searches and close dialogs'
+    );
 
     // Tab navigation
-    this.addShortcut('ctrl+1', () => {
-      this.switchToTab('files');
-    }, 'Switch to Files tab');
+    this.addShortcut(
+      'ctrl+1',
+      () => {
+        this.switchToTab('files');
+      },
+      'Switch to Files tab'
+    );
 
-    this.addShortcut('ctrl+2', () => {
-      this.switchToTab('objects');
-    }, 'Switch to Objects tab');
+    this.addShortcut(
+      'ctrl+2',
+      () => {
+        this.switchToTab('objects');
+      },
+      'Switch to Objects tab'
+    );
 
-    this.addShortcut('ctrl+3', () => {
-      this.switchToTab('editor');
-    }, 'Switch to Editor tab');
+    this.addShortcut(
+      'ctrl+3',
+      () => {
+        this.switchToTab('editor');
+      },
+      'Switch to Editor tab'
+    );
 
-    this.addShortcut('ctrl+4', () => {
-      this.switchToTab('info');
-    }, 'Switch to Info tab');
+    this.addShortcut(
+      'ctrl+4',
+      () => {
+        this.switchToTab('info');
+      },
+      'Switch to Info tab'
+    );
 
-    this.addShortcut('ctrl+5', () => {
-      this.switchToTab('help');
-    }, 'Switch to Help tab');
+    this.addShortcut(
+      'ctrl+5',
+      () => {
+        this.switchToTab('help');
+      },
+      'Switch to Help tab'
+    );
   }
 
   addShortcut(keys, handler, description) {
@@ -77,20 +127,20 @@ export class KeyboardShortcuts {
     document.addEventListener('keydown', (e) => {
       const key = this.getKeyString(e);
       const shortcut = this.shortcuts.get(key);
-      
+
       if (shortcut) {
         // Don't trigger shortcuts if user is typing in an input field
         const activeElement = document.activeElement;
-        const isInputField = activeElement && (
-          activeElement.tagName === 'INPUT' ||
-          activeElement.tagName === 'TEXTAREA' ||
-          activeElement.contentEditable === 'true' ||
-          activeElement.classList.contains('cm-content') // CodeMirror editor
-        );
+        const isInputField =
+          activeElement &&
+          (activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.contentEditable === 'true' ||
+            activeElement.classList.contains('cm-content')); // CodeMirror editor
 
         // Allow some shortcuts even in input fields
         const allowInInputFields = ['escape', 'f1', 'ctrl+s'];
-        
+
         if (!isInputField || allowInInputFields.includes(key)) {
           shortcut.handler(e);
         }
@@ -100,29 +150,35 @@ export class KeyboardShortcuts {
 
   getKeyString(e) {
     const parts = [];
-    
-    if (e.ctrlKey || e.metaKey) parts.push('ctrl');
-    if (e.altKey) parts.push('alt');
-    if (e.shiftKey) parts.push('shift');
-    
+
+    if (e.ctrlKey || e.metaKey) {
+      parts.push('ctrl');
+    }
+    if (e.altKey) {
+      parts.push('alt');
+    }
+    if (e.shiftKey) {
+      parts.push('shift');
+    }
+
     const key = e.key.toLowerCase();
-    
+
     // Handle special keys
     const specialKeys = {
       ' ': 'space',
-      'enter': 'enter',
-      'tab': 'tab',
-      'escape': 'escape',
-      'backspace': 'backspace',
-      'delete': 'delete',
-      'arrowup': 'up',
-      'arrowdown': 'down',
-      'arrowleft': 'left',
-      'arrowright': 'right'
+      enter: 'enter',
+      tab: 'tab',
+      escape: 'escape',
+      backspace: 'backspace',
+      delete: 'delete',
+      arrowup: 'up',
+      arrowdown: 'down',
+      arrowleft: 'left',
+      arrowright: 'right',
     };
-    
+
     parts.push(specialKeys[key] || key);
-    
+
     return parts.join('+');
   }
 
@@ -191,18 +247,18 @@ export class KeyboardShortcuts {
   formatKeyForDisplay(keyString) {
     return keyString
       .split('+')
-      .map(part => {
+      .map((part) => {
         const capitalizeMap = {
-          'ctrl': 'Ctrl',
-          'alt': 'Alt',
-          'shift': 'Shift',
-          'meta': 'Cmd',
-          'escape': 'Esc',
-          'enter': 'Enter',
-          'tab': 'Tab',
-          'space': 'Space',
-          'backspace': 'Backspace',
-          'delete': 'Delete'
+          ctrl: 'Ctrl',
+          alt: 'Alt',
+          shift: 'Shift',
+          meta: 'Cmd',
+          escape: 'Esc',
+          enter: 'Enter',
+          tab: 'Tab',
+          space: 'Space',
+          backspace: 'Backspace',
+          delete: 'Delete',
         };
         return capitalizeMap[part] || part.toUpperCase();
       })

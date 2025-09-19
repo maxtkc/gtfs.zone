@@ -1,4 +1,4 @@
-import { Map, Marker, Popup, LngLatBounds } from 'maplibre-gl';
+import { Map, Popup, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 export class MapController {
@@ -11,28 +11,30 @@ export class MapController {
 
   initialize(gtfsParser) {
     this.gtfsParser = gtfsParser;
-    
+
     // Initialize MapLibre GL JS map
     this.map = new Map({
       container: this.mapElementId,
       style: {
         version: 8,
         sources: {
-          'osm': {
+          osm: {
             type: 'raster',
             tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
-          }
+            attribution: '© OpenStreetMap contributors',
+          },
         },
-        layers: [{
-          id: 'osm',
-          type: 'raster',
-          source: 'osm'
-        }]
+        layers: [
+          {
+            id: 'osm',
+            type: 'raster',
+            source: 'osm',
+          },
+        ],
       },
       center: [-74.006, 40.7128], // [lng, lat] format for MapLibre
-      zoom: 10
+      zoom: 10,
     });
 
     // Keep welcome overlay visible initially
@@ -70,16 +72,30 @@ export class MapController {
 
   clearMapLayers() {
     // Remove existing layers and sources
-    const layersToRemove = ['stops', 'routes', 'shapes', 'stops-highlight', 'routes-highlight', 'trip-highlight'];
-    const sourcesToRemove = ['stops', 'routes', 'shapes', 'stops-highlight', 'routes-highlight', 'trip-highlight'];
+    const layersToRemove = [
+      'stops',
+      'routes',
+      'shapes',
+      'stops-highlight',
+      'routes-highlight',
+      'trip-highlight',
+    ];
+    const sourcesToRemove = [
+      'stops',
+      'routes',
+      'shapes',
+      'stops-highlight',
+      'routes-highlight',
+      'trip-highlight',
+    ];
 
-    layersToRemove.forEach(layerId => {
+    layersToRemove.forEach((layerId) => {
       if (this.map.getLayer(layerId)) {
         this.map.removeLayer(layerId);
       }
     });
 
-    sourcesToRemove.forEach(sourceId => {
+    sourcesToRemove.forEach((sourceId) => {
       if (this.map.getSource(sourceId)) {
         this.map.removeSource(sourceId);
       }
@@ -111,7 +127,7 @@ export class MapController {
         const lat = parseFloat(stop.stop_lat);
         const lon = parseFloat(stop.stop_lon);
         const stopType = stop.location_type || '0';
-        
+
         // Get routes serving this stop
         const routesAtStop = this.gtfsParser.getRoutesForStop(stop.stop_id);
 
@@ -119,7 +135,7 @@ export class MapController {
           type: 'Feature',
           geometry: {
             type: 'Point',
-            coordinates: [lon, lat] // [lng, lat] for MapLibre
+            coordinates: [lon, lat], // [lng, lat] for MapLibre
           },
           properties: {
             stop_id: stop.stop_id,
@@ -129,16 +145,18 @@ export class MapController {
             location_type: stopType,
             wheelchair_boarding: stop.wheelchair_boarding || '',
             routes_count: routesAtStop.length,
-            routes_list: routesAtStop.map((r) => r.route_short_name || r.route_id).join(', ')
-          }
+            routes_list: routesAtStop
+              .map((r) => r.route_short_name || r.route_id)
+              .join(', '),
+          },
         };
-      })
+      }),
     };
 
     // Add source
     this.map.addSource('stops', {
       type: 'geojson',
-      data: stopsGeoJSON
+      data: stopsGeoJSON,
     });
 
     // Add layer
@@ -149,25 +167,33 @@ export class MapController {
       paint: {
         'circle-radius': [
           'case',
-          ['==', ['get', 'location_type'], '1'], 12, // Station
-          ['==', ['get', 'location_type'], '2'], 6,  // Entrance/Exit
-          ['==', ['get', 'location_type'], '3'], 6,  // Generic node
-          ['==', ['get', 'location_type'], '4'], 8,  // Boarding area
-          8 // Default stop
+          ['==', ['get', 'location_type'], '1'],
+          12, // Station
+          ['==', ['get', 'location_type'], '2'],
+          6, // Entrance/Exit
+          ['==', ['get', 'location_type'], '3'],
+          6, // Generic node
+          ['==', ['get', 'location_type'], '4'],
+          8, // Boarding area
+          8, // Default stop
         ],
         'circle-color': [
           'case',
-          ['==', ['get', 'location_type'], '1'], '#dc2626', // Station - red
-          ['==', ['get', 'location_type'], '2'], '#16a34a', // Entrance - green
-          ['==', ['get', 'location_type'], '3'], '#ca8a04', // Node - yellow
-          ['==', ['get', 'location_type'], '4'], '#7c3aed', // Boarding - purple
-          '#2563eb' // Default - blue
+          ['==', ['get', 'location_type'], '1'],
+          '#dc2626', // Station - red
+          ['==', ['get', 'location_type'], '2'],
+          '#16a34a', // Entrance - green
+          ['==', ['get', 'location_type'], '3'],
+          '#ca8a04', // Node - yellow
+          ['==', ['get', 'location_type'], '4'],
+          '#7c3aed', // Boarding - purple
+          '#2563eb', // Default - blue
         ],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
         'circle-opacity': 1,
-        'circle-stroke-opacity': 1
-      }
+        'circle-stroke-opacity': 1,
+      },
     });
 
     // Add hover cursor
@@ -186,18 +212,20 @@ export class MapController {
 
       // Determine stop type text and color
       const stopTypeMap = {
-        '0': { text: 'Stop', color: '#2563eb' },
-        '1': { text: 'Station', color: '#dc2626' },
-        '2': { text: 'Entrance/Exit', color: '#16a34a' },
-        '3': { text: 'Node', color: '#ca8a04' },
-        '4': { text: 'Boarding Area', color: '#7c3aed' }
+        0: { text: 'Stop', color: '#2563eb' },
+        1: { text: 'Station', color: '#dc2626' },
+        2: { text: 'Entrance/Exit', color: '#16a34a' },
+        3: { text: 'Node', color: '#ca8a04' },
+        4: { text: 'Boarding Area', color: '#7c3aed' },
       };
-      
-      const stopTypeInfo = stopTypeMap[properties.location_type] || stopTypeMap['0'];
-      
-      const routesList = properties.routes_count > 0 
-        ? `<br><strong>Routes:</strong> ${properties.routes_list}`
-        : '';
+
+      const stopTypeInfo =
+        stopTypeMap[properties.location_type] || stopTypeMap['0'];
+
+      const routesList =
+        properties.routes_count > 0
+          ? `<br><strong>Routes:</strong> ${properties.routes_list}`
+          : '';
 
       const wheelchairInfo = properties.wheelchair_boarding
         ? `<br><strong>Wheelchair:</strong> ${this.gtfsParser.getWheelchairText(properties.wheelchair_boarding)}`
@@ -214,19 +242,22 @@ export class MapController {
         </div>
       `;
 
-      new Popup()
-        .setLngLat(coordinates)
-        .setHTML(popupContent)
-        .addTo(this.map);
+      new Popup().setLngLat(coordinates).setHTML(popupContent).addTo(this.map);
     });
 
     // Fit map to show all stops
     if (validStops.length > 0) {
-      const coordinates = validStops.map(stop => [parseFloat(stop.stop_lon), parseFloat(stop.stop_lat)]);
-      const bounds = coordinates.reduce((bounds, coord) => {
-        return bounds.extend(coord);
-      }, new LngLatBounds(coordinates[0], coordinates[0]));
-      
+      const coordinates = validStops.map((stop) => [
+        parseFloat(stop.stop_lon),
+        parseFloat(stop.stop_lat),
+      ]);
+      const bounds = coordinates.reduce(
+        (bounds, coord) => {
+          return bounds.extend(coord);
+        },
+        new LngLatBounds(coordinates[0], coordinates[0])
+      );
+
       this.map.fitBounds(bounds, { padding: 50 });
     }
   }
@@ -277,7 +308,7 @@ export class MapController {
     // Create GeoJSON for routes
     const routesGeoJSON = {
       type: 'FeatureCollection',
-      features: []
+      features: [],
     };
 
     routes.forEach((route, index) => {
@@ -307,13 +338,15 @@ export class MapController {
 
       if (routePath.length >= 2) {
         const routeColor = routeColors[index % routeColors.length];
-        const routeTypeText = this.gtfsParser.getRouteTypeText(route.route_type);
+        const routeTypeText = this.gtfsParser.getRouteTypeText(
+          route.route_type
+        );
 
         routesGeoJSON.features.push({
           type: 'Feature',
           geometry: {
             type: 'LineString',
-            coordinates: routePath
+            coordinates: routePath,
           },
           properties: {
             route_id: route.route_id,
@@ -325,8 +358,8 @@ export class MapController {
             agency_id: route.agency_id || 'Default',
             color: routeColor,
             stops_count: tripStopTimes.length,
-            is_bus: route.route_type === '3'
-          }
+            is_bus: route.route_type === '3',
+          },
         });
       }
     });
@@ -335,7 +368,7 @@ export class MapController {
       // Add source
       this.map.addSource('routes', {
         type: 'geojson',
-        data: routesGeoJSON
+        data: routesGeoJSON,
       });
 
       // Add layer
@@ -346,12 +379,12 @@ export class MapController {
         paint: {
           'line-color': ['get', 'color'],
           'line-width': 4,
-          'line-opacity': 0.7
+          'line-opacity': 0.7,
         },
         layout: {
           'line-cap': 'round',
-          'line-join': 'round'
-        }
+          'line-join': 'round',
+        },
       });
 
       // Add hover cursor for routes
@@ -410,7 +443,7 @@ export class MapController {
     // Create GeoJSON for shapes
     const shapesGeoJSON = {
       type: 'FeatureCollection',
-      features: []
+      features: [],
     };
 
     // Draw polylines for each shape
@@ -425,12 +458,12 @@ export class MapController {
           type: 'Feature',
           geometry: {
             type: 'LineString',
-            coordinates: points
+            coordinates: points,
           },
           properties: {
             shape_id: shapeId,
-            points_count: points.length
-          }
+            points_count: points.length,
+          },
         });
       }
     });
@@ -439,7 +472,7 @@ export class MapController {
       // Add source
       this.map.addSource('shapes', {
         type: 'geojson',
-        data: shapesGeoJSON
+        data: shapesGeoJSON,
       });
 
       // Add layer
@@ -450,12 +483,12 @@ export class MapController {
         paint: {
           'line-color': '#3388ff',
           'line-width': 3,
-          'line-opacity': 0.7
+          'line-opacity': 0.7,
         },
         layout: {
           'line-cap': 'round',
-          'line-join': 'round'
-        }
+          'line-join': 'round',
+        },
       });
 
       // Add hover cursor for shapes
@@ -496,80 +529,86 @@ export class MapController {
   // Object highlighting methods for Objects navigation
   highlightAgencyRoutes(agencyId) {
     const routes = this.gtfsParser.getFileData('routes.txt') || [];
-    const agencyRoutes = routes.filter(route => route.agency_id === agencyId);
-    
-    if (agencyRoutes.length === 0) return;
-    
+    const agencyRoutes = routes.filter((route) => route.agency_id === agencyId);
+
+    if (agencyRoutes.length === 0) {
+      return;
+    }
+
     // Clear existing highlights
     this.clearHighlights();
-    
+
     // Highlight all routes for this agency
-    agencyRoutes.forEach(route => {
+    agencyRoutes.forEach((route) => {
       this.highlightRoute(route.route_id, '#ff6b35', 6); // Orange, thicker
     });
-    
+
     // Fit map to show highlighted routes
-    this.fitToRoutes(agencyRoutes.map(r => r.route_id));
+    this.fitToRoutes(agencyRoutes.map((r) => r.route_id));
   }
 
   highlightRoute(routeId, color = '#ff6b35', weight = 6) {
     const trips = this.gtfsParser.getFileData('trips.txt') || [];
     const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
     const stops = this.gtfsParser.getFileData('stops.txt') || [];
-    
+
     // Clear existing highlights
     this.clearHighlights();
-    
+
     // Find trips for this route
-    const routeTrips = trips.filter(trip => trip.route_id === routeId);
-    if (routeTrips.length === 0) return;
-    
+    const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+    if (routeTrips.length === 0) {
+      return;
+    }
+
     // Create stops lookup
     const stopsLookup = {};
-    stops.forEach(stop => {
+    stops.forEach((stop) => {
       if (stop.stop_lat && stop.stop_lon) {
         stopsLookup[stop.stop_id] = {
           lat: parseFloat(stop.stop_lat),
           lon: parseFloat(stop.stop_lon),
-          name: stop.stop_name
+          name: stop.stop_name,
         };
       }
     });
-    
+
     // Use first trip to create route path
     const firstTrip = routeTrips[0];
     const tripStopTimes = stopTimes
-      .filter(st => st.trip_id === firstTrip.trip_id)
+      .filter((st) => st.trip_id === firstTrip.trip_id)
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
-    
+
     const routePath = [];
-    tripStopTimes.forEach(st => {
+    tripStopTimes.forEach((st) => {
       const stopCoords = stopsLookup[st.stop_id];
       if (stopCoords) {
         routePath.push([stopCoords.lon, stopCoords.lat]); // [lng, lat] for MapLibre
       }
     });
-    
+
     if (routePath.length >= 2) {
       // Create highlight GeoJSON
       const highlightGeoJSON = {
         type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: routePath
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: routePath,
+            },
+            properties: {
+              route_id: routeId,
+            },
           },
-          properties: {
-            route_id: routeId
-          }
-        }]
+        ],
       };
 
       // Add highlight source and layer
       this.map.addSource('routes-highlight', {
         type: 'geojson',
-        data: highlightGeoJSON
+        data: highlightGeoJSON,
       });
 
       this.map.addLayer({
@@ -579,12 +618,12 @@ export class MapController {
         paint: {
           'line-color': color,
           'line-width': weight,
-          'line-opacity': 0.9
+          'line-opacity': 0.9,
         },
         layout: {
           'line-cap': 'round',
-          'line-join': 'round'
-        }
+          'line-join': 'round',
+        },
       });
     }
   }
@@ -592,74 +631,76 @@ export class MapController {
   highlightTrip(tripId, color = '#e74c3c', weight = 5) {
     const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
     const stops = this.gtfsParser.getFileData('stops.txt') || [];
-    
+
     // Clear existing highlights
     this.clearHighlights();
-    
+
     // Create stops lookup
     const stopsLookup = {};
-    stops.forEach(stop => {
+    stops.forEach((stop) => {
       if (stop.stop_lat && stop.stop_lon) {
         stopsLookup[stop.stop_id] = {
           lat: parseFloat(stop.stop_lat),
           lon: parseFloat(stop.stop_lon),
-          name: stop.stop_name
+          name: stop.stop_name,
         };
       }
     });
-    
+
     // Get stop times for this trip
     const tripStopTimes = stopTimes
-      .filter(st => st.trip_id === tripId)
+      .filter((st) => st.trip_id === tripId)
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
-    
+
     const tripPath = [];
     const tripStopsFeatures = [];
-    
+
     tripStopTimes.forEach((st, index) => {
       const stopCoords = stopsLookup[st.stop_id];
       if (stopCoords) {
         tripPath.push([stopCoords.lon, stopCoords.lat]); // [lng, lat] for MapLibre
-        
+
         const isFirst = index === 0;
         const isLast = index === tripStopTimes.length - 1;
-        
+
         tripStopsFeatures.push({
           type: 'Feature',
           geometry: {
             type: 'Point',
-            coordinates: [stopCoords.lon, stopCoords.lat]
+            coordinates: [stopCoords.lon, stopCoords.lat],
           },
           properties: {
             stop_name: stopCoords.name,
             is_first: isFirst,
             is_last: isLast,
-            stop_type: isFirst ? 'first' : isLast ? 'last' : 'middle'
-          }
+            stop_type: isFirst ? 'first' : isLast ? 'last' : 'middle',
+          },
         });
       }
     });
-    
+
     if (tripPath.length >= 2) {
       // Create trip line GeoJSON
       const tripLineGeoJSON = {
         type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: tripPath
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: tripPath,
+            },
+            properties: {
+              trip_id: tripId,
+            },
           },
-          properties: {
-            trip_id: tripId
-          }
-        }]
+        ],
       };
 
       // Add trip line
       this.map.addSource('trip-highlight', {
         type: 'geojson',
-        data: tripLineGeoJSON
+        data: tripLineGeoJSON,
       });
 
       this.map.addLayer({
@@ -669,24 +710,24 @@ export class MapController {
         paint: {
           'line-color': color,
           'line-width': weight,
-          'line-opacity': 0.9
+          'line-opacity': 0.9,
         },
         layout: {
           'line-cap': 'round',
-          'line-join': 'round'
-        }
+          'line-join': 'round',
+        },
       });
 
       // Add trip stops
       if (tripStopsFeatures.length > 0) {
         const stopsGeoJSON = {
           type: 'FeatureCollection',
-          features: tripStopsFeatures
+          features: tripStopsFeatures,
         };
 
         this.map.addSource('stops-highlight', {
           type: 'geojson',
-          data: stopsGeoJSON
+          data: stopsGeoJSON,
         });
 
         this.map.addLayer({
@@ -697,26 +738,34 @@ export class MapController {
             'circle-radius': 8,
             'circle-color': [
               'case',
-              ['==', ['get', 'stop_type'], 'first'], '#27ae60',
-              ['==', ['get', 'stop_type'], 'last'], '#e74c3c',
-              color
+              ['==', ['get', 'stop_type'], 'first'],
+              '#27ae60',
+              ['==', ['get', 'stop_type'], 'last'],
+              '#e74c3c',
+              color,
             ],
             'circle-stroke-color': '#ffffff',
             'circle-stroke-width': 2,
             'circle-opacity': 1,
-            'circle-stroke-opacity': 1
-          }
+            'circle-stroke-opacity': 1,
+          },
         });
 
         // Add click handler for trip stops
         this.map.on('click', 'stops-highlight', (e) => {
           const properties = e.features[0].properties;
           const coordinates = e.lngLat;
-          
-          const stopTypeText = properties.is_first ? 'First Stop' : 
-                              properties.is_last ? 'Last Stop' : 'Trip Stop';
-          const stopTypeColor = properties.is_first ? '#27ae60' : 
-                               properties.is_last ? '#e74c3c' : color;
+
+          const stopTypeText = properties.is_first
+            ? 'First Stop'
+            : properties.is_last
+              ? 'Last Stop'
+              : 'Trip Stop';
+          const stopTypeColor = properties.is_first
+            ? '#27ae60'
+            : properties.is_last
+              ? '#e74c3c'
+              : color;
 
           const popupContent = `
             <strong>${properties.stop_name}</strong><br>
@@ -729,14 +778,17 @@ export class MapController {
             .addTo(this.map);
         });
       }
-      
+
       // Fit map to trip
       if (tripPath.length > 0) {
         const coordinates = tripPath;
-        const bounds = coordinates.reduce((bounds, coord) => {
-          return bounds.extend(coord);
-        }, new LngLatBounds(coordinates[0], coordinates[0]));
-        
+        const bounds = coordinates.reduce(
+          (bounds, coord) => {
+            return bounds.extend(coord);
+          },
+          new LngLatBounds(coordinates[0], coordinates[0])
+        );
+
         this.map.fitBounds(bounds, { padding: 50 });
       }
     }
@@ -744,37 +796,41 @@ export class MapController {
 
   highlightStop(stopId, color = '#e74c3c', radius = 12) {
     const stops = this.gtfsParser.getFileData('stops.txt') || [];
-    
+
     // Clear existing highlights
     this.clearHighlights();
-    
-    const stop = stops.find(s => s.stop_id === stopId);
-    if (!stop || !stop.stop_lat || !stop.stop_lon) return;
-    
+
+    const stop = stops.find((s) => s.stop_id === stopId);
+    if (!stop || !stop.stop_lat || !stop.stop_lon) {
+      return;
+    }
+
     const lat = parseFloat(stop.stop_lat);
     const lon = parseFloat(stop.stop_lon);
-    
+
     // Create highlight GeoJSON
     const highlightGeoJSON = {
       type: 'FeatureCollection',
-      features: [{
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [lon, lat]
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [lon, lat],
+          },
+          properties: {
+            stop_id: stop.stop_id,
+            stop_name: stop.stop_name || 'Unnamed Stop',
+            stop_code: stop.stop_code || '',
+          },
         },
-        properties: {
-          stop_id: stop.stop_id,
-          stop_name: stop.stop_name || 'Unnamed Stop',
-          stop_code: stop.stop_code || ''
-        }
-      }]
+      ],
     };
 
     // Add highlight source and layer
     this.map.addSource('stops-highlight', {
       type: 'geojson',
-      data: highlightGeoJSON
+      data: highlightGeoJSON,
     });
 
     this.map.addLayer({
@@ -787,8 +843,8 @@ export class MapController {
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 3,
         'circle-opacity': 1,
-        'circle-stroke-opacity': 1
-      }
+        'circle-stroke-opacity': 1,
+      },
     });
 
     // Show popup immediately
@@ -801,11 +857,8 @@ export class MapController {
       </div>
     `;
 
-    new Popup()
-      .setLngLat([lon, lat])
-      .setHTML(popupContent)
-      .addTo(this.map);
-    
+    new Popup().setLngLat([lon, lat]).setHTML(popupContent).addTo(this.map);
+
     // Center map on stop
     this.map.setCenter([lon, lat]);
     if (this.map.getZoom() < 15) {
@@ -815,9 +868,13 @@ export class MapController {
 
   clearHighlights() {
     // Clear highlight layers
-    const highlightLayers = ['routes-highlight', 'trip-highlight', 'stops-highlight'];
-    
-    highlightLayers.forEach(layerId => {
+    const highlightLayers = [
+      'routes-highlight',
+      'trip-highlight',
+      'stops-highlight',
+    ];
+
+    highlightLayers.forEach((layerId) => {
       if (this.map.getLayer(layerId)) {
         this.map.removeLayer(layerId);
       }
@@ -831,31 +888,39 @@ export class MapController {
     const trips = this.gtfsParser.getFileData('trips.txt') || [];
     const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
     const stops = this.gtfsParser.getFileData('stops.txt') || [];
-    
+
     // Find all stops for these routes
     const allStops = new Set();
-    
-    routeIds.forEach(routeId => {
-      const routeTrips = trips.filter(trip => trip.route_id === routeId);
-      routeTrips.forEach(trip => {
-        const tripStopTimes = stopTimes.filter(st => st.trip_id === trip.trip_id);
-        tripStopTimes.forEach(st => allStops.add(st.stop_id));
+
+    routeIds.forEach((routeId) => {
+      const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+      routeTrips.forEach((trip) => {
+        const tripStopTimes = stopTimes.filter(
+          (st) => st.trip_id === trip.trip_id
+        );
+        tripStopTimes.forEach((st) => allStops.add(st.stop_id));
       });
     });
-    
+
     // Get coordinates for all stops
     const coordinates = [];
-    stops.forEach(stop => {
+    stops.forEach((stop) => {
       if (allStops.has(stop.stop_id) && stop.stop_lat && stop.stop_lon) {
-        coordinates.push([parseFloat(stop.stop_lon), parseFloat(stop.stop_lat)]); // [lng, lat] for MapLibre
+        coordinates.push([
+          parseFloat(stop.stop_lon),
+          parseFloat(stop.stop_lat),
+        ]); // [lng, lat] for MapLibre
       }
     });
-    
+
     if (coordinates.length > 0) {
-      const bounds = coordinates.reduce((bounds, coord) => {
-        return bounds.extend(coord);
-      }, new LngLatBounds(coordinates[0], coordinates[0]));
-      
+      const bounds = coordinates.reduce(
+        (bounds, coord) => {
+          return bounds.extend(coord);
+        },
+        new LngLatBounds(coordinates[0], coordinates[0])
+      );
+
       this.map.fitBounds(bounds, { padding: 50 });
     }
   }

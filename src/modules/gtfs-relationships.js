@@ -17,7 +17,7 @@ export class GTFSRelationships {
     if (!agencyData || !Array.isArray(agencyData)) {
       return [];
     }
-    return agencyData.map(agency => ({
+    return agencyData.map((agency) => ({
       id: agency.agency_id,
       name: agency.agency_name || `Agency ${agency.agency_id}`,
       url: agency.agency_url,
@@ -25,7 +25,7 @@ export class GTFSRelationships {
       lang: agency.agency_lang,
       phone: agency.agency_phone,
       fare_url: agency.agency_fare_url,
-      email: agency.agency_email
+      email: agency.agency_email,
     }));
   }
 
@@ -37,10 +37,10 @@ export class GTFSRelationships {
     if (!routesData || !Array.isArray(routesData)) {
       return [];
     }
-    
+
     return routesData
-      .filter(route => route.agency_id === agencyId)
-      .map(route => ({
+      .filter((route) => route.agency_id === agencyId)
+      .map((route) => ({
         id: route.route_id,
         agencyId: route.agency_id,
         shortName: route.route_short_name,
@@ -50,7 +50,7 @@ export class GTFSRelationships {
         url: route.route_url,
         color: route.route_color,
         textColor: route.route_text_color,
-        sortOrder: route.route_sort_order
+        sortOrder: route.route_sort_order,
       }));
   }
 
@@ -62,10 +62,10 @@ export class GTFSRelationships {
     if (!tripsData || !Array.isArray(tripsData)) {
       return [];
     }
-    
+
     return tripsData
-      .filter(trip => trip.route_id === routeId)
-      .map(trip => ({
+      .filter((trip) => trip.route_id === routeId)
+      .map((trip) => ({
         id: trip.trip_id,
         routeId: trip.route_id,
         serviceId: trip.service_id,
@@ -75,7 +75,7 @@ export class GTFSRelationships {
         blockId: trip.block_id,
         shapeId: trip.shape_id,
         wheelchairAccessible: trip.wheelchair_accessible,
-        bikesAllowed: trip.bikes_allowed
+        bikesAllowed: trip.bikes_allowed,
       }));
   }
 
@@ -87,11 +87,11 @@ export class GTFSRelationships {
     if (!stopTimesData || !Array.isArray(stopTimesData)) {
       return [];
     }
-    
+
     const stopTimes = stopTimesData
-      .filter(stopTime => stopTime.trip_id === tripId)
+      .filter((stopTime) => stopTime.trip_id === tripId)
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence))
-      .map(stopTime => ({
+      .map((stopTime) => ({
         tripId: stopTime.trip_id,
         stopId: stopTime.stop_id,
         stopSequence: parseInt(stopTime.stop_sequence),
@@ -103,7 +103,7 @@ export class GTFSRelationships {
         continuousPickup: stopTime.continuous_pickup,
         continuousDropOff: stopTime.continuous_drop_off,
         shapeDistTraveled: stopTime.shape_dist_traveled,
-        timepoint: stopTime.timepoint
+        timepoint: stopTime.timepoint,
       }));
 
     // Enrich with stop information
@@ -118,10 +118,12 @@ export class GTFSRelationships {
     if (!stopsData || !Array.isArray(stopsData)) {
       return null;
     }
-    
-    const stop = stopsData.find(stop => stop.stop_id === stopId);
-    if (!stop) return null;
-    
+
+    const stop = stopsData.find((stop) => stop.stop_id === stopId);
+    if (!stop) {
+      return null;
+    }
+
     return {
       id: stop.stop_id,
       code: stop.stop_code,
@@ -136,7 +138,7 @@ export class GTFSRelationships {
       timezone: stop.stop_timezone,
       wheelchairBoarding: stop.wheelchair_boarding,
       levelId: stop.level_id,
-      platformCode: stop.platform_code
+      platformCode: stop.platform_code,
     };
   }
 
@@ -148,21 +150,23 @@ export class GTFSRelationships {
     if (!stopTimesData || !Array.isArray(stopTimesData)) {
       return [];
     }
-    
-    const tripIds = [...new Set(
-      stopTimesData
-        .filter(stopTime => stopTime.stop_id === stopId)
-        .map(stopTime => stopTime.trip_id)
-    )];
-    
+
+    const tripIds = [
+      ...new Set(
+        stopTimesData
+          .filter((stopTime) => stopTime.stop_id === stopId)
+          .map((stopTime) => stopTime.trip_id)
+      ),
+    ];
+
     const tripsData = this.gtfsParser.getFileData('trips.txt');
     if (!tripsData || !Array.isArray(tripsData)) {
       return [];
     }
-    
+
     return tripsData
-      .filter(trip => tripIds.includes(trip.trip_id))
-      .map(trip => ({
+      .filter((trip) => tripIds.includes(trip.trip_id))
+      .map((trip) => ({
         id: trip.trip_id,
         routeId: trip.route_id,
         serviceId: trip.service_id,
@@ -170,7 +174,7 @@ export class GTFSRelationships {
         shortName: trip.trip_short_name,
         directionId: trip.direction_id,
         blockId: trip.block_id,
-        shapeId: trip.shape_id
+        shapeId: trip.shape_id,
       }));
   }
 
@@ -182,10 +186,12 @@ export class GTFSRelationships {
     if (!calendarData || !Array.isArray(calendarData)) {
       return null;
     }
-    
-    const calendar = calendarData.find(cal => cal.service_id === serviceId);
-    if (!calendar) return null;
-    
+
+    const calendar = calendarData.find((cal) => cal.service_id === serviceId);
+    if (!calendar) {
+      return null;
+    }
+
     return {
       serviceId: calendar.service_id,
       monday: calendar.monday === '1',
@@ -196,7 +202,7 @@ export class GTFSRelationships {
       saturday: calendar.saturday === '1',
       sunday: calendar.sunday === '1',
       startDate: calendar.start_date,
-      endDate: calendar.end_date
+      endDate: calendar.end_date,
     };
   }
 
@@ -208,13 +214,13 @@ export class GTFSRelationships {
     if (!calendarDatesData || !Array.isArray(calendarDatesData)) {
       return [];
     }
-    
+
     return calendarDatesData
-      .filter(calDate => calDate.service_id === serviceId)
-      .map(calDate => ({
+      .filter((calDate) => calDate.service_id === serviceId)
+      .map((calDate) => ({
         serviceId: calDate.service_id,
         date: calDate.date,
-        exceptionType: parseInt(calDate.exception_type)
+        exceptionType: parseInt(calDate.exception_type),
       }));
   }
 
@@ -222,11 +228,11 @@ export class GTFSRelationships {
    * Enrich stop times with stop information
    */
   enrichStopTimesWithStops(stopTimes) {
-    return stopTimes.map(stopTime => {
+    return stopTimes.map((stopTime) => {
       const stop = this.getStopById(stopTime.stopId);
       return {
         ...stopTime,
-        stop: stop
+        stop: stop,
       };
     });
   }
@@ -240,13 +246,13 @@ export class GTFSRelationships {
     const tripsData = this.gtfsParser.getFileData('trips.txt') || [];
     const stopsData = this.gtfsParser.getFileData('stops.txt') || [];
     const stopTimesData = this.gtfsParser.getFileData('stop_times.txt') || [];
-    
+
     return {
       agencies: agencies.length,
       routes: routesData.length,
       trips: tripsData.length,
       stops: stopsData.length,
-      stopTimes: stopTimesData.length
+      stopTimes: stopTimesData.length,
     };
   }
 
@@ -255,6 +261,11 @@ export class GTFSRelationships {
    */
   hasData() {
     const stats = this.getStatistics();
-    return stats.agencies > 0 || stats.routes > 0 || stats.trips > 0 || stats.stops > 0;
+    return (
+      stats.agencies > 0 ||
+      stats.routes > 0 ||
+      stats.trips > 0 ||
+      stats.stops > 0
+    );
   }
 }

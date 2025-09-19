@@ -1,4 +1,3 @@
-
 import { notifications } from './notification-system.js';
 
 export class UIController {
@@ -10,7 +9,13 @@ export class UIController {
     this.validateCallback = null;
   }
 
-  initialize(gtfsParser, editor, mapController, objectsNavigation, validateCallback = null) {
+  initialize(
+    gtfsParser,
+    editor,
+    mapController,
+    objectsNavigation,
+    validateCallback = null
+  ) {
     this.gtfsParser = gtfsParser;
     this.editor = editor;
     this.mapController = mapController;
@@ -134,7 +139,6 @@ export class UIController {
     });
   }
 
-
   showHelpPanel() {
     const helpTab = document.querySelector('[data-tab="help"]');
     if (helpTab) {
@@ -154,32 +158,34 @@ export class UIController {
   switchTab(button) {
     const tabId = button.dataset.tab;
     const panel = button.closest('.left-panel, .right-panel');
-    
-    if (!panel) return;
-    
+
+    if (!panel) {
+      return;
+    }
+
     // Remove active state from all tabs in this panel
-    panel.querySelectorAll('.tab-btn').forEach(btn => {
+    panel.querySelectorAll('.tab-btn').forEach((btn) => {
       btn.classList.remove('active');
       btn.classList.add('text-gray-500', 'border-transparent');
       btn.classList.remove('text-gray-900', 'border-blue-500');
     });
-    
+
     // Hide all tab content in this panel
-    panel.querySelectorAll('.tab-content').forEach(content => {
+    panel.querySelectorAll('.tab-content').forEach((content) => {
       content.classList.add('hidden');
     });
-    
+
     // Activate clicked tab
     button.classList.add('active');
     button.classList.remove('text-gray-500', 'border-transparent');
     button.classList.add('text-gray-900', 'border-blue-500');
-    
+
     // Show corresponding content
     const content = document.getElementById(`${tabId}-tab`);
     if (content) {
       content.classList.remove('hidden');
     }
-    
+
     // If switching to Objects tab, refresh the navigation
     if (tabId === 'objects' && this.objectsNavigation) {
       this.objectsNavigation.refresh();
@@ -188,13 +194,15 @@ export class UIController {
 
   async loadGTFSFile(file) {
     let loadingNotificationId = null;
-    
+
     try {
       console.log('Loading GTFS file:', file.name);
 
       // Show loading notification
-      loadingNotificationId = notifications.showLoading(`Loading GTFS file: ${file.name}`);
-      
+      loadingNotificationId = notifications.showLoading(
+        `Loading GTFS file: ${file.name}`
+      );
+
       // Show loading state on map
       this.mapController.showLoading();
 
@@ -205,7 +213,9 @@ export class UIController {
 
       // Check file size (warn if > 50MB)
       if (file.size > 50 * 1024 * 1024) {
-        notifications.showWarning('Large file detected. Processing may take a moment...');
+        notifications.showWarning(
+          'Large file detected. Processing may take a moment...'
+        );
       }
 
       // Parse the file
@@ -215,10 +225,10 @@ export class UIController {
       this.updateFileList();
       this.mapController.updateMap();
       this.mapController.hideMapOverlay();
-      
+
       // Show files tab
       this.showFileList();
-      
+
       // Refresh Objects navigation if available
       if (this.objectsNavigation) {
         this.objectsNavigation.refresh();
@@ -237,21 +247,20 @@ export class UIController {
         notifications.removeNotification(loadingNotificationId);
       }
       notifications.showSuccess(`Successfully loaded GTFS file: ${file.name}`);
-      
     } catch (error) {
       console.error('Error loading GTFS file:', error);
-      
+
       // Remove loading notification
       if (loadingNotificationId) {
         notifications.removeNotification(loadingNotificationId);
       }
-      
+
       // Show error notification with helpful message
       let errorMessage = 'Failed to load GTFS file';
       if (error.message) {
         errorMessage += `: ${error.message}`;
       }
-      
+
       notifications.showError(errorMessage, {
         actions: [
           {
@@ -260,24 +269,26 @@ export class UIController {
             primary: true,
             handler: () => {
               document.getElementById('file-input').click();
-            }
-          }
-        ]
+            },
+          },
+        ],
       });
-      
+
       this.mapController.hideMapOverlay();
     }
   }
 
   async loadGTFSFromURL(url) {
     let loadingNotificationId = null;
-    
+
     try {
       console.log('Loading GTFS from URL:', url);
-      
+
       // Show loading notification
-      loadingNotificationId = notifications.showLoading(`Loading GTFS from URL: ${url}`);
-      
+      loadingNotificationId = notifications.showLoading(
+        `Loading GTFS from URL: ${url}`
+      );
+
       this.mapController.showLoading();
 
       await this.gtfsParser.parseFromURL(url);
@@ -286,7 +297,7 @@ export class UIController {
       this.updateFileList();
       this.mapController.updateMap();
       this.mapController.hideMapOverlay();
-      
+
       // Refresh Objects navigation if available
       if (this.objectsNavigation) {
         this.objectsNavigation.refresh();
@@ -304,22 +315,21 @@ export class UIController {
       if (loadingNotificationId) {
         notifications.removeNotification(loadingNotificationId);
       }
-      notifications.showSuccess(`Successfully loaded GTFS from URL`);
-      
+      notifications.showSuccess('Successfully loaded GTFS from URL');
     } catch (error) {
       console.error('Error loading GTFS from URL:', error);
-      
+
       // Remove loading notification
       if (loadingNotificationId) {
         notifications.removeNotification(loadingNotificationId);
       }
-      
+
       // Show error notification with helpful message
       let errorMessage = 'Failed to load GTFS from URL';
       if (error.message) {
         errorMessage += `: ${error.message}`;
       }
-      
+
       notifications.showError(errorMessage, {
         actions: [
           {
@@ -331,11 +341,11 @@ export class UIController {
               if (helpTab) {
                 helpTab.click();
               }
-            }
-          }
-        ]
+            },
+          },
+        ],
       });
-      
+
       this.mapController.hideMapOverlay();
     }
   }
@@ -384,14 +394,15 @@ export class UIController {
     }
 
     // Enable export button if we have files
-    const hasFiles = required.length > 0 || optional.length > 0 || other.length > 0;
+    const hasFiles =
+      required.length > 0 || optional.length > 0 || other.length > 0;
     document.getElementById('export-btn').disabled = !hasFiles;
   }
 
   addFileItem(container, fileName, isRequired) {
     const item = document.createElement('div');
     item.className = `file-item ${isRequired ? 'required' : ''}`;
-    
+
     const nameSpan = document.createElement('span');
     nameSpan.textContent = fileName;
     item.appendChild(nameSpan);
@@ -450,13 +461,13 @@ export class UIController {
     if (listView && editorView) {
       listView.classList.add('hidden');
       editorView.classList.remove('hidden');
-      
+
       // Update file name display
       const currentFileNameEl = document.getElementById('current-file-name');
       if (currentFileNameEl) {
         currentFileNameEl.textContent = fileName;
       }
-      
+
       // Open file in editor
       this.editor.openFile(fileName);
     }
@@ -477,18 +488,23 @@ export class UIController {
     if (listView && detailsView) {
       listView.classList.add('hidden');
       detailsView.classList.remove('hidden');
-      
+
       // Update object info
       const objectTypeEl = document.getElementById('object-type');
       const objectNameEl = document.getElementById('object-name');
       if (objectTypeEl && objectNameEl) {
         objectTypeEl.textContent = objectType;
-        objectNameEl.textContent = objectData.agency_name || objectData.route_short_name || objectData.stop_name || objectData.trip_id || 'Unknown';
+        objectNameEl.textContent =
+          objectData.agency_name ||
+          objectData.route_short_name ||
+          objectData.stop_name ||
+          objectData.trip_id ||
+          'Unknown';
       }
-      
+
       // Populate properties
       this.populateObjectProperties(objectData);
-      
+
       // Populate related objects
       this.populateRelatedObjects(relatedObjects);
     }
@@ -496,24 +512,29 @@ export class UIController {
 
   populateObjectProperties(objectData) {
     const container = document.getElementById('object-properties');
-    if (!container) return;
-    
+    if (!container) {
+      return;
+    }
+
     container.innerHTML = '';
-    
+
     Object.entries(objectData).forEach(([key, value]) => {
       const propertyEl = document.createElement('div');
       propertyEl.className = 'flex flex-col gap-1';
-      
+
       const labelEl = document.createElement('label');
       labelEl.className = 'text-xs font-medium text-secondary';
-      labelEl.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      
+      labelEl.textContent = key
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
       const inputEl = document.createElement('input');
-      inputEl.className = 'text-sm px-2 py-1 border border-primary rounded focus:outline-none focus:ring-1 focus:ring-blue-500';
+      inputEl.className =
+        'text-sm px-2 py-1 border border-primary rounded focus:outline-none focus:ring-1 focus:ring-blue-500';
       inputEl.type = 'text';
       inputEl.value = value || '';
       inputEl.dataset.property = key;
-      
+
       propertyEl.appendChild(labelEl);
       propertyEl.appendChild(inputEl);
       container.appendChild(propertyEl);
@@ -522,10 +543,12 @@ export class UIController {
 
   populateRelatedObjects(relatedObjects) {
     const container = document.getElementById('related-objects');
-    if (!container) return;
-    
+    if (!container) {
+      return;
+    }
+
     container.innerHTML = '';
-    
+
     if (relatedObjects.length === 0) {
       const noRelatedEl = document.createElement('div');
       noRelatedEl.className = 'text-tertiary text-sm';
@@ -533,30 +556,30 @@ export class UIController {
       container.appendChild(noRelatedEl);
       return;
     }
-    
-    relatedObjects.forEach(obj => {
+
+    relatedObjects.forEach((obj) => {
       const itemEl = document.createElement('div');
-      itemEl.className = 'flex items-center justify-between p-2 bg-surface-secondary rounded cursor-pointer hover:bg-hover';
-      
+      itemEl.className =
+        'flex items-center justify-between p-2 bg-surface-secondary rounded cursor-pointer hover:bg-hover';
+
       const nameEl = document.createElement('span');
       nameEl.className = 'text-sm text-primary';
       nameEl.textContent = obj.name;
-      
+
       const typeEl = document.createElement('span');
       typeEl.className = 'text-xs text-tertiary';
       typeEl.textContent = obj.type;
-      
+
       itemEl.appendChild(nameEl);
       itemEl.appendChild(typeEl);
-      
+
       itemEl.addEventListener('click', () => {
         this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
       });
-      
+
       container.appendChild(itemEl);
     });
   }
-
 
   createNewFeed() {
     try {
@@ -564,10 +587,10 @@ export class UIController {
       this.gtfsParser.initializeEmpty();
       this.updateFileList();
       this.mapController.updateMap();
-      
+
       // Clear editor
       this.editor.clearEditor();
-      
+
       // Refresh Objects navigation if available
       if (this.objectsNavigation) {
         this.objectsNavigation.refresh();
@@ -577,29 +600,34 @@ export class UIController {
       if (this.validateCallback) {
         this.validateCallback();
       }
-      
+
       notifications.showSuccess('New GTFS feed created with sample data!');
       console.log('Created new GTFS feed');
-      
     } catch (error) {
       console.error('Error creating new GTFS feed:', error);
-      notifications.showError(`Failed to create new GTFS feed: ${error.message}`);
+      notifications.showError(
+        `Failed to create new GTFS feed: ${error.message}`
+      );
     }
   }
 
   async exportGTFS() {
     let loadingNotificationId = null;
-    
+
     try {
       if (!this.gtfsParser || this.gtfsParser.getAllFileNames().length === 0) {
-        notifications.showWarning('No GTFS data to export. Please load a GTFS feed first.');
+        notifications.showWarning(
+          'No GTFS data to export. Please load a GTFS feed first.'
+        );
         return;
       }
 
       console.log('Exporting GTFS data...');
 
       // Show loading notification
-      loadingNotificationId = notifications.showLoading('Preparing GTFS export...');
+      loadingNotificationId = notifications.showLoading(
+        'Preparing GTFS export...'
+      );
 
       // Save current file changes
       this.editor.saveCurrentFileChanges();
@@ -622,15 +650,14 @@ export class UIController {
         notifications.removeNotification(loadingNotificationId);
       }
       notifications.showSuccess('GTFS data exported successfully!');
-      
     } catch (error) {
       console.error('Error exporting GTFS:', error);
-      
+
       // Remove loading notification
       if (loadingNotificationId) {
         notifications.removeNotification(loadingNotificationId);
       }
-      
+
       notifications.showError(`Failed to export GTFS data: ${error.message}`);
     }
   }

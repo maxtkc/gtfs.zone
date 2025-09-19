@@ -19,15 +19,15 @@ export class InfoDisplay {
 
   showAgencyDetails(agencyId) {
     const agencies = this.relationships.getAgencies();
-    const agency = agencies.find(a => a.id === agencyId);
-    
+    const agency = agencies.find((a) => a.id === agencyId);
+
     if (!agency) {
       this.showError('Agency not found');
       return;
     }
 
     const routes = this.relationships.getRoutesForAgency(agencyId);
-    
+
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="mb-4">
@@ -49,7 +49,9 @@ export class InfoDisplay {
         <div>
           <h4 class="font-medium text-slate-800 mb-3">Routes (${routes.length})</h4>
           <div class="space-y-2">
-            ${routes.map(route => `
+            ${routes
+              .map(
+                (route) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">
                   ${route.shortName ? this.escapeHtml(route.shortName) + ' - ' : ''}${this.escapeHtml(route.longName || route.id)}
@@ -57,7 +59,9 @@ export class InfoDisplay {
                 <div class="text-sm text-slate-500">Route ID: ${route.id}</div>
                 ${route.desc ? `<div class="text-xs text-slate-400 mt-1">${this.escapeHtml(route.desc)}</div>` : ''}
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       </div>
@@ -65,9 +69,10 @@ export class InfoDisplay {
   }
 
   showRouteDetails(routeId) {
-    const allRoutes = this.relationships.gtfsParser.getFileData('routes.txt') || [];
-    const route = allRoutes.find(r => r.route_id === routeId);
-    
+    const allRoutes =
+      this.relationships.gtfsParser.getFileData('routes.txt') || [];
+    const route = allRoutes.find((r) => r.route_id === routeId);
+
     if (!route) {
       this.showError('Route not found');
       return;
@@ -75,7 +80,7 @@ export class InfoDisplay {
 
     const trips = this.relationships.getTripsForRoute(routeId);
     const agencies = this.relationships.getAgencies();
-    const agency = agencies.find(a => a.id === route.agency_id);
+    const agency = agencies.find((a) => a.id === route.agency_id);
 
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
@@ -102,13 +107,18 @@ export class InfoDisplay {
         <div>
           <h4 class="font-medium text-slate-800 mb-3">Trips (${trips.length})</h4>
           <div class="space-y-2 max-h-64 overflow-y-auto">
-            ${trips.slice(0, 20).map(trip => `
+            ${trips
+              .slice(0, 20)
+              .map(
+                (trip) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}</div>
                 <div class="text-sm text-slate-500">Trip ID: ${trip.id}</div>
                 <div class="text-xs text-slate-400">Service: ${trip.serviceId}</div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
             ${trips.length > 20 ? `<div class="text-sm text-slate-500 text-center py-2">... and ${trips.length - 20} more trips</div>` : ''}
           </div>
         </div>
@@ -117,17 +127,19 @@ export class InfoDisplay {
   }
 
   showTripDetails(tripId) {
-    const allTrips = this.relationships.gtfsParser.getFileData('trips.txt') || [];
-    const trip = allTrips.find(t => t.trip_id === tripId);
-    
+    const allTrips =
+      this.relationships.gtfsParser.getFileData('trips.txt') || [];
+    const trip = allTrips.find((t) => t.trip_id === tripId);
+
     if (!trip) {
       this.showError('Trip not found');
       return;
     }
 
     const stopTimes = this.relationships.getStopTimesForTrip(tripId);
-    const allRoutes = this.relationships.gtfsParser.getFileData('routes.txt') || [];
-    const route = allRoutes.find(r => r.route_id === trip.route_id);
+    const allRoutes =
+      this.relationships.gtfsParser.getFileData('routes.txt') || [];
+    const route = allRoutes.find((r) => r.route_id === trip.route_id);
 
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
@@ -140,7 +152,7 @@ export class InfoDisplay {
               <div><strong>Trip ID:</strong> ${trip.trip_id}</div>
               ${trip.trip_headsign ? `<div><strong>Headsign:</strong> ${this.escapeHtml(trip.trip_headsign)}</div>` : ''}
               ${trip.trip_short_name ? `<div><strong>Short Name:</strong> ${this.escapeHtml(trip.trip_short_name)}</div>` : ''}
-              <div><strong>Route:</strong> ${route ? (route.route_short_name || route.route_long_name || route.route_id) : trip.route_id}</div>
+              <div><strong>Route:</strong> ${route ? route.route_short_name || route.route_long_name || route.route_id : trip.route_id}</div>
               <div><strong>Service ID:</strong> ${trip.service_id}</div>
               ${trip.direction_id ? `<div><strong>Direction:</strong> ${trip.direction_id}</div>` : ''}
               ${trip.block_id ? `<div><strong>Block ID:</strong> ${trip.block_id}</div>` : ''}
@@ -152,7 +164,9 @@ export class InfoDisplay {
         <div>
           <h4 class="font-medium text-slate-800 mb-3">Stop Times (${stopTimes.length})</h4>
           <div class="space-y-1 max-h-64 overflow-y-auto">
-            ${stopTimes.map((st, index) => `
+            ${stopTimes
+              .map(
+                (st, _index) => `
               <div class="bg-white border border-slate-200 rounded p-2 flex justify-between items-center">
                 <div class="flex-1">
                   <div class="font-medium text-sm">${st.stop ? this.escapeHtml(st.stop.name) : st.stopId}</div>
@@ -163,7 +177,9 @@ export class InfoDisplay {
                   <div class="text-sm font-mono text-slate-500">${st.departureTime}</div>
                 </div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       </div>
@@ -172,7 +188,7 @@ export class InfoDisplay {
 
   showStopDetails(stopId) {
     const stop = this.relationships.getStopById(stopId);
-    
+
     if (!stop) {
       this.showError('Stop not found');
       return;
@@ -191,12 +207,16 @@ export class InfoDisplay {
               <div><strong>Stop ID:</strong> ${stop.id}</div>
               ${stop.code ? `<div><strong>Code:</strong> ${stop.code}</div>` : ''}
               ${stop.desc ? `<div><strong>Description:</strong> ${this.escapeHtml(stop.desc)}</div>` : ''}
-              ${stop.lat && stop.lon ? `
+              ${
+                stop.lat && stop.lon
+                  ? `
                 <div><strong>Location:</strong> ${stop.lat.toFixed(6)}, ${stop.lon.toFixed(6)}</div>
                 <div><strong>Coordinates:</strong> 
                   <a href="https://www.openstreetmap.org/?mlat=${stop.lat}&mlon=${stop.lon}&zoom=18" target="_blank" class="text-blue-600 hover:underline">View on OpenStreetMap</a>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
               ${stop.zoneId ? `<div><strong>Zone ID:</strong> ${stop.zoneId}</div>` : ''}
               ${stop.url ? `<div><strong>URL:</strong> <a href="${stop.url}" target="_blank" class="text-blue-600 hover:underline">${stop.url}</a></div>` : ''}
               ${stop.locationType ? `<div><strong>Location Type:</strong> ${this.getLocationTypeText(stop.locationType)}</div>` : ''}
@@ -209,12 +229,17 @@ export class InfoDisplay {
         <div>
           <h4 class="font-medium text-slate-800 mb-3">Trips serving this stop (${trips.length})</h4>
           <div class="space-y-2 max-h-64 overflow-y-auto">
-            ${trips.slice(0, 15).map(trip => `
+            ${trips
+              .slice(0, 15)
+              .map(
+                (trip) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}</div>
                 <div class="text-sm text-slate-500">Trip: ${trip.id} | Route: ${trip.routeId}</div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
             ${trips.length > 15 ? `<div class="text-sm text-slate-500 text-center py-2">... and ${trips.length - 15} more trips</div>` : ''}
           </div>
         </div>
@@ -224,14 +249,21 @@ export class InfoDisplay {
 
   showFeedStatistics(validationResults = null) {
     const stats = this.relationships.getStatistics();
-    
+
     let validationSection = '';
     if (validationResults) {
       const { summary } = validationResults;
-      const statusColor = summary.isValid ? 'green' : summary.errorCount > 0 ? 'red' : 'yellow';
-      const statusIcon = summary.isValid ? '✅' : summary.errorCount > 0 ? '❌' : '⚠️';
-      const statusText = summary.isValid ? 'Valid' : summary.errorCount > 0 ? 'Has Errors' : 'Has Warnings';
-      
+      const statusColor = summary.isValid
+        ? 'green'
+        : summary.errorCount > 0
+          ? 'red'
+          : 'yellow';
+      const statusIcon = summary.isValid
+        ? '✅'
+        : summary.errorCount > 0
+          ? '❌'
+          : '⚠️';
+
       validationSection = `
         <div class="bg-${statusColor}-50 border border-${statusColor}-200 rounded-lg p-4 mb-6">
           <h4 class="font-medium text-${statusColor}-800 mb-3 flex items-center gap-2">
@@ -259,7 +291,7 @@ export class InfoDisplay {
         </div>
       `;
     }
-    
+
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <h3 class="text-lg font-semibold text-slate-800 mb-4">📊 Feed Overview</h3>
@@ -304,7 +336,7 @@ export class InfoDisplay {
         </div>
       </div>
     `;
-    
+
     // Add event listener for validation details
     if (validationResults) {
       const detailsBtn = document.getElementById('show-validation-details');
@@ -318,17 +350,21 @@ export class InfoDisplay {
 
   showValidationDetails(validationResults) {
     const { errors, warnings, info, summary } = validationResults;
-    
+
     const renderIssues = (issues, type, icon, colorClass) => {
-      if (issues.length === 0) return '';
-      
+      if (issues.length === 0) {
+        return '';
+      }
+
       return `
         <div class="mb-6">
           <h4 class="font-medium text-${colorClass}-800 mb-3 flex items-center gap-2">
             ${icon} ${type} (${issues.length})
           </h4>
           <div class="space-y-2 max-h-64 overflow-y-auto">
-            ${issues.map(issue => `
+            ${issues
+              .map(
+                (issue) => `
               <div class="bg-${colorClass}-50 border border-${colorClass}-200 rounded p-3">
                 <div class="font-medium text-${colorClass}-800">${this.escapeHtml(issue.message)}</div>
                 <div class="text-sm text-${colorClass}-600 mt-1">
@@ -337,12 +373,14 @@ export class InfoDisplay {
                   ${issue.code ? ` | Code: ${issue.code}` : ''}
                 </div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       `;
     };
-    
+
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="flex items-center justify-between mb-4">
@@ -373,11 +411,14 @@ export class InfoDisplay {
         ${renderIssues(warnings, 'Warnings', '⚠️', 'yellow')}
         ${renderIssues(info, 'Information', 'ℹ️', 'blue')}
         
-        ${errors.length === 0 && warnings.length === 0 && info.length === 0 ? 
-          '<div class="text-center py-8 text-slate-500">No validation issues found.</div>' : ''}
+        ${
+          errors.length === 0 && warnings.length === 0 && info.length === 0
+            ? '<div class="text-center py-8 text-slate-500">No validation issues found.</div>'
+            : ''
+        }
       </div>
     `;
-    
+
     // Add back button functionality
     const backBtn = document.getElementById('back-to-overview');
     if (backBtn) {
@@ -410,36 +451,36 @@ export class InfoDisplay {
 
   getRouteTypeText(routeType) {
     const types = {
-      '0': 'Tram/Light Rail',
-      '1': 'Subway/Metro',
-      '2': 'Rail',
-      '3': 'Bus',
-      '4': 'Ferry',
-      '5': 'Cable Tram',
-      '6': 'Aerial Lift',
-      '7': 'Funicular',
-      '11': 'Trolleybus',
-      '12': 'Monorail'
+      0: 'Tram/Light Rail',
+      1: 'Subway/Metro',
+      2: 'Rail',
+      3: 'Bus',
+      4: 'Ferry',
+      5: 'Cable Tram',
+      6: 'Aerial Lift',
+      7: 'Funicular',
+      11: 'Trolleybus',
+      12: 'Monorail',
     };
     return types[routeType] || `Unknown (${routeType})`;
   }
 
   getLocationTypeText(locationType) {
     const types = {
-      '0': 'Stop/Platform',
-      '1': 'Station',
-      '2': 'Station Entrance/Exit',
-      '3': 'Generic Node',
-      '4': 'Boarding Area'
+      0: 'Stop/Platform',
+      1: 'Station',
+      2: 'Station Entrance/Exit',
+      3: 'Generic Node',
+      4: 'Boarding Area',
     };
     return types[locationType] || `Unknown (${locationType})`;
   }
 
   getWheelchairText(wheelchairBoarding) {
     const values = {
-      '0': 'No information',
-      '1': 'Accessible',
-      '2': 'Not accessible'
+      0: 'No information',
+      1: 'Accessible',
+      2: 'Not accessible',
     };
     return values[wheelchairBoarding] || `Unknown (${wheelchairBoarding})`;
   }

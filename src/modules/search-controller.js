@@ -10,7 +10,9 @@ export class SearchController {
 
   initialize() {
     this.searchInput = document.getElementById('map-search');
-    if (!this.searchInput) return;
+    if (!this.searchInput) {
+      return;
+    }
 
     this.createSearchResults();
     this.setupEventListeners();
@@ -19,22 +21,27 @@ export class SearchController {
   createSearchResults() {
     // Create search results dropdown
     const controlsContainer = document.getElementById('map-controls');
-    if (!controlsContainer) return;
+    if (!controlsContainer) {
+      return;
+    }
 
     this.searchResults = document.createElement('div');
     this.searchResults.id = 'search-results';
-    this.searchResults.className = 'search-results hidden absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-b-lg shadow-lg max-h-64 overflow-y-auto z-50';
-    
+    this.searchResults.className =
+      'search-results hidden absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-b-lg shadow-lg max-h-64 overflow-y-auto z-50';
+
     controlsContainer.appendChild(this.searchResults);
   }
 
   setupEventListeners() {
-    if (!this.searchInput) return;
+    if (!this.searchInput) {
+      return;
+    }
 
     // Search on input with debounce
     this.searchInput.addEventListener('input', (e) => {
       const query = e.target.value.trim();
-      
+
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
       }
@@ -51,7 +58,9 @@ export class SearchController {
         this.searchInput.blur();
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        const firstResult = this.searchResults.querySelector('.search-result-item');
+        const firstResult = this.searchResults.querySelector(
+          '.search-result-item'
+        );
         if (firstResult) {
           firstResult.click();
         }
@@ -94,7 +103,9 @@ export class SearchController {
   }
 
   displayResults(results, query) {
-    if (!this.searchResults) return;
+    if (!this.searchResults) {
+      return;
+    }
 
     const { stops, routes } = results;
     const totalResults = stops.length + routes.length;
@@ -114,9 +125,11 @@ export class SearchController {
             Routes (${routes.length})
           </div>
       `;
-      
-      routes.forEach(route => {
-        const routeColor = route.route_color ? `#${route.route_color}` : '#3b82f6';
+
+      routes.forEach((route) => {
+        const routeColor = route.route_color
+          ? `#${route.route_color}`
+          : '#3b82f6';
         html += `
           <div class="search-result-item px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" 
                data-type="route" data-id="${route.route_id}">
@@ -126,15 +139,18 @@ export class SearchController {
                 <div class="font-medium text-gray-900 truncate">
                   ${route.route_short_name || route.route_long_name || route.route_id}
                 </div>
-                ${route.route_long_name && route.route_short_name ? 
-                  `<div class="text-sm text-gray-500 truncate">${route.route_long_name}</div>` : ''}
+                ${
+                  route.route_long_name && route.route_short_name
+                    ? `<div class="text-sm text-gray-500 truncate">${route.route_long_name}</div>`
+                    : ''
+                }
                 <div class="text-xs text-gray-400">${this.gtfsParser.getRouteTypeText(route.route_type)}</div>
               </div>
             </div>
           </div>
         `;
       });
-      
+
       html += '</div>';
     }
 
@@ -146,11 +162,11 @@ export class SearchController {
             Stops (${stops.length})
           </div>
       `;
-      
-      stops.forEach(stop => {
+
+      stops.forEach((stop) => {
         const stopType = stop.location_type || '0';
         const stopIcon = stopType === '1' ? '🚉' : '🚏';
-        
+
         html += `
           <div class="search-result-item px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100" 
                data-type="stop" data-id="${stop.stop_id}">
@@ -162,16 +178,18 @@ export class SearchController {
                 </div>
                 ${stop.stop_code ? `<div class="text-sm text-gray-500">Code: ${stop.stop_code}</div>` : ''}
                 <div class="text-xs text-gray-400">
-                  ${stop.stop_lat && stop.stop_lon ? 
-                    `${parseFloat(stop.stop_lat).toFixed(4)}, ${parseFloat(stop.stop_lon).toFixed(4)}` : 
-                    'No coordinates'}
+                  ${
+                    stop.stop_lat && stop.stop_lon
+                      ? `${parseFloat(stop.stop_lat).toFixed(4)}, ${parseFloat(stop.stop_lon).toFixed(4)}`
+                      : 'No coordinates'
+                  }
                 </div>
               </div>
             </div>
           </div>
         `;
       });
-      
+
       html += '</div>';
     }
 
@@ -181,13 +199,15 @@ export class SearchController {
   }
 
   attachResultHandlers() {
-    const resultItems = this.searchResults.querySelectorAll('.search-result-item');
-    
-    resultItems.forEach(item => {
+    const resultItems = this.searchResults.querySelectorAll(
+      '.search-result-item'
+    );
+
+    resultItems.forEach((item) => {
       item.addEventListener('click', () => {
         const type = item.dataset.type;
         const id = item.dataset.id;
-        
+
         this.selectResult(type, id);
         this.hideResults();
         this.searchInput.blur();
@@ -204,8 +224,10 @@ export class SearchController {
   }
 
   showLoadingState() {
-    if (!this.searchResults) return;
-    
+    if (!this.searchResults) {
+      return;
+    }
+
     this.searchResults.innerHTML = `
       <div class="px-3 py-4 text-center text-gray-500">
         <div class="animate-spin inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full mr-2"></div>
@@ -216,8 +238,10 @@ export class SearchController {
   }
 
   showErrorState() {
-    if (!this.searchResults) return;
-    
+    if (!this.searchResults) {
+      return;
+    }
+
     this.searchResults.innerHTML = `
       <div class="px-3 py-4 text-center text-red-500">
         <div class="text-sm">Search error occurred</div>
@@ -228,8 +252,10 @@ export class SearchController {
   }
 
   showNoResultsState(query) {
-    if (!this.searchResults) return;
-    
+    if (!this.searchResults) {
+      return;
+    }
+
     this.searchResults.innerHTML = `
       <div class="px-3 py-4 text-center text-gray-500">
         <div class="text-sm">No results found for "${query}"</div>

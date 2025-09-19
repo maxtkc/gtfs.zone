@@ -16,7 +16,18 @@ export default [
         URL: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
-        event: 'readonly'
+        event: 'readonly',
+        navigator: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        performance: 'readonly',
+        Blob: 'readonly',
+        Worker: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        showErrorNotification: 'readonly',
+        nonExistentFunction: 'readonly',
+        require: 'readonly'
       }
     },
     rules: {

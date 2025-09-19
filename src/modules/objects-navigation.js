@@ -22,18 +22,20 @@ export class ObjectsNavigation {
       console.error(`Objects navigation container ${containerId} not found`);
       return;
     }
-    
+
     this.render();
   }
 
   render() {
-    if (!this.container) return;
-    
+    if (!this.container) {
+      return;
+    }
+
     if (!this.relationships.hasData()) {
       this.renderEmptyState();
       return;
     }
-    
+
     this.container.innerHTML = `
       <div class="objects-navigation h-full flex flex-col">
         ${this.renderBreadcrumb()}
@@ -41,7 +43,7 @@ export class ObjectsNavigation {
         ${this.renderContent()}
       </div>
     `;
-    
+
     this.attachEventListeners();
   }
 
@@ -49,18 +51,20 @@ export class ObjectsNavigation {
     if (this.breadcrumb.length === 0) {
       return '';
     }
-    
-    const breadcrumbItems = this.breadcrumb.map((item, index) => {
-      const isLast = index === this.breadcrumb.length - 1;
-      return `
+
+    const breadcrumbItems = this.breadcrumb
+      .map((item, index) => {
+        const isLast = index === this.breadcrumb.length - 1;
+        return `
         <button class="breadcrumb-item text-sm ${isLast ? 'text-slate-600 font-medium' : 'text-blue-600 hover:text-blue-800'}" 
                 data-breadcrumb-index="${index}" 
                 ${isLast ? 'disabled' : ''}>
           ${item.name}
         </button>
       `;
-    }).join('<span class="text-slate-400 mx-2">›</span>');
-    
+      })
+      .join('<span class="text-slate-400 mx-2">›</span>');
+
     return `
       <div class="breadcrumb p-3 border-b border-slate-200 bg-slate-50">
         <div class="flex items-center text-sm">
@@ -85,9 +89,10 @@ export class ObjectsNavigation {
             class="w-full px-3 py-2 pr-8 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-            ${this.searchQuery ? 
-              '<button id="clear-objects-search" class="text-slate-400 hover:text-slate-600">✕</button>' :
-              '<span class="text-slate-400">🔍</span>'
+            ${
+              this.searchQuery
+                ? '<button id="clear-objects-search" class="text-slate-400 hover:text-slate-600">✕</button>'
+                : '<span class="text-slate-400">🔍</span>'
             }
           </div>
         </div>
@@ -115,25 +120,26 @@ export class ObjectsNavigation {
 
   renderAgencies() {
     let agencies = this.relationships.getAgencies();
-    
+
     // Apply search filter
     if (this.searchQuery) {
       const query = this.searchQuery.toLowerCase();
-      agencies = agencies.filter(agency => 
-        agency.name.toLowerCase().includes(query) ||
-        agency.id.toLowerCase().includes(query) ||
-        (agency.timezone && agency.timezone.toLowerCase().includes(query))
+      agencies = agencies.filter(
+        (agency) =>
+          agency.name.toLowerCase().includes(query) ||
+          agency.id.toLowerCase().includes(query) ||
+          (agency.timezone && agency.timezone.toLowerCase().includes(query))
       );
     }
-    
+
     if (agencies.length === 0) {
-      const message = this.searchQuery ? 
-        `No agencies found matching "${this.searchQuery}"` : 
-        'No agencies found';
-      const submessage = this.searchQuery ? 
-        'Try a different search term' : 
-        'Add agency.txt to get started';
-        
+      const message = this.searchQuery
+        ? `No agencies found matching "${this.searchQuery}"`
+        : 'No agencies found';
+      const submessage = this.searchQuery
+        ? 'Try a different search term'
+        : 'Add agency.txt to get started';
+
       return `
         <div class="p-4 text-center text-slate-500">
           <div class="text-lg mb-2">🏢</div>
@@ -142,8 +148,10 @@ export class ObjectsNavigation {
         </div>
       `;
     }
-    
-    const agencyItems = agencies.map(agency => `
+
+    const agencyItems = agencies
+      .map(
+        (agency) => `
       <div class="object-item agency-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
            data-agency-id="${agency.id}">
         <div class="flex items-center">
@@ -156,8 +164,10 @@ export class ObjectsNavigation {
           <div class="text-slate-400">›</div>
         </div>
       </div>
-    `).join('');
-    
+    `
+      )
+      .join('');
+
     return `
       <div class="content flex-1 overflow-y-auto">
         <div class="p-3">
@@ -173,26 +183,25 @@ export class ObjectsNavigation {
   renderRoutes() {
     const currentAgency = this.breadcrumb[this.breadcrumb.length - 1];
     let routes = this.relationships.getRoutesForAgency(currentAgency.id);
-    
+
     // Apply search filter
     if (this.searchQuery) {
       const query = this.searchQuery.toLowerCase();
-      routes = routes.filter(route => 
-        (route.shortName && route.shortName.toLowerCase().includes(query)) ||
-        (route.longName && route.longName.toLowerCase().includes(query)) ||
-        route.id.toLowerCase().includes(query) ||
-        (route.desc && route.desc.toLowerCase().includes(query))
+      routes = routes.filter(
+        (route) =>
+          (route.shortName && route.shortName.toLowerCase().includes(query)) ||
+          (route.longName && route.longName.toLowerCase().includes(query)) ||
+          route.id.toLowerCase().includes(query) ||
+          (route.desc && route.desc.toLowerCase().includes(query))
       );
     }
-    
+
     if (routes.length === 0) {
-      const message = this.searchQuery ? 
-        `No routes found matching "${this.searchQuery}"` : 
-        'No routes found for this agency';
-      const submessage = this.searchQuery ? 
-        'Try a different search term' : 
-        '';
-        
+      const message = this.searchQuery
+        ? `No routes found matching "${this.searchQuery}"`
+        : 'No routes found for this agency';
+      const submessage = this.searchQuery ? 'Try a different search term' : '';
+
       return `
         <div class="p-4 text-center text-slate-500">
           <div class="text-lg mb-2">🚌</div>
@@ -201,8 +210,10 @@ export class ObjectsNavigation {
         </div>
       `;
     }
-    
-    const routeItems = routes.map(route => `
+
+    const routeItems = routes
+      .map(
+        (route) => `
       <div class="object-item route-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
            data-route-id="${route.id}">
         <div class="flex items-center">
@@ -217,10 +228,12 @@ export class ObjectsNavigation {
           <div class="text-slate-400">›</div>
         </div>
       </div>
-    `).join('');
-    
+    `
+      )
+      .join('');
+
     const allRoutes = this.relationships.getRoutesForAgency(currentAgency.id);
-    
+
     return `
       <div class="content flex-1 overflow-y-auto">
         <div class="p-3">
@@ -236,7 +249,7 @@ export class ObjectsNavigation {
   renderTrips() {
     const currentRoute = this.breadcrumb[this.breadcrumb.length - 1];
     const trips = this.relationships.getTripsForRoute(currentRoute.id);
-    
+
     if (trips.length === 0) {
       return `
         <div class="p-4 text-center text-slate-500">
@@ -245,8 +258,10 @@ export class ObjectsNavigation {
         </div>
       `;
     }
-    
-    const tripItems = trips.map(trip => `
+
+    const tripItems = trips
+      .map(
+        (trip) => `
       <div class="object-item trip-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
            data-trip-id="${trip.id}">
         <div class="flex items-center">
@@ -261,8 +276,10 @@ export class ObjectsNavigation {
           <div class="text-slate-400">›</div>
         </div>
       </div>
-    `).join('');
-    
+    `
+      )
+      .join('');
+
     return `
       <div class="content flex-1 overflow-y-auto">
         <div class="p-3">
@@ -276,7 +293,7 @@ export class ObjectsNavigation {
   renderStopTimes() {
     const currentTrip = this.breadcrumb[this.breadcrumb.length - 1];
     const stopTimes = this.relationships.getStopTimesForTrip(currentTrip.id);
-    
+
     if (stopTimes.length === 0) {
       return `
         <div class="p-4 text-center text-slate-500">
@@ -285,8 +302,10 @@ export class ObjectsNavigation {
         </div>
       `;
     }
-    
-    const stopTimeItems = stopTimes.map(stopTime => `
+
+    const stopTimeItems = stopTimes
+      .map(
+        (stopTime) => `
       <div class="object-item stop-time-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
            data-stop-id="${stopTime.stopId}">
         <div class="flex items-center">
@@ -305,8 +324,10 @@ export class ObjectsNavigation {
           <div class="text-slate-400">›</div>
         </div>
       </div>
-    `).join('');
-    
+    `
+      )
+      .join('');
+
     return `
       <div class="content flex-1 overflow-y-auto">
         <div class="p-3">
@@ -321,7 +342,7 @@ export class ObjectsNavigation {
     const currentStop = this.breadcrumb[this.breadcrumb.length - 1];
     const stop = this.relationships.getStopById(currentStop.id);
     const trips = this.relationships.getTripsForStop(currentStop.id);
-    
+
     if (!stop) {
       return `
         <div class="p-4 text-center text-slate-500">
@@ -330,14 +351,18 @@ export class ObjectsNavigation {
         </div>
       `;
     }
-    
-    const tripItems = trips.map(trip => `
+
+    const tripItems = trips
+      .map(
+        (trip) => `
       <div class="trip-item p-2 border border-slate-200 rounded mb-2">
         <div class="font-medium text-sm">${trip.headsign || trip.id}</div>
         <div class="text-xs text-slate-500">Trip: ${trip.id} | Route: ${trip.routeId}</div>
       </div>
-    `).join('');
-    
+    `
+      )
+      .join('');
+
     return `
       <div class="content flex-1 overflow-y-auto">
         <div class="p-4">
@@ -354,14 +379,18 @@ export class ObjectsNavigation {
               </div>
             </div>
             
-            ${stop.lat && stop.lon ? `
+            ${
+              stop.lat && stop.lon
+                ? `
               <div class="mt-3 p-3 bg-white rounded border">
                 <div class="text-sm font-medium text-slate-700">Location</div>
                 <div class="text-sm text-slate-600">
                   Lat: ${stop.lat.toFixed(6)}, Lon: ${stop.lon.toFixed(6)}
                 </div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
           
           <div class="trips-section">
@@ -384,25 +413,27 @@ export class ObjectsNavigation {
   }
 
   attachEventListeners() {
-    if (!this.container) return;
-    
+    if (!this.container) {
+      return;
+    }
+
     // Search functionality
     const searchInput = document.getElementById('objects-search');
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
-        
+
         if (this.searchTimeout) {
           clearTimeout(this.searchTimeout);
         }
-        
+
         this.searchTimeout = setTimeout(() => {
           this.searchQuery = query;
           this.render();
         }, 300);
       });
     }
-    
+
     // Clear search button
     this.container.addEventListener('click', (e) => {
       if (e.target.id === 'clear-objects-search') {
@@ -414,7 +445,7 @@ export class ObjectsNavigation {
         this.render();
       }
     });
-    
+
     // Breadcrumb navigation
     this.container.addEventListener('click', (e) => {
       if (e.target.classList.contains('breadcrumb-home')) {
@@ -424,14 +455,14 @@ export class ObjectsNavigation {
         this.navigateToBreadcrumb(index);
       }
     });
-    
+
     // Object item clicks
     this.container.addEventListener('click', (e) => {
       const agencyItem = e.target.closest('.agency-item');
       const routeItem = e.target.closest('.route-item');
       const tripItem = e.target.closest('.trip-item');
       const stopTimeItem = e.target.closest('.stop-time-item');
-      
+
       if (agencyItem) {
         this.navigateToAgency(agencyItem.dataset.agencyId);
       } else if (routeItem) {
@@ -449,7 +480,7 @@ export class ObjectsNavigation {
     this.breadcrumb = [];
     this.searchQuery = ''; // Clear search when navigating
     this.render();
-    
+
     // Show feed statistics in Info tab when at home
     if (this.infoDisplay && this.relationships.hasData()) {
       this.infoDisplay.showFeedStatistics();
@@ -458,7 +489,7 @@ export class ObjectsNavigation {
 
   navigateToBreadcrumb(index) {
     this.breadcrumb = this.breadcrumb.slice(0, index + 1);
-    
+
     if (index === 0) {
       this.currentView = 'routes';
     } else if (index === 1) {
@@ -466,29 +497,31 @@ export class ObjectsNavigation {
     } else if (index === 2) {
       this.currentView = 'stop-times';
     }
-    
+
     this.render();
   }
 
   navigateToAgency(agencyId) {
     const agencies = this.relationships.getAgencies();
-    const agency = agencies.find(a => a.id === agencyId);
-    
+    const agency = agencies.find((a) => a.id === agencyId);
+
     if (agency) {
       // Get routes for this agency to show as related objects
       const routes = this.relationships.getRoutesForAgency(agencyId);
-      const relatedObjects = routes.map(route => ({
-        name: route.shortName ? `${route.shortName} - ${route.longName || route.id}` : (route.longName || route.id),
+      const relatedObjects = routes.map((route) => ({
+        name: route.shortName
+          ? `${route.shortName} - ${route.longName || route.id}`
+          : route.longName || route.id,
         type: 'Route',
         data: route,
-        relatedObjects: [] // We can add trips here later if needed
+        relatedObjects: [], // We can add trips here later if needed
       }));
-      
+
       // Show agency details in the object details view
       if (this.uiController) {
         this.uiController.showObjectDetails('Agency', agency, relatedObjects);
       }
-      
+
       // Highlight agency routes on map
       this.highlightAgencyOnMap(agencyId);
     }
@@ -496,22 +529,22 @@ export class ObjectsNavigation {
 
   navigateToRoute(routeId) {
     const route = this.relationships.getRouteById(routeId);
-    
+
     if (route) {
       // Get trips for this route to show as related objects
       const trips = this.relationships.getTripsForRoute(routeId);
-      const relatedObjects = trips.map(trip => ({
+      const relatedObjects = trips.map((trip) => ({
         name: trip.headsign || trip.id,
         type: 'Trip',
         data: trip,
-        relatedObjects: []
+        relatedObjects: [],
       }));
-      
+
       // Show route details in the object details view
       if (this.uiController) {
         this.uiController.showObjectDetails('Route', route, relatedObjects);
       }
-      
+
       // Highlight route on map
       this.highlightRouteOnMap(routeId);
     }
@@ -519,22 +552,22 @@ export class ObjectsNavigation {
 
   navigateToTrip(tripId) {
     const trip = this.relationships.getTripById(tripId);
-    
+
     if (trip) {
       // Get stop times for this trip to show as related objects
       const stopTimes = this.relationships.getStopTimesForTrip(tripId);
-      const relatedObjects = stopTimes.map(stopTime => ({
+      const relatedObjects = stopTimes.map((stopTime) => ({
         name: stopTime.stop ? stopTime.stop.name : stopTime.stopId,
         type: 'Stop',
         data: stopTime.stop || { stop_id: stopTime.stopId },
-        relatedObjects: []
+        relatedObjects: [],
       }));
-      
+
       // Show trip details in the object details view
       if (this.uiController) {
         this.uiController.showObjectDetails('Trip', trip, relatedObjects);
       }
-      
+
       // Highlight trip on map
       this.highlightTripOnMap(tripId);
     }
@@ -542,22 +575,22 @@ export class ObjectsNavigation {
 
   navigateToStop(stopId) {
     const stop = this.relationships.getStopById(stopId);
-    
+
     if (stop) {
       // Get trips for this stop to show as related objects
       const trips = this.relationships.getTripsForStop(stopId);
-      const relatedObjects = trips.map(trip => ({
+      const relatedObjects = trips.map((trip) => ({
         name: trip.headsign || trip.id,
         type: 'Trip',
         data: trip,
-        relatedObjects: []
+        relatedObjects: [],
       }));
-      
+
       // Show stop details in the object details view
       if (this.uiController) {
         this.uiController.showObjectDetails('Stop', stop, relatedObjects);
       }
-      
+
       // Highlight stop on map
       this.highlightStopOnMap(stopId);
     }
@@ -574,7 +607,7 @@ export class ObjectsNavigation {
     if (this.mapController && this.mapController.highlightRoute) {
       this.mapController.clearHighlights();
       this.mapController.highlightRoute(routeId);
-      
+
       // Fit map to this route
       this.mapController.fitToRoutes([routeId]);
     }
