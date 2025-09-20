@@ -29,7 +29,7 @@ gtfsFiles.forEach(filename => {
     const content = readFileSync(filePath, 'utf8');
     zip.file(filename, content);
     console.log(`Added ${filename} to ZIP`);
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error reading ${filename}:`, error.message);
   }
 });
@@ -38,6 +38,6 @@ gtfsFiles.forEach(filename => {
 zip.generateAsync({ type: 'nodebuffer' }).then(content => {
   writeFileSync(outputPath, content);
   console.log(`Test GTFS ZIP created at: ${outputPath}`);
-}).catch(error => {
+}).catch((error: any) => {
   console.error('Error creating ZIP:', error);
 });

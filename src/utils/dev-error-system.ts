@@ -4,11 +4,11 @@
  */
 export class DevErrorSystem {
   static isEnabled = false;
-  static errorHistory = [];
-  static overlay = null;
-  static originalConsoleError = null;
-  static originalConsoleWarn = null;
-  static notificationQueue = [];
+  static errorHistory: any[] = [];
+  static overlay: HTMLElement | null = null;
+  static originalConsoleError: ((...data: any[]) => void) | null = null;
+  static originalConsoleWarn: ((...data: any[]) => void) | null = null;
+  static notificationQueue: any[] = [];
   static lastErrorSound = 0;
 
   /**
@@ -80,9 +80,9 @@ export class DevErrorSystem {
   /**
    * Handle console errors and warnings
    */
-  static handleConsoleError(level, args) {
+  static handleConsoleError(level: string, args: any[]) {
     const message = args
-      .map((arg) =>
+      .map((arg: any) =>
         typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
       )
       .join(' ');
@@ -98,7 +98,7 @@ export class DevErrorSystem {
   /**
    * Main error handling function
    */
-  static handleError(errorInfo) {
+  static handleError(errorInfo: any) {
     if (!this.isEnabled) {
       return;
     }

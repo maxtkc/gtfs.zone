@@ -5,7 +5,7 @@ import { JSDOM } from 'jsdom';
 import fs from 'fs/promises';
 import path from 'path';
 
-async function scrapeGTFSSpec() {
+async function scrapeGTFSSpec(): Promise<any> {
   console.log('Fetching GTFS specification from gtfs.org...');
   
   try {

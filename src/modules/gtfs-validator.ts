@@ -1,5 +1,8 @@
 export class GTFSValidator {
-  constructor(gtfsParser) {
+  private gtfsParser: any;
+  private validationResults: any;
+
+  constructor(gtfsParser: any) {
     this.gtfsParser = gtfsParser;
     this.validationResults = {
       errors: [],
@@ -101,7 +104,7 @@ export class GTFSValidator {
 
     const agencyIds = new Set();
 
-    agencies.forEach((agency, index) => {
+    agencies.forEach((agency: any, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -177,9 +180,9 @@ export class GTFSValidator {
     }
 
     const routeIds = new Set();
-    const agencyIds = new Set((agencies || []).map((a) => a.agency_id));
+    const agencyIds = new Set((agencies || []).map((a: any) => a.agency_id));
 
-    routes.forEach((route, index) => {
+    routes.forEach((route: any, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -268,7 +271,7 @@ export class GTFSValidator {
 
     const stopIds = new Set();
 
-    stops.forEach((stop, index) => {
+    stops.forEach((stop: any, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -370,9 +373,9 @@ export class GTFSValidator {
     }
 
     const tripIds = new Set();
-    const routeIds = new Set((routes || []).map((r) => r.route_id));
+    const routeIds = new Set((routes || []).map((r: any) => r.route_id));
 
-    trips.forEach((trip, index) => {
+    trips.forEach((trip: any, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -438,10 +441,10 @@ export class GTFSValidator {
       return;
     }
 
-    const tripIds = new Set((trips || []).map((t) => t.trip_id));
-    const stopIds = new Set((stops || []).map((s) => s.stop_id));
+    const tripIds = new Set((trips || []).map((t: any) => t.trip_id));
+    const stopIds = new Set((stops || []).map((s: any) => s.stop_id));
 
-    stopTimes.forEach((stopTime, index) => {
+    stopTimes.forEach((stopTime: any, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -524,7 +527,7 @@ export class GTFSValidator {
     const calendarDates = this.gtfsParser.getFileData('calendar_dates.txt');
 
     if (calendar) {
-      calendar.forEach((service, index) => {
+      calendar.forEach((service: any, index: number) => {
         const rowNum = index + 1;
 
         if (!service.service_id || service.service_id.trim() === '') {
@@ -558,7 +561,7 @@ export class GTFSValidator {
     }
 
     if (calendarDates) {
-      calendarDates.forEach((exception, index) => {
+      calendarDates.forEach((exception: any, index: number) => {
         const rowNum = index + 1;
 
         if (!exception.service_id || exception.service_id.trim() === '') {
@@ -600,7 +603,7 @@ export class GTFSValidator {
       return;
     }
 
-    shapes.forEach((shape, index) => {
+    shapes.forEach((shape: any, index: number) => {
       const rowNum = index + 1;
 
       if (!shape.shape_id || shape.shape_id.trim() === '') {
@@ -677,11 +680,13 @@ export class GTFSValidator {
     const stopTimes = this.gtfsParser.getFileData('stop_times.txt');
 
     if (trips && stopTimes) {
-      const tripIds = new Set(trips.map((t) => t.trip_id));
-      const tripsWithStopTimes = new Set(stopTimes.map((st) => st.trip_id));
+      const tripIds = new Set(trips.map((t: any) => t.trip_id));
+      const tripsWithStopTimes = new Set(
+        stopTimes.map((st: any) => st.trip_id)
+      );
 
       // Check for trips without stop times
-      tripIds.forEach((tripId) => {
+      tripIds.forEach((tripId: any) => {
         if (!tripsWithStopTimes.has(tripId)) {
           this.addWarning(
             `Trip '${tripId}' has no stop times`,
@@ -694,7 +699,12 @@ export class GTFSValidator {
   }
 
   // Helper methods
-  addError(message, code, fileName = null, rowNum = null) {
+  addError(
+    message: string,
+    code: string,
+    fileName: string | null = null,
+    rowNum: number | null = null
+  ) {
     this.validationResults.errors.push({
       type: 'error',
       message,
@@ -704,7 +714,12 @@ export class GTFSValidator {
     });
   }
 
-  addWarning(message, code, fileName = null, rowNum = null) {
+  addWarning(
+    message: string,
+    code: string,
+    fileName: string | null = null,
+    rowNum: number | null = null
+  ) {
     this.validationResults.warnings.push({
       type: 'warning',
       message,
@@ -714,7 +729,12 @@ export class GTFSValidator {
     });
   }
 
-  addInfo(message, code, fileName = null, rowNum = null) {
+  addInfo(
+    message: string,
+    code: string,
+    fileName: string | null = null,
+    rowNum: number | null = null
+  ) {
     this.validationResults.info.push({
       type: 'info',
       message,
@@ -724,7 +744,7 @@ export class GTFSValidator {
     });
   }
 
-  isValidUrl(url) {
+  isValidUrl(url: string) {
     try {
       new URL(url);
       return true;
@@ -733,12 +753,12 @@ export class GTFSValidator {
     }
   }
 
-  isValidTime(time) {
+  isValidTime(time: string) {
     // GTFS time format: HH:MM:SS or H:MM:SS (hours can exceed 24)
     return /^\d{1,2}:\d{2}:\d{2}$/.test(time);
   }
 
-  isValidDate(date) {
+  isValidDate(date: string) {
     // GTFS date format: YYYYMMDD
     if (!/^\d{8}$/.test(date)) {
       return false;

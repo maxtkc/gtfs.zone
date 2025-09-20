@@ -1,46 +1,47 @@
+interface ErrorMetadata {
+  [key: string]: any;
+}
+
+interface ErrorOptions {
+  userFacing?: boolean;
+  report?: boolean;
+  metadata?: ErrorMetadata;
+}
+
+interface ErrorReport {
+  message: string;
+  stack?: string;
+  context: string;
+  metadata: ErrorMetadata;
+  userAgent: string;
+  url: string;
+  timestamp: string;
+}
+
+type NotificationCallback = (message: string, type: string) => void;
+type ErrorReporter = (report: ErrorReport) => void;
+
 /**
  * Centralized error handling for the GTFS Zone application
  * Provides consistent error logging, user notifications, and optional error reporting
  */
 export class ErrorHandler {
-  /**
-   * @private
-   * @type {Function|null}
-   */
-  static notificationCallback = null;
+  private static notificationCallback: NotificationCallback | null = null;
+  private static errorReporter: ErrorReporter | null = null;
 
-  /**
-   * @private
-   * @type {Function|null}
-   */
-  static errorReporter = null;
-
-  /**
-   * Set the notification callback for user-facing error messages
-   * @param {Function} callback - Function to call with error messages
-   */
-  static setNotificationCallback(callback) {
+  static setNotificationCallback(callback: NotificationCallback): void {
     this.notificationCallback = callback;
   }
 
-  /**
-   * Set the error reporter for production error tracking
-   * @param {Function} reporter - Function to report errors to external service
-   */
-  static setErrorReporter(reporter) {
+  static setErrorReporter(reporter: ErrorReporter): void {
     this.errorReporter = reporter;
   }
 
-  /**
-   * Main error handling method
-   * @param {Error} error - The error that occurred
-   * @param {string} context - Context where the error occurred (e.g., 'file-upload', 'map-rendering')
-   * @param {Object} options - Additional options
-   * @param {boolean} [options.userFacing=true] - Whether to show user-facing notification
-   * @param {boolean} [options.report=true] - Whether to report to error tracking service
-   * @param {Object} [options.metadata] - Additional metadata to include with error
-   */
-  static handle(error, context, options = {}) {
+  static handle(
+    error: Error,
+    context: string,
+    options: ErrorOptions = {}
+  ): void {
     const { userFacing = true, report = true, metadata = {} } = options;
 
     // Always log to console for debugging
@@ -71,14 +72,11 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Handle async operation errors with consistent messaging
-   * @param {Promise} promise - The promise to handle
-   * @param {string} context - Context for error handling
-   * @param {Object} options - Error handling options
-   * @returns {Promise} - The original promise with error handling
-   */
-  static async handleAsync(promise, context, options = {}) {
+  static async handleAsync<T>(
+    promise: Promise<T>,
+    context: string,
+    options: ErrorOptions = {}
+  ): Promise<T> {
     try {
       return await promise;
     } catch (error) {
@@ -87,14 +85,7 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Convert technical errors to user-friendly messages
-   * @private
-   * @param {Error} error - The error to convert
-   * @param {string} context - Context where error occurred
-   * @returns {string} User-friendly error message
-   */
-  static getUserFriendlyMessage(error, context) {
+  private static getUserFriendlyMessage(error: Error, context: string): string {
     const contextMessages = {
       'file-upload':
         'Failed to upload file. Please check the file format and try again.',
@@ -121,13 +112,7 @@ export class ErrorHandler {
     return baseMessage;
   }
 
-  /**
-   * Check if an error message is safe to show to users
-   * @private
-   * @param {string} message - Error message to check
-   * @returns {boolean} Whether message is user-friendly
-   */
-  static isUserFriendlyMessage(message) {
+  private static isUserFriendlyMessage(message: string): boolean {
     // Filter out technical messages that might confuse users
     const technicalPatterns = [
       /stack trace/i,
@@ -140,12 +125,7 @@ export class ErrorHandler {
     return !technicalPatterns.some((pattern) => pattern.test(message));
   }
 
-  /**
-   * Determine if errors should be reported (e.g., in production)
-   * @private
-   * @returns {boolean} Whether to report errors
-   */
-  static shouldReport() {
+  private static shouldReport(): boolean {
     return (
       typeof window !== 'undefined' &&
       window.location.hostname !== 'localhost' &&
@@ -153,14 +133,11 @@ export class ErrorHandler {
     );
   }
 
-  /**
-   * Report error to external service
-   * @private
-   * @param {Error} error - Error to report
-   * @param {string} context - Context where error occurred
-   * @param {Object} metadata - Additional metadata
-   */
-  static reportError(error, context, metadata) {
+  private static reportError(
+    error: Error,
+    context: string,
+    metadata: ErrorMetadata
+  ): void {
     if (this.errorReporter) {
       try {
         this.errorReporter({
@@ -178,14 +155,11 @@ export class ErrorHandler {
     }
   }
 
-  /**
-   * Create a wrapper function that handles errors for event handlers
-   * @param {Function} handler - The original event handler
-   * @param {string} context - Context for error handling
-   * @returns {Function} Wrapped handler with error handling
-   */
-  static wrap(handler, context) {
-    return (...args) => {
+  static wrap<T extends (...args: any[]) => any>(
+    handler: T,
+    context: string
+  ): T {
+    return ((...args: Parameters<T>) => {
       try {
         const result = handler(...args);
 
@@ -202,17 +176,14 @@ export class ErrorHandler {
         this.handle(error, context);
         throw error;
       }
-    };
+    }) as T;
   }
 
-  /**
-   * Utility method for validation errors
-   * @param {string} message - Validation error message
-   * @param {string} context - Context where validation failed
-   * @param {Object} details - Additional validation details
-   * @throws {Error} Validation error
-   */
-  static throwValidationError(message, context, details = {}) {
+  static throwValidationError(
+    message: string,
+    context: string,
+    details: ErrorMetadata = {}
+  ): never {
     const error = new Error(message);
     error.name = 'ValidationError';
     error.details = details;

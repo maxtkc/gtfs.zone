@@ -1,12 +1,35 @@
-export class NotificationSystem {
-  constructor() {
-    this.container = null;
-    this.notifications = [];
-    this.maxNotifications = 5;
-    this.autoHideDelay = 5000; // 5 seconds
-  }
+interface NotificationAction {
+  id: string;
+  label: string;
+  handler: () => void;
+  primary?: boolean;
+}
 
-  initialize() {
+interface NotificationOptions {
+  autoHide?: boolean;
+  duration?: number;
+  actions?: NotificationAction[];
+}
+
+interface Notification {
+  id: number;
+  message: string;
+  type: string;
+  autoHide: boolean;
+  duration: number;
+  actions: NotificationAction[];
+  element: HTMLElement | null;
+}
+
+export class NotificationSystem {
+  private container: HTMLElement | null = null;
+  private notifications: Notification[] = [];
+  private maxNotifications: number = 5;
+  private autoHideDelay: number = 5000; // 5 seconds
+
+  constructor() {}
+
+  initialize(): void {
     // Create notification container
     this.container = document.createElement('div');
     this.container.id = 'notification-container';
@@ -14,7 +37,11 @@ export class NotificationSystem {
     document.body.appendChild(this.container);
   }
 
-  show(message, type = 'info', options = {}) {
+  show(
+    message: string,
+    type: string = 'info',
+    options: NotificationOptions = {}
+  ): number {
     const {
       autoHide = true,
       duration = this.autoHideDelay,
@@ -53,7 +80,7 @@ export class NotificationSystem {
     return notification.id;
   }
 
-  showError(message, options = {}) {
+  showError(message: string, options: NotificationOptions = {}): number {
     return this.show(message, 'error', {
       autoHide: true,
       duration: 8000,
@@ -61,7 +88,7 @@ export class NotificationSystem {
     });
   }
 
-  showWarning(message, options = {}) {
+  showWarning(message: string, options: NotificationOptions = {}): number {
     return this.show(message, 'warning', {
       autoHide: true,
       duration: 6000,
@@ -69,7 +96,7 @@ export class NotificationSystem {
     });
   }
 
-  showSuccess(message, options = {}) {
+  showSuccess(message: string, options: NotificationOptions = {}): number {
     return this.show(message, 'success', {
       autoHide: true,
       duration: 4000,
@@ -77,7 +104,7 @@ export class NotificationSystem {
     });
   }
 
-  showInfo(message, options = {}) {
+  showInfo(message: string, options: NotificationOptions = {}): number {
     return this.show(message, 'info', {
       autoHide: true,
       duration: 5000,
@@ -85,11 +112,11 @@ export class NotificationSystem {
     });
   }
 
-  showLoading(message, options = {}) {
+  showLoading(message: string, options: NotificationOptions = {}): number {
     return this.show(message, 'loading', { autoHide: false, ...options });
   }
 
-  renderNotification(notification) {
+  renderNotification(notification: Notification): void {
     const { message, type, actions } = notification;
 
     const iconMap = {
@@ -178,7 +205,7 @@ export class NotificationSystem {
     });
   }
 
-  removeNotification(id) {
+  removeNotification(id: number): void {
     const notificationIndex = this.notifications.findIndex((n) => n.id === id);
     if (notificationIndex === -1) {
       return;
@@ -201,13 +228,17 @@ export class NotificationSystem {
     }, 300);
   }
 
-  removeAllNotifications() {
+  removeAllNotifications(): void {
     this.notifications.forEach((notification) => {
       this.removeNotification(notification.id);
     });
   }
 
-  updateNotification(id, newMessage, newType = null) {
+  updateNotification(
+    id: number,
+    newMessage: string,
+    newType: string | null = null
+  ): void {
     const notification = this.notifications.find((n) => n.id === id);
     if (!notification) {
       return;
@@ -227,7 +258,7 @@ export class NotificationSystem {
     }
   }
 
-  escapeHtml(text) {
+  escapeHtml(text: string): string {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;

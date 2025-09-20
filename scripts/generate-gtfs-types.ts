@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 // Mapping from GTFS data types to TypeScript types
-const typeMapping = {
+const typeMapping: Record<string, string> = {
   'Text': 'string',
   'URL': 'string',
   'Email': 'string',
@@ -27,7 +27,7 @@ const typeMapping = {
   'Enum': 'number' // Will be refined based on specific values
 };
 
-function mapGTFSTypeToTS(gtfsType) {
+function mapGTFSTypeToTS(gtfsType: string): string {
   // Handle enum types with specific values
   if (gtfsType.includes('Enum') || gtfsType.includes('0 - ') || gtfsType.includes('1 - ')) {
     // Extract enum values
@@ -47,7 +47,7 @@ function mapGTFSTypeToTS(gtfsType) {
   return typeMapping[gtfsType] || 'string';
 }
 
-function mapGTFSTypeToZod(gtfsType, fieldName, description) {
+function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: string): string {
   let zodType;
   
   // Handle enum types with specific values
@@ -114,12 +114,12 @@ function mapGTFSTypeToZod(gtfsType, fieldName, description) {
   return `${zodType}.describe('${escapedDescription}')`;
 }
 
-function formatFieldName(fieldName) {
+function formatFieldName(fieldName: string): string {
   // Convert snake_case to camelCase for TypeScript
   return fieldName.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
 }
 
-function generateInterfaceForFile(filename, fields) {
+function generateInterfaceForFile(filename: string, fields: any[]): { interfaceName: string; interfaceCode: string } {
   const interfaceName = filename.replace('.txt', '').split('_')
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
@@ -141,7 +141,7 @@ function generateInterfaceForFile(filename, fields) {
   return { interfaceName, interfaceCode };
 }
 
-function generateZodSchemaForFile(filename, fields) {
+function generateZodSchemaForFile(filename: string, fields: any[]): { schemaName: string; schemaCode: string } {
   const schemaName = filename.replace('.txt', '').split('_')
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join('') + 'Schema';
@@ -165,7 +165,7 @@ function generateZodSchemaForFile(filename, fields) {
   return { schemaName, schemaCode };
 }
 
-async function generateGTFSTypes() {
+async function generateGTFSTypes(): Promise<string> {
   console.log('Generating TypeScript definitions and Zod schemas from GTFS specification...');
   
   try {

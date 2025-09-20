@@ -1,4 +1,4 @@
-import { notifications } from './notification-system.js';
+import { notifications } from './notification-system';
 
 export class UIController {
   constructor() {

@@ -12,13 +12,17 @@
  * @param {boolean} [options.trailing=true] - Execute on trailing edge
  * @returns {Function} Debounced function
  */
-export function debounce(func, delay, options = {}) {
+export function debounce(
+  func: (...args: any[]) => any,
+  delay: number,
+  options: { leading?: boolean; trailing?: boolean } = {}
+) {
   const { leading = false, trailing = true } = options;
-  let timeoutId = null;
-  let lastArgs = null;
-  let lastCallTime = null;
+  let timeoutId: NodeJS.Timeout | null = null;
+  let lastArgs: any[] | null = null;
+  let lastCallTime: number | null = null;
 
-  function debounced(...args) {
+  function debounced(...args: any[]) {
     lastArgs = args;
     const now = Date.now();
 
@@ -70,11 +74,11 @@ export function debounce(func, delay, options = {}) {
  * @param {number} delay - Minimum time between executions in milliseconds
  * @returns {Function} Throttled function
  */
-export function throttle(func, delay) {
+export function throttle(func: (...args: any[]) => any, delay: number) {
   let lastExecTime = 0;
-  let timeoutId = null;
+  let timeoutId: NodeJS.Timeout | null = null;
 
-  function throttled(...args) {
+  function throttled(...args: any[]) {
     const now = Date.now();
     const timeSinceLastExec = now - lastExecTime;
 
@@ -128,10 +132,14 @@ export function lazy(factory) {
  * @param {number} [maxCacheSize=100] - Maximum cache size
  * @returns {Function} Memoized function
  */
-export function memoize(func, keyGenerator = null, maxCacheSize = 100) {
+export function memoize(
+  func: (...args: any[]) => any,
+  keyGenerator: ((...args: any[]) => string) | null = null,
+  maxCacheSize = 100
+) {
   const cache = new Map();
 
-  function memoized(...args) {
+  function memoized(...args: any[]) {
     const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
 
     if (cache.has(key)) {

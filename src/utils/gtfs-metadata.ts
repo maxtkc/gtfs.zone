@@ -2,19 +2,22 @@
  * GTFS Metadata utilities for accessing field descriptions and schema information
  */
 
-import { 
-  getFieldDescription, 
-  getAllFieldDescriptions, 
+import {
+  getFieldDescription,
+  getAllFieldDescriptions,
   getFileSchema as getGTFSFileSchema,
   GTFSSchemas,
-  GTFS_FILES 
-} from '../types/gtfs.js';
+  GTFS_FILES,
+} from '../types/gtfs';
 
 export class GTFSMetadata {
   /**
    * Get the description for a specific field in a GTFS file
    */
-  static getFieldDescription(filename: string, fieldName: string): string | undefined {
+  static getFieldDescription(
+    filename: string,
+    fieldName: string
+  ): string | undefined {
     return getFieldDescription(filename, fieldName);
   }
 
@@ -36,7 +39,7 @@ export class GTFSMetadata {
    * Get file information including presence requirements
    */
   static getFileInfo(filename: string) {
-    return GTFS_FILES.find(file => file.filename === filename);
+    return GTFS_FILES.find((file) => file.filename === filename);
   }
 
   /**
@@ -60,7 +63,7 @@ export class GTFSMetadata {
   static getFieldInfo(filename: string, fieldName: string) {
     const description = this.getFieldDescription(filename, fieldName);
     const schema = this.getFileSchema(filename);
-    
+
     if (!schema || !description) {
       return null;
     }
@@ -68,15 +71,15 @@ export class GTFSMetadata {
     // Extract additional information from the schema
     const shape = (schema as any).shape;
     const fieldSchema = shape?.[fieldName];
-    
+
     const isOptional = fieldSchema?._def?.typeName === 'ZodOptional';
     const baseType = isOptional ? fieldSchema._def.innerType : fieldSchema;
-    
+
     return {
       name: fieldName,
       description,
       required: !isOptional,
-      type: baseType?._def?.typeName || 'unknown'
+      type: baseType?._def?.typeName || 'unknown',
     };
   }
 
@@ -86,14 +89,14 @@ export class GTFSMetadata {
   static getAllFieldInfo(filename: string) {
     const descriptions = this.getAllFieldDescriptions(filename);
     const schema = this.getFileSchema(filename);
-    
+
     if (!schema) {
       return [];
     }
 
-    return Object.keys(descriptions).map(fieldName => 
-      this.getFieldInfo(filename, fieldName)
-    ).filter(Boolean);
+    return Object.keys(descriptions)
+      .map((fieldName) => this.getFieldInfo(filename, fieldName))
+      .filter(Boolean);
   }
 }
 

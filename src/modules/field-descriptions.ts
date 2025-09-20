@@ -3,7 +3,7 @@
  * Adds field description tooltips and information to the GTFS editor
  */
 
-import { GTFSMetadata } from '../utils/gtfs-metadata.js';
+import { GTFSMetadata } from '../utils/gtfs-metadata';
 
 export class FieldDescriptionsDisplay {
   private currentFile: string | null = null;
@@ -58,7 +58,9 @@ export class FieldDescriptionsDisplay {
     if (!this.descriptionsContainer) return;
 
     this.currentFile = filename;
-    const content = this.descriptionsContainer.querySelector('#descriptions-content');
+    const content = this.descriptionsContainer.querySelector(
+      '#descriptions-content'
+    );
     if (!content) return;
 
     try {
@@ -66,7 +68,8 @@ export class FieldDescriptionsDisplay {
       const fileInfo = GTFSMetadata.getFileInfo(filename);
 
       if (!fieldInfo || fieldInfo.length === 0) {
-        content.innerHTML = '<p style="color: #666; font-size: 12px;">No field information available for this file.</p>';
+        content.innerHTML =
+          '<p style="color: #666; font-size: 12px;">No field information available for this file.</p>';
         return;
       }
 
@@ -77,8 +80,8 @@ export class FieldDescriptionsDisplay {
         </div>
       `;
 
-      fieldInfo.forEach(field => {
-        const requiredBadge = field?.required 
+      fieldInfo.forEach((field) => {
+        const requiredBadge = field?.required
           ? '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 8px;">Required</span>'
           : '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 8px;">Optional</span>';
 
@@ -96,10 +99,10 @@ export class FieldDescriptionsDisplay {
 
       content.innerHTML = html;
       this.descriptionsContainer.style.display = 'block';
-
     } catch (error) {
       console.error('Error showing field descriptions:', error);
-      content.innerHTML = '<p style="color: #dc3545; font-size: 12px;">Error loading field descriptions.</p>';
+      content.innerHTML =
+        '<p style="color: #dc3545; font-size: 12px;">Error loading field descriptions.</p>';
     }
   }
 
@@ -110,7 +113,10 @@ export class FieldDescriptionsDisplay {
     this.currentFile = null;
   }
 
-  public addDescriptionButton(fileElement: HTMLElement, filename: string): void {
+  public addDescriptionButton(
+    fileElement: HTMLElement,
+    filename: string
+  ): void {
     // Add a small info button to file elements
     const infoButton = document.createElement('button');
     infoButton.innerHTML = 'ℹ️';
@@ -135,7 +141,10 @@ export class FieldDescriptionsDisplay {
 
     infoButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (this.currentFile === filename && this.descriptionsContainer?.style.display === 'block') {
+      if (
+        this.currentFile === filename &&
+        this.descriptionsContainer?.style.display === 'block'
+      ) {
         this.hideDescriptions();
       } else {
         this.showDescriptionsForFile(filename);
@@ -145,10 +154,14 @@ export class FieldDescriptionsDisplay {
     fileElement.appendChild(infoButton);
   }
 
-  public addTooltip(element: HTMLElement, fieldName: string, filename: string): void {
+  public addTooltip(
+    element: HTMLElement,
+    fieldName: string,
+    filename: string
+  ): void {
     // Add hover tooltip for field descriptions
     const description = GTFSMetadata.getFieldDescription(filename, fieldName);
-    
+
     if (description) {
       element.title = `${fieldName}: ${description.substring(0, 200)}${description.length > 200 ? '...' : ''}`;
       element.style.cursor = 'help';
@@ -158,7 +171,7 @@ export class FieldDescriptionsDisplay {
   // Static method to create an instance and integrate with existing UI
   public static integrate(): FieldDescriptionsDisplay {
     const instance = new FieldDescriptionsDisplay();
-    
+
     // Try to integrate with existing file list if available
     setTimeout(() => {
       instance.enhanceExistingFileList();
@@ -170,7 +183,7 @@ export class FieldDescriptionsDisplay {
   private enhanceExistingFileList(): void {
     // Look for existing file items and add description buttons
     const fileItems = document.querySelectorAll('[data-filename]');
-    fileItems.forEach(item => {
+    fileItems.forEach((item) => {
       const filename = item.getAttribute('data-filename');
       if (filename && item instanceof HTMLElement) {
         // Check if we already added a button

@@ -8,65 +8,68 @@ import Clusterize from 'clusterize.js';
 // Simple Mathematica-inspired syntax highlighting for CSV
 const csvMathematicaMode = {
   name: 'csv-mathematica',
-  startState: function() {
+  startState: function () {
     return { lineStart: true, firstLine: true };
   },
-  token: function(stream, state) {
+  token: function (stream: any, state: any) {
     // Handle quoted strings first
     if (stream.match(/"[^"]*"/)) {
       return 'string'; // Quoted values as strings (green)
     }
-    
+
     // Handle numbers (integers and floats)
     if (stream.match(/\b\d+\.?\d*\b/)) {
       return 'number'; // Numbers (orange/red)
     }
-    
+
     // Handle commas
     if (stream.match(/,/)) {
       return 'operator'; // Commas as operators
     }
-    
+
     // Handle headers on first line
     if (state.firstLine && stream.match(/[A-Za-z][A-Za-z0-9_]*/)) {
       return 'keyword'; // Headers as keywords (blue)
     }
-    
+
     // Handle IDs and identifiers
     if (stream.match(/[A-Za-z][A-Za-z0-9_]*/)) {
       return 'variable'; // Regular text as variables
     }
-    
+
     // Reset firstLine at end of first line
     if (stream.eol() && state.firstLine) {
       state.firstLine = false;
     }
-    
+
     // Default - consume one character
     if (!stream.eol()) {
       stream.next();
     }
     return null;
-  }
+  },
 };
 
 export class Editor {
-  constructor(editorElementId = 'simple-editor') {
-    this.editor = null;
-    this.editorView = null;
+  private editor: HTMLElement | null = null;
+  private editorView: EditorView | null = null;
+  private editorElementId: string;
+  private currentFile: string | null = null;
+  private isTableView: boolean = false;
+  private tableData: any[] | null = null;
+  private gtfsParser: any = null;
+  private viewPreference: 'code' | 'table';
+  private clusterize: any = null;
+  private headers: string[] = [];
+
+  constructor(editorElementId: string = 'simple-editor') {
     this.editorElementId = editorElementId;
-    this.currentFile = null;
-    this.isTableView = false;
-    this.tableData = null;
-    this.gtfsParser = null;
     this.viewPreference = this.loadViewPreference();
-    this.clusterize = null;
-    this.headers = [];
   }
 
-  initialize(gtfsParser) {
+  initialize(gtfsParser: any): void {
     this.gtfsParser = gtfsParser;
-    
+
     // Initialize CodeMirror editor
     this.editor = document.getElementById(this.editorElementId);
     if (!this.editor) {
@@ -84,32 +87,32 @@ export class Editor {
         EditorView.theme({
           '&': {
             fontSize: '14px',
-            height: '100%'
+            height: '100%',
           },
           '.cm-content': {
-            padding: '10px'
+            padding: '10px',
           },
           '.cm-focused': {
-            outline: 'none'
+            outline: 'none',
           },
           '.cm-placeholder': {
             color: '#999',
-            fontSize: '14px'
-          }
-        })
-      ]
+            fontSize: '14px',
+          },
+        }),
+      ],
     });
 
     // Clear the container and create CodeMirror view
     this.editor.innerHTML = '';
     this.editorView = new EditorView({
       state: startState,
-      parent: this.editor
+      parent: this.editor,
     });
 
     // Initialize toggle state
     this.updateToggleLabels();
-    
+
     // Initially hide toggle until a file is opened
     const viewToggle = document.getElementById('view-toggle-checkbox');
     if (viewToggle && viewToggle.parentElement) {
@@ -117,26 +120,32 @@ export class Editor {
     }
   }
 
-  loadViewPreference() {
+  loadViewPreference(): 'code' | 'table' {
     try {
-      return window.localStorage.getItem('gtfs-editor-view-preference') === 'table';
+      return window.localStorage.getItem('gtfs-editor-view-preference') ===
+        'table'
+        ? 'table'
+        : 'code';
     } catch {
-      return false; // Default to text view
+      return 'code'; // Default to text view
     }
   }
 
-  saveViewPreference(isTableView) {
+  saveViewPreference(isTableView: boolean): void {
     try {
-      window.localStorage.setItem('gtfs-editor-view-preference', isTableView ? 'table' : 'text');
+      window.localStorage.setItem(
+        'gtfs-editor-view-preference',
+        isTableView ? 'table' : 'text'
+      );
     } catch {
       // Ignore localStorage errors
     }
   }
 
-  updateToggleLabels() {
+  updateToggleLabels(): void {
     const textOption = document.querySelector('.toggle-text.text-option');
     const tableOption = document.querySelector('.toggle-text.table-option');
-    
+
     if (textOption && tableOption) {
       if (this.isTableView) {
         textOption.classList.remove('active');
@@ -149,23 +158,23 @@ export class Editor {
   }
 
   // Helper methods for CodeMirror
-  setEditorValue(content) {
+  setEditorValue(content: string): void {
     if (this.editorView) {
       this.editorView.dispatch({
         changes: {
           from: 0,
           to: this.editorView.state.doc.length,
-          insert: content
-        }
+          insert: content,
+        },
       });
     }
   }
 
-  getEditorValue() {
+  getEditorValue(): string {
     return this.editorView ? this.editorView.state.doc.toString() : '';
   }
 
-  openFile(fileName) {
+  openFile(fileName: string): void {
     if (!this.gtfsParser || !this.gtfsParser.getFileContent(fileName)) {
       return;
     }
@@ -181,14 +190,15 @@ export class Editor {
     }
 
     // Determine if file can be viewed as table (CSV files)
-    const canShowTable = fileName.endsWith('.txt') && this.gtfsParser.getFileData(fileName);
+    const canShowTable =
+      fileName.endsWith('.txt') && this.gtfsParser.getFileData(fileName);
     const viewToggle = document.getElementById('view-toggle-checkbox');
 
     if (canShowTable) {
       // Show toggle and set to saved preference
-      if (viewToggle) {
+      if (viewToggle && viewToggle.parentElement) {
         viewToggle.parentElement.style.display = 'flex';
-        if (this.viewPreference) {
+        if (this.viewPreference === 'table') {
           this.switchToTableView();
         } else {
           this.switchToTextView();
@@ -196,7 +206,7 @@ export class Editor {
       }
     } else {
       // Hide toggle and switch to text view
-      if (viewToggle) {
+      if (viewToggle && viewToggle.parentElement) {
         viewToggle.parentElement.style.display = 'none';
       }
       this.switchToTextView();
@@ -206,16 +216,16 @@ export class Editor {
     this.setEditorValue(this.gtfsParser.getFileContent(fileName));
   }
 
-  closeEditor() {
+  closeEditor(): void {
     // Save current changes
     this.saveCurrentFileChanges();
-    
+
     // Clean up Clusterize instance
     if (this.clusterize) {
       this.clusterize.destroy();
       this.clusterize = null;
     }
-    
+
     this.currentFile = null;
   }
 
@@ -223,25 +233,27 @@ export class Editor {
     // Clear the editor content
     this.setEditorValue('');
     this.currentFile = null;
-    
+
     // Clear table view
     if (this.clusterize) {
       this.clusterize.destroy();
       this.clusterize = null;
     }
     this.tableData = null;
-    
+
     // Switch to text view
     this.switchToTextView();
   }
 
   switchToTextView() {
     this.isTableView = false;
-    this.viewPreference = false;
+    this.viewPreference = 'code';
     this.saveViewPreference(false);
 
     // Update toggle state
-    const viewToggle = document.getElementById('view-toggle-checkbox');
+    const viewToggle = document.getElementById(
+      'view-toggle-checkbox'
+    ) as HTMLInputElement;
     if (viewToggle) {
       viewToggle.checked = false;
     }
@@ -272,11 +284,13 @@ export class Editor {
     }
 
     this.isTableView = true;
-    this.viewPreference = true;
+    this.viewPreference = 'table';
     this.saveViewPreference(true);
 
     // Update toggle state
-    const viewToggle = document.getElementById('view-toggle-checkbox');
+    const viewToggle = document.getElementById(
+      'view-toggle-checkbox'
+    ) as HTMLInputElement;
     if (viewToggle) {
       viewToggle.checked = true;
     }
@@ -311,12 +325,13 @@ export class Editor {
 
     // Create table container with proper structure for Clusterize.js
     const tableContainer = document.getElementById('table-editor');
-    tableContainer.innerHTML = `
+    if (tableContainer) {
+      tableContainer.innerHTML = `
       <div class="clusterize-scroll" id="scrollArea">
         <table class="clusterize-table" id="table">
           <thead>
             <tr>
-              ${this.headers.map(header => `<th>${this.escapeHtml(header)}</th>`).join('')}
+              ${this.headers.map((header) => `<th>${this.escapeHtml(header)}</th>`).join('')}
             </tr>
           </thead>
           <tbody class="clusterize-content" id="contentArea">
@@ -325,53 +340,63 @@ export class Editor {
       </div>
     `;
 
-    // Generate row data for Clusterize.js
-    const rows = data.map((row, rowIndex) => {
-      const cells = this.headers.map((header) => {
-        const value = row[header] || '';
-        return `<td><input type="text" value="${this.escapeHtml(value)}" data-row="${rowIndex}" data-col="${header}" /></td>`;
-      }).join('');
-      return `<tr>${cells}</tr>`;
-    });
+      // Generate row data for Clusterize.js
+      const rows = data.map((row: any, rowIndex: number) => {
+        const cells = this.headers
+          .map((header) => {
+            const value = row[header] || '';
+            return `<td><input type="text" value="${this.escapeHtml(value)}" data-row="${rowIndex}" data-col="${header}" /></td>`;
+          })
+          .join('');
+        return `<tr>${cells}</tr>`;
+      });
 
-    // Destroy existing Clusterize instance if it exists
-    if (this.clusterize) {
-      this.clusterize.destroy();
+      // Destroy existing Clusterize instance if it exists
+      if (this.clusterize) {
+        this.clusterize.destroy();
+      }
+
+      // Initialize Clusterize.js
+      this.clusterize = new Clusterize({
+        rows: rows,
+        scrollId: 'scrollArea',
+        contentId: 'contentArea',
+        rows_in_block: 50, // Number of rows to render at once
+        blocks_in_cluster: 4, // Number of blocks to keep in memory
+        tag: 'tr', // Table row tag
+      });
+
+      // Add event delegation for input changes since rows are dynamically created
+      const scrollArea = document.getElementById('scrollArea');
+      if (scrollArea) {
+        scrollArea.addEventListener('change', (e) => {
+          const target = e.target as HTMLInputElement;
+          if (target && target.tagName === 'INPUT' && target.dataset.row) {
+            this.updateTableCell(target);
+          }
+        });
+
+        // Add input event for real-time updates
+        scrollArea.addEventListener('input', (e) => {
+          const target = e.target as HTMLInputElement;
+          if (target && target.tagName === 'INPUT' && target.dataset.row) {
+            this.updateTableCell(target);
+          }
+        });
+      }
     }
-
-    // Initialize Clusterize.js
-    this.clusterize = new Clusterize({
-      rows: rows,
-      scrollId: 'scrollArea',
-      contentId: 'contentArea',
-      rows_in_block: 50, // Number of rows to render at once
-      blocks_in_cluster: 4, // Number of blocks to keep in memory
-      tag: 'tr' // Table row tag
-    });
-
-    // Add event delegation for input changes since rows are dynamically created
-    const scrollArea = document.getElementById('scrollArea');
-    scrollArea.addEventListener('change', (e) => {
-      if (e.target.tagName === 'INPUT' && e.target.dataset.row) {
-        this.updateTableCell(e.target);
-      }
-    });
-
-    // Add input event for real-time updates
-    scrollArea.addEventListener('input', (e) => {
-      if (e.target.tagName === 'INPUT' && e.target.dataset.row) {
-        this.updateTableCell(e.target);
-      }
-    });
   }
 
-  updateTableCell(input) {
-    const row = parseInt(input.dataset.row);
+  updateTableCell(input: HTMLInputElement): void {
+    const rowStr = input.dataset.row;
     const col = input.dataset.col;
     const value = input.value;
 
-    if (this.tableData && this.tableData[row]) {
-      this.tableData[row][col] = value;
+    if (rowStr && col && this.tableData) {
+      const row = parseInt(rowStr);
+      if (this.tableData[row]) {
+        this.tableData[row][col] = value;
+      }
     }
   }
 
@@ -383,7 +408,7 @@ export class Editor {
     // Convert table data back to CSV
     const csv = Papa.unparse(this.tableData);
     this.setEditorValue(csv);
-    
+
     // Update the parser's data
     if (this.gtfsParser && this.currentFile) {
       this.gtfsParser.updateFileContent(this.currentFile, csv);
@@ -405,7 +430,7 @@ export class Editor {
     }
   }
 
-  escapeHtml(text) {
+  escapeHtml(text: string): string {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;

@@ -5,18 +5,21 @@
  */
 
 export class ObjectsNavigation {
-  constructor(gtfsRelationships, mapController) {
+  private relationships: any;
+  private mapController: any;
+  public uiController: any = null; // Will be set after initialization
+  private currentView: string = 'agencies'; // agencies, routes, trips, stop-times, stop-detail
+  private breadcrumb: any[] = [];
+  private container: HTMLElement | null = null;
+  private searchQuery: string = '';
+  private searchTimeout: NodeJS.Timeout | null = null;
+
+  constructor(gtfsRelationships: any, mapController: any) {
     this.relationships = gtfsRelationships;
     this.mapController = mapController;
-    this.uiController = null; // Will be set after initialization
-    this.currentView = 'agencies'; // agencies, routes, trips, stop-times, stop-detail
-    this.breadcrumb = [];
-    this.container = null;
-    this.searchQuery = '';
-    this.searchTimeout = null;
   }
 
-  initialize(containerId) {
+  initialize(containerId: string): void {
     this.container = document.getElementById(containerId);
     if (!this.container) {
       console.error(`Objects navigation container ${containerId} not found`);
@@ -26,7 +29,7 @@ export class ObjectsNavigation {
     this.render();
   }
 
-  render() {
+  render(): void {
     if (!this.container) {
       return;
     }

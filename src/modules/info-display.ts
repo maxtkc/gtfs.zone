@@ -4,7 +4,10 @@
  */
 
 export class InfoDisplay {
-  constructor(gtfsRelationships) {
+  private relationships: any;
+  private container: HTMLElement | null;
+
+  constructor(gtfsRelationships: any) {
     this.relationships = gtfsRelationships;
     this.container = null;
   }
@@ -17,9 +20,9 @@ export class InfoDisplay {
     }
   }
 
-  showAgencyDetails(agencyId) {
+  showAgencyDetails(agencyId: string) {
     const agencies = this.relationships.getAgencies();
-    const agency = agencies.find((a) => a.id === agencyId);
+    const agency = agencies.find((a: any) => a.id === agencyId);
 
     if (!agency) {
       this.showError('Agency not found');
@@ -51,7 +54,7 @@ export class InfoDisplay {
           <div class="space-y-2">
             ${routes
               .map(
-                (route) => `
+                (route: any) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">
                   ${route.shortName ? this.escapeHtml(route.shortName) + ' - ' : ''}${this.escapeHtml(route.longName || route.id)}
@@ -68,10 +71,10 @@ export class InfoDisplay {
     `;
   }
 
-  showRouteDetails(routeId) {
+  showRouteDetails(routeId: string) {
     const allRoutes =
       this.relationships.gtfsParser.getFileData('routes.txt') || [];
-    const route = allRoutes.find((r) => r.route_id === routeId);
+    const route = allRoutes.find((r: any) => r.route_id === routeId);
 
     if (!route) {
       this.showError('Route not found');
@@ -80,7 +83,7 @@ export class InfoDisplay {
 
     const trips = this.relationships.getTripsForRoute(routeId);
     const agencies = this.relationships.getAgencies();
-    const agency = agencies.find((a) => a.id === route.agency_id);
+    const agency = agencies.find((a: any) => a.id === route.agency_id);
 
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
@@ -110,7 +113,7 @@ export class InfoDisplay {
             ${trips
               .slice(0, 20)
               .map(
-                (trip) => `
+                (trip: any) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}</div>
                 <div class="text-sm text-slate-500">Trip ID: ${trip.id}</div>
@@ -126,10 +129,10 @@ export class InfoDisplay {
     `;
   }
 
-  showTripDetails(tripId) {
+  showTripDetails(tripId: string) {
     const allTrips =
       this.relationships.gtfsParser.getFileData('trips.txt') || [];
-    const trip = allTrips.find((t) => t.trip_id === tripId);
+    const trip = allTrips.find((t: any) => t.trip_id === tripId);
 
     if (!trip) {
       this.showError('Trip not found');
@@ -139,7 +142,7 @@ export class InfoDisplay {
     const stopTimes = this.relationships.getStopTimesForTrip(tripId);
     const allRoutes =
       this.relationships.gtfsParser.getFileData('routes.txt') || [];
-    const route = allRoutes.find((r) => r.route_id === trip.route_id);
+    const route = allRoutes.find((r: any) => r.route_id === trip.route_id);
 
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
@@ -166,7 +169,7 @@ export class InfoDisplay {
           <div class="space-y-1 max-h-64 overflow-y-auto">
             ${stopTimes
               .map(
-                (st, _index) => `
+                (st, _index: any) => `
               <div class="bg-white border border-slate-200 rounded p-2 flex justify-between items-center">
                 <div class="flex-1">
                   <div class="font-medium text-sm">${st.stop ? this.escapeHtml(st.stop.name) : st.stopId}</div>
@@ -186,7 +189,7 @@ export class InfoDisplay {
     `;
   }
 
-  showStopDetails(stopId) {
+  showStopDetails(stopId: string) {
     const stop = this.relationships.getStopById(stopId);
 
     if (!stop) {
@@ -232,7 +235,7 @@ export class InfoDisplay {
             ${trips
               .slice(0, 15)
               .map(
-                (trip) => `
+                (trip: any) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}</div>
                 <div class="text-sm text-slate-500">Trip: ${trip.id} | Route: ${trip.routeId}</div>
@@ -348,10 +351,15 @@ export class InfoDisplay {
     }
   }
 
-  showValidationDetails(validationResults) {
+  showValidationDetails(validationResults: any) {
     const { errors, warnings, info, summary } = validationResults;
 
-    const renderIssues = (issues, type, icon, colorClass) => {
+    const renderIssues = (
+      issues: any[],
+      type: string,
+      icon: string,
+      colorClass: string
+    ) => {
       if (issues.length === 0) {
         return '';
       }
@@ -364,7 +372,7 @@ export class InfoDisplay {
           <div class="space-y-2 max-h-64 overflow-y-auto">
             ${issues
               .map(
-                (issue) => `
+                (issue: any) => `
               <div class="bg-${colorClass}-50 border border-${colorClass}-200 rounded p-3">
                 <div class="font-medium text-${colorClass}-800">${this.escapeHtml(issue.message)}</div>
                 <div class="text-sm text-${colorClass}-600 mt-1">
@@ -428,7 +436,7 @@ export class InfoDisplay {
     }
   }
 
-  showError(message) {
+  showError(message: string) {
     this.container.innerHTML = `
       <div class="p-4 text-center">
         <div class="text-red-500 text-lg mb-2">⚠️</div>
@@ -485,7 +493,7 @@ export class InfoDisplay {
     return values[wheelchairBoarding] || `Unknown (${wheelchairBoarding})`;
   }
 
-  escapeHtml(text) {
+  escapeHtml(text: string) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;

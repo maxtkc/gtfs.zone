@@ -5,7 +5,9 @@
  */
 
 export class GTFSRelationships {
-  constructor(gtfsParser) {
+  private gtfsParser: any;
+
+  constructor(gtfsParser: any) {
     this.gtfsParser = gtfsParser;
   }
 
@@ -32,7 +34,7 @@ export class GTFSRelationships {
   /**
    * Get all routes for a specific agency
    */
-  getRoutesForAgency(agencyId) {
+  getRoutesForAgency(agencyId: string) {
     const routesData = this.gtfsParser.getFileData('routes.txt');
     if (!routesData || !Array.isArray(routesData)) {
       return [];
@@ -57,7 +59,7 @@ export class GTFSRelationships {
   /**
    * Get all trips for a specific route
    */
-  getTripsForRoute(routeId) {
+  getTripsForRoute(routeId: string) {
     const tripsData = this.gtfsParser.getFileData('trips.txt');
     if (!tripsData || !Array.isArray(tripsData)) {
       return [];
@@ -82,7 +84,7 @@ export class GTFSRelationships {
   /**
    * Get stop times for a specific trip
    */
-  getStopTimesForTrip(tripId) {
+  getStopTimesForTrip(tripId: string) {
     const stopTimesData = this.gtfsParser.getFileData('stop_times.txt');
     if (!stopTimesData || !Array.isArray(stopTimesData)) {
       return [];
@@ -113,7 +115,7 @@ export class GTFSRelationships {
   /**
    * Get stop details by stop ID
    */
-  getStopById(stopId) {
+  getStopById(stopId: string) {
     const stopsData = this.gtfsParser.getFileData('stops.txt');
     if (!stopsData || !Array.isArray(stopsData)) {
       return null;
@@ -145,7 +147,7 @@ export class GTFSRelationships {
   /**
    * Get all trips that serve a specific stop
    */
-  getTripsForStop(stopId) {
+  getTripsForStop(stopId: string) {
     const stopTimesData = this.gtfsParser.getFileData('stop_times.txt');
     if (!stopTimesData || !Array.isArray(stopTimesData)) {
       return [];
@@ -181,7 +183,7 @@ export class GTFSRelationships {
   /**
    * Get calendar information for a service ID
    */
-  getCalendarForService(serviceId) {
+  getCalendarForService(serviceId: string) {
     const calendarData = this.gtfsParser.getFileData('calendar.txt');
     if (!calendarData || !Array.isArray(calendarData)) {
       return null;
@@ -209,7 +211,7 @@ export class GTFSRelationships {
   /**
    * Get calendar exceptions for a service ID
    */
-  getCalendarDatesForService(serviceId) {
+  getCalendarDatesForService(serviceId: string) {
     const calendarDatesData = this.gtfsParser.getFileData('calendar_dates.txt');
     if (!calendarDatesData || !Array.isArray(calendarDatesData)) {
       return [];
@@ -227,9 +229,9 @@ export class GTFSRelationships {
   /**
    * Enrich stop times with stop information
    */
-  enrichStopTimesWithStops(stopTimes) {
-    return stopTimes.map((stopTime) => {
-      const stop = this.getStopById(stopTime.stopId);
+  enrichStopTimesWithStops(stopTimes: any[]) {
+    return stopTimes.map((stopTime: any) => {
+      const stop = this.getStopById(stopTime.stop_id);
       return {
         ...stopTime,
         stop: stop,
