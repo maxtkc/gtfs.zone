@@ -10,6 +10,7 @@
     "build": "rollup -c",
     "build:watch": "rollup -c --watch",
     "generate-gtfs-types": "npx tsx scripts/scrape-gtfs-spec.ts && npx tsx scripts/generate-gtfs-types.ts",
+    "generate-favicons": "./scripts/generate-favicons.sh",
     "typecheck": "tsc --noEmit",
     "deploy": "npm run build && gh-pages -d dist",
     "test": "playwright test",
