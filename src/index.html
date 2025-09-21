@@ -148,7 +148,7 @@
 
         <!-- Map Controls -->
         <div id="map-controls" class="absolute top-4 right-4 z-40">
-          <div class="card bg-base-100 shadow-lg p-2">
+          <div class="card card-bordered bg-base-100 shadow-lg p-2">
             <input
               type="text"
               id="map-search"
@@ -159,17 +159,16 @@
         </div>
 
         <!-- Welcome Overlay -->
-        <div
-          id="map-overlay"
-          class="absolute inset-0 bg-base-100 flex items-center justify-center z-20"
-        >
-          <div class="hero-content text-center">
-            <div class="max-w-md">
-              <div class="text-6xl mb-6">🚌</div>
-              <h1 class="text-3xl font-bold mb-4">Welcome to gtfs.zone</h1>
-              <p class="text-lg opacity-70">
-                Upload a GTFS file to visualize transit routes and stops
-              </p>
+        <div id="map-overlay" class="absolute inset-0 bg-base-100 z-20">
+          <div class="hero min-h-full">
+            <div class="hero-content text-center">
+              <div class="max-w-md">
+                <div class="text-6xl mb-6">🚌</div>
+                <h1 class="text-3xl font-bold mb-4">Welcome to gtfs.zone</h1>
+                <p class="text-lg opacity-70">
+                  Upload a GTFS file to visualize transit routes and stops
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -365,28 +364,28 @@
                 <!-- Features Section -->
                 <h3 class="text-lg font-semibold mb-3">✨ Features</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div class="card bg-base-200 p-3">
+                  <div class="card card-bordered bg-base-200 p-3">
                     <h4 class="font-medium mb-2">🗺️ Interactive Map</h4>
                     <p class="text-sm opacity-70">
                       Visualize stops, routes, and shapes on an interactive map.
                       Search for specific stops or routes using the map search.
                     </p>
                   </div>
-                  <div class="card bg-base-200 p-3">
+                  <div class="card card-bordered bg-base-200 p-3">
                     <h4 class="font-medium mb-2">📝 Smart Editor</h4>
                     <p class="text-sm opacity-70">
                       Edit GTFS files with CSV syntax highlighting. Switch
                       between text and table views for easier editing.
                     </p>
                   </div>
-                  <div class="card bg-base-200 p-3">
+                  <div class="card card-bordered bg-base-200 p-3">
                     <h4 class="font-medium mb-2">🔍 Data Explorer</h4>
                     <p class="text-sm opacity-70">
                       Navigate your GTFS data hierarchically: Agencies → Routes
                       → Trips → Stop Times. Search and filter objects.
                     </p>
                   </div>
-                  <div class="card bg-base-200 p-3">
+                  <div class="card card-bordered bg-base-200 p-3">
                     <h4 class="font-medium mb-2">✅ Validation</h4>
                     <p class="text-sm opacity-70">
                       Automatic GTFS validation with detailed error reports,

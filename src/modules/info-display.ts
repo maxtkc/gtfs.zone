@@ -41,11 +41,11 @@ export class InfoDisplay {
             
             <div class="space-y-2 text-sm">
               <div><strong>ID:</strong> ${agency.id}</div>
-              ${agency.url ? `<div><strong>Website:</strong> <a href="${agency.url}" target="_blank" class="text-blue-600 hover:underline">${agency.url}</a></div>` : ''}
+              ${agency.url ? `<div><strong>Website:</strong> <a href="${agency.url}" target="_blank" class="text-info hover:underline">${agency.url}</a></div>` : ''}
               ${agency.timezone ? `<div><strong>Timezone:</strong> ${agency.timezone}</div>` : ''}
               ${agency.lang ? `<div><strong>Language:</strong> ${agency.lang}</div>` : ''}
               ${agency.phone ? `<div><strong>Phone:</strong> ${agency.phone}</div>` : ''}
-              ${agency.email ? `<div><strong>Email:</strong> <a href="mailto:${agency.email}" class="text-blue-600 hover:underline">${agency.email}</a></div>` : ''}
+              ${agency.email ? `<div><strong>Email:</strong> <a href="mailto:${agency.email}" class="text-info hover:underline">${agency.email}</a></div>` : ''}
             </div>
           </div>
         </div>
@@ -104,7 +104,7 @@ export class InfoDisplay {
               <div><strong>Type:</strong> ${this.getRouteTypeText(route.route_type)}</div>
               ${agency ? `<div><strong>Agency:</strong> ${this.escapeHtml(agency.name)}</div>` : ''}
               ${route.route_color ? `<div><strong>Color:</strong> <span style="background: #${route.route_color}; color: #${route.route_text_color || 'ffffff'};" class="px-2 py-1 rounded">#${route.route_color}</span></div>` : ''}
-              ${route.route_url ? `<div><strong>URL:</strong> <a href="${route.route_url}" target="_blank" class="text-blue-600 hover:underline">${route.route_url}</a></div>` : ''}
+              ${route.route_url ? `<div><strong>URL:</strong> <a href="${route.route_url}" target="_blank" class="text-info hover:underline">${route.route_url}</a></div>` : ''}
             </div>
           </div>
         </div>
@@ -219,13 +219,13 @@ export class InfoDisplay {
                   ? `
                 <div><strong>Location:</strong> ${stop.lat.toFixed(6)}, ${stop.lon.toFixed(6)}</div>
                 <div><strong>Coordinates:</strong> 
-                  <a href="https://www.openstreetmap.org/?mlat=${stop.lat}&mlon=${stop.lon}&zoom=18" target="_blank" class="text-blue-600 hover:underline">View on OpenStreetMap</a>
+                  <a href="https://www.openstreetmap.org/?mlat=${stop.lat}&mlon=${stop.lon}&zoom=18" target="_blank" class="text-info hover:underline">View on OpenStreetMap</a>
                 </div>
               `
                   : ''
               }
               ${stop.zoneId ? `<div><strong>Zone ID:</strong> ${stop.zoneId}</div>` : ''}
-              ${stop.url ? `<div><strong>URL:</strong> <a href="${stop.url}" target="_blank" class="text-blue-600 hover:underline">${stop.url}</a></div>` : ''}
+              ${stop.url ? `<div><strong>URL:</strong> <a href="${stop.url}" target="_blank" class="text-info hover:underline">${stop.url}</a></div>` : ''}
               ${stop.locationType ? `<div><strong>Location Type:</strong> ${this.getLocationTypeText(stop.locationType)}</div>` : ''}
               ${stop.parentStation ? `<div><strong>Parent Station:</strong> ${stop.parentStation}</div>` : ''}
               ${stop.wheelchairBoarding ? `<div><strong>Wheelchair Boarding:</strong> ${this.getWheelchairText(stop.wheelchairBoarding)}</div>` : ''}
@@ -283,22 +283,22 @@ export class InfoDisplay {
           <h4 class="font-medium text-${statusColor}-800 mb-3 flex items-center gap-2">
             ${statusIcon} Feed Validation
           </h4>
-          <div class="grid grid-cols-3 gap-4 text-sm">
-            <div class="text-center">
-              <div class="text-lg font-bold text-red-600">${summary.errorCount}</div>
-              <div class="text-red-800">Errors</div>
+          <div class="stats shadow w-full">
+            <div class="stat">
+              <div class="stat-title">Errors</div>
+              <div class="stat-value text-error">${summary.errorCount}</div>
             </div>
-            <div class="text-center">
-              <div class="text-lg font-bold text-yellow-600">${summary.warningCount}</div>
-              <div class="text-yellow-800">Warnings</div>
+            <div class="stat">
+              <div class="stat-title">Warnings</div>
+              <div class="stat-value text-warning">${summary.warningCount}</div>
             </div>
-            <div class="text-center">
-              <div class="text-lg font-bold text-blue-600">${summary.infoCount}</div>
-              <div class="text-blue-800">Info</div>
+            <div class="stat">
+              <div class="stat-title">Info</div>
+              <div class="stat-value text-info">${summary.infoCount}</div>
             </div>
           </div>
           <div class="mt-3 text-center">
-            <button id="show-validation-details" class="text-${statusColor}-600 hover:text-${statusColor}-800 text-sm underline">
+            <button id="show-validation-details" class="btn btn-link btn-sm text-info">
               View Validation Details
             </button>
           </div>
@@ -313,22 +313,22 @@ export class InfoDisplay {
         
         ${validationSection}
         
-        <div class="grid grid-cols-2 gap-4 mb-6">
-          <div class="bg-blue-50 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-blue-600">${stats.agencies}</div>
-            <div class="text-sm text-blue-800">Agencies</div>
+        <div class="stats shadow w-full mb-6">
+          <div class="stat">
+            <div class="stat-title">Agencies</div>
+            <div class="stat-value text-info">${stats.agencies}</div>
           </div>
-          <div class="bg-green-50 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-green-600">${stats.routes}</div>
-            <div class="text-sm text-green-800">Routes</div>
+          <div class="stat">
+            <div class="stat-title">Routes</div>
+            <div class="stat-value text-success">${stats.routes}</div>
           </div>
-          <div class="bg-purple-50 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-purple-600">${stats.trips}</div>
-            <div class="text-sm text-purple-800">Trips</div>
+          <div class="stat">
+            <div class="stat-title">Trips</div>
+            <div class="stat-value text-secondary">${stats.trips}</div>
           </div>
-          <div class="bg-orange-50 rounded-lg p-4 text-center">
-            <div class="text-2xl font-bold text-orange-600">${stats.stops}</div>
-            <div class="text-sm text-orange-800">Stops</div>
+          <div class="stat">
+            <div class="stat-title">Stops</div>
+            <div class="stat-value text-accent">${stats.stops}</div>
           </div>
         </div>
         
@@ -406,7 +406,7 @@ export class InfoDisplay {
       <div class="p-4 overflow-y-auto h-full">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-slate-800">🔍 Validation Results</h3>
-          <button id="back-to-overview" class="text-blue-600 hover:text-blue-800 text-sm underline">
+          <button id="back-to-overview" class="btn btn-link btn-sm text-info">
             ← Back to Overview
           </button>
         </div>
@@ -414,15 +414,15 @@ export class InfoDisplay {
         <div class="mb-6">
           <div class="grid grid-cols-3 gap-4 text-sm">
             <div class="bg-red-50 rounded-lg p-3 text-center">
-              <div class="text-xl font-bold text-red-600">${summary.errorCount}</div>
+              <div class="text-xl font-bold text-error">${summary.errorCount}</div>
               <div class="text-red-800">Errors</div>
             </div>
             <div class="bg-yellow-50 rounded-lg p-3 text-center">
-              <div class="text-xl font-bold text-yellow-600">${summary.warningCount}</div>
+              <div class="text-xl font-bold text-warning">${summary.warningCount}</div>
               <div class="text-yellow-800">Warnings</div>
             </div>
             <div class="bg-blue-50 rounded-lg p-3 text-center">
-              <div class="text-xl font-bold text-blue-600">${summary.infoCount}</div>
+              <div class="text-xl font-bold text-info">${summary.infoCount}</div>
               <div class="text-blue-800">Info</div>
             </div>
           </div>

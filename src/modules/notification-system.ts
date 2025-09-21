@@ -148,7 +148,7 @@ export class NotificationSystem {
             .map(
               (action) => `
             <button 
-              class="notification-action text-xs px-2 py-1 rounded ${action.primary ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'} hover:opacity-80"
+              class="notification-action btn btn-xs ${action.primary ? 'btn-info' : 'btn-outline'}"
               data-action="${action.id}"
             >
               ${action.label}
@@ -164,13 +164,13 @@ export class NotificationSystem {
       <div class="flex items-start gap-3">
         <div class="flex-shrink-0 text-lg">
           ${iconMap[type]}
-          ${type === 'loading' ? '<div class="animate-spin inline-block ml-1">⟳</div>' : ''}
+          ${type === 'loading' ? '<span class="loading loading-spinner loading-sm ml-1"></span>' : ''}
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium">${this.escapeHtml(message)}</div>
           ${actionsHtml}
         </div>
-        <button class="notification-close flex-shrink-0 text-gray-400 hover:text-gray-600 text-lg leading-none">
+        <button class="notification-close btn btn-ghost btn-xs btn-circle text-base-content">
           ×
         </button>
       </div>

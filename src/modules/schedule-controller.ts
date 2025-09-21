@@ -247,7 +247,7 @@ export class ScheduleController {
 
     return `
       <div class="timetable-container flex-1 overflow-auto">
-        <table class="timetable w-full text-sm">
+        <table class="table table-zebra table-pin-rows w-full text-sm">
           ${this.renderTimetableHeader(data.trips)}
           ${this.renderTimetableBody(data.stops, data.trips)}
         </table>
@@ -265,7 +265,7 @@ export class ScheduleController {
       <th class="trip-header p-2 text-center border border-slate-300 bg-slate-100 min-w-[80px]">
         <div class="trip-headsign font-medium text-xs mb-1">${this.escapeHtml(trip.headsign)}</div>
         <div class="trip-actions">
-          <button class="duplicate-trip-btn text-xs text-blue-600 hover:text-blue-800"
+          <button class="duplicate-trip-btn text-xs text-info hover:text-info-content"
                   data-trip-id="${trip.tripId}"
                   title="Duplicate Trip">
             📋
