@@ -288,14 +288,16 @@
             <!-- Object Details View -->
             <div id="object-details-view" class="h-full hidden">
               <div class="h-full flex flex-col">
-                <!-- Object Header -->
-                <div
-                  class="flex items-center gap-4 p-4 border-b border-base-300"
-                >
-                  <button id="back-to-objects" class="btn btn-ghost btn-sm">
-                    ← Back to Objects
-                  </button>
-                  <div class="flex items-center gap-2">
+                <!-- Object Header with Breadcrumbs -->
+                <div class="border-b border-base-300">
+                  <div id="object-breadcrumbs" class="p-3 bg-base-200">
+                    <div class="breadcrumbs text-sm">
+                      <ul id="breadcrumb-list">
+                        <li><a id="breadcrumb-objects">Agencies</a></li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 p-4">
                     <span
                       id="object-type"
                       class="text-sm font-medium opacity-70"

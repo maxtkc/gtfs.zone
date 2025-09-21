@@ -52,33 +52,26 @@ export class ObjectsNavigation {
   }
 
   renderBreadcrumb() {
-    if (this.breadcrumb.length === 0) {
-      return '';
-    }
+    const breadcrumbItems = [
+      `<li><a class="breadcrumb-home" data-action="home">Home</a></li>`,
+    ];
 
-    const breadcrumbItems = this.breadcrumb
-      .map((item, index) => {
-        const isLast = index === this.breadcrumb.length - 1;
-        return `<li${isLast ? ' class="font-medium"' : ''}>
-          <button class="breadcrumb-item ${isLast ? 'text-slate-600' : 'text-info hover:text-info-content'}"
-                  data-breadcrumb-index="${index}"
-                  ${isLast ? 'disabled' : ''}>
-            ${item.name}
-          </button>
-        </li>`;
-      })
-      .join('');
+    this.breadcrumb.forEach((item, index) => {
+      const isLast = index === this.breadcrumb.length - 1;
+      if (isLast) {
+        breadcrumbItems.push(`<li>${item.name}</li>`);
+      } else {
+        breadcrumbItems.push(
+          `<li><a class="breadcrumb-item" data-breadcrumb-index="${index}">${item.name}</a></li>`
+        );
+      }
+    });
 
     return `
-      <div class="p-3 border-b border-slate-200 bg-slate-50">
+      <div class="p-3 border-b border-base-300 bg-base-200">
         <div class="breadcrumbs text-sm">
           <ul>
-            <li>
-              <button class="breadcrumb-home text-info hover:text-info-content" data-action="home">
-                🏠 Home
-              </button>
-            </li>
-            ${breadcrumbItems}
+            ${breadcrumbItems.join('')}
           </ul>
         </div>
       </div>
