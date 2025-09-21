@@ -519,6 +519,8 @@ export class ObjectsNavigation {
         type: 'Route',
         data: route,
         relatedObjects: [], // We can add trips here later if needed
+        routeAction: true, // Flag to indicate this should call navigateToRoute
+        routeId: route.id,
       }));
 
       // Show agency details in the object details view

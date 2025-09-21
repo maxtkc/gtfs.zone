@@ -1,3 +1,4 @@
 - Every file should always exist in the Files
 - We should be able to diff with the most recently uploaded file (maybe we should have a diff-base? Should it be commit based?)
 - Bus/train selector/filters
+- Favicon/Logo!

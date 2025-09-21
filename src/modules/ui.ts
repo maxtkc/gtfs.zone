@@ -592,6 +592,11 @@ export class UIController {
               obj.data.serviceId
             );
           }
+        } else if (obj.routeAction && obj.routeId) {
+          // Navigate to route view to show services
+          if (this.objectsNavigation) {
+            this.objectsNavigation.navigateToRoute(obj.routeId);
+          }
         } else {
           this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
         }
@@ -694,6 +699,11 @@ export class UIController {
         this.loadGTFSFromURL(url);
       }
       // Future: support for base64, github, etc.
+    } else {
+      // Load Columbia County as default feed when no URL parameters
+      const defaultUrl =
+        'https://raw.githubusercontent.com/maxtkc/columbia-county-gtfs/refs/heads/main/columbia_county_gtfs.zip';
+      this.loadGTFSFromURL(defaultUrl);
     }
   }
 }

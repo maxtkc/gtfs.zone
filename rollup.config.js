@@ -40,8 +40,8 @@ export default {
     // Copy HTML template and inject build assets
     copy({
       targets: [
-        { 
-          src: 'src/index.html', 
+        {
+          src: 'src/index.html',
           dest: 'dist',
           transform: (contents, filename) => {
             const html = contents.toString();
@@ -54,6 +54,10 @@ export default {
               'src="bundle.js"'
             );
           }
+        },
+        {
+          src: 'public/icons',
+          dest: 'dist'
         }
       ]
     }),
