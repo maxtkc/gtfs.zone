@@ -6,6 +6,7 @@ export class UIController {
     this.editor = null;
     this.mapController = null;
     this.objectsNavigation = null;
+    this.scheduleController = null;
     this.validateCallback = null;
   }
 
@@ -14,21 +15,74 @@ export class UIController {
     editor,
     mapController,
     objectsNavigation,
+    scheduleController = null,
     validateCallback = null
   ) {
     this.gtfsParser = gtfsParser;
     this.editor = editor;
     this.mapController = mapController;
     this.objectsNavigation = objectsNavigation;
+    this.scheduleController = scheduleController;
     this.validateCallback = validateCallback;
     this.setupEventListeners();
     this.initializeTabs();
   }
 
   setupEventListeners() {
+    // DaisyUI handles dropdown toggle automatically via :focus
+    // We just need to handle the submenu for examples
+    const examplesBtn = document.getElementById('examples-btn');
+    const examplesDropdown = document.getElementById('examples-dropdown');
+
+    if (examplesBtn && examplesDropdown) {
+      examplesBtn.addEventListener('mouseenter', () => {
+        examplesDropdown.classList.remove('hidden');
+      });
+
+      examplesBtn.addEventListener('mouseleave', (e) => {
+        // Only hide if not moving to submenu
+        setTimeout(() => {
+          if (
+            !examplesDropdown.matches(':hover') &&
+            !examplesBtn.matches(':hover')
+          ) {
+            examplesDropdown.classList.add('hidden');
+          }
+        }, 100);
+      });
+
+      examplesDropdown.addEventListener('mouseleave', () => {
+        examplesDropdown.classList.add('hidden');
+      });
+    }
+
+    // Empty button (same as New)
+    document.getElementById('empty-btn')?.addEventListener('click', () => {
+      this.createNewFeed();
+      // DaisyUI dropdown will close automatically when button loses focus
+    });
+
     // Upload button
     document.getElementById('upload-btn').addEventListener('click', () => {
       document.getElementById('file-input').click();
+      // DaisyUI dropdown will close automatically when button loses focus
+    });
+
+    // Example buttons
+    document
+      .getElementById('example-columbia')
+      ?.addEventListener('click', (e) => {
+        const url = e.target.dataset.url;
+        if (url) this.loadGTFSFromURL(url);
+        const examplesDropdown = document.getElementById('examples-dropdown');
+        if (examplesDropdown) examplesDropdown.classList.add('hidden');
+      });
+
+    document.getElementById('example-west')?.addEventListener('click', (e) => {
+      const url = e.target.dataset.url;
+      if (url) this.loadGTFSFromURL(url);
+      const examplesDropdown = document.getElementById('examples-dropdown');
+      if (examplesDropdown) examplesDropdown.classList.add('hidden');
     });
 
     // File input
@@ -42,19 +96,6 @@ export class UIController {
     document.getElementById('export-btn').addEventListener('click', () => {
       this.exportGTFS();
     });
-
-    // New GTFS feed button
-    document.getElementById('new-btn').addEventListener('click', () => {
-      this.createNewFeed();
-    });
-
-    // Help button
-    const helpBtn = document.getElementById('help-btn');
-    if (helpBtn) {
-      helpBtn.addEventListener('click', () => {
-        this.showHelpPanel();
-      });
-    }
 
     // Back to files button
     const backToFilesBtn = document.getElementById('back-to-files');
@@ -139,17 +180,10 @@ export class UIController {
     });
   }
 
-  showHelpPanel() {
-    const helpTab = document.querySelector('[data-tab="help"]');
-    if (helpTab) {
-      helpTab.click();
-    }
-  }
-
   initializeTabs() {
     // Initialize tab functionality
     document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab-btn')) {
+      if (e.target.classList.contains('tab')) {
         this.switchTab(e.target);
       }
     });
@@ -164,10 +198,8 @@ export class UIController {
     }
 
     // Remove active state from all tabs in this panel
-    panel.querySelectorAll('.tab-btn').forEach((btn) => {
-      btn.classList.remove('active');
-      btn.classList.add('text-gray-500', 'border-transparent');
-      btn.classList.remove('text-gray-900', 'border-blue-500');
+    panel.querySelectorAll('.tab').forEach((btn) => {
+      btn.classList.remove('tab-active');
     });
 
     // Hide all tab content in this panel
@@ -176,9 +208,7 @@ export class UIController {
     });
 
     // Activate clicked tab
-    button.classList.add('active');
-    button.classList.remove('text-gray-500', 'border-transparent');
-    button.classList.add('text-gray-900', 'border-blue-500');
+    button.classList.add('tab-active');
 
     // Show corresponding content
     const content = document.getElementById(`${tabId}-tab`);
@@ -574,7 +604,17 @@ export class UIController {
       itemEl.appendChild(typeEl);
 
       itemEl.addEventListener('click', () => {
-        this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
+        if (obj.scheduleAction && obj.routeId && obj.data?.serviceId) {
+          // Open schedule view for this service
+          if (this.scheduleController) {
+            this.scheduleController.showScheduleForRoute(
+              obj.routeId,
+              obj.data.serviceId
+            );
+          }
+        } else {
+          this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
+        }
       });
 
       container.appendChild(itemEl);

@@ -6,7 +6,7 @@ export class TabManager {
   initialize() {
     // Handle tab switching for both left and right panels
     document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab-btn')) {
+      if (e.target.classList.contains('tab')) {
         this.switchTab(e.target);
       }
     });
@@ -22,18 +22,11 @@ export class TabManager {
     }
 
     // Remove active state from all tabs in this panel
-    const allTabs = panel.querySelectorAll('.tab-btn');
+    const allTabs = panel.querySelectorAll('.tab');
     const allContent = panel.querySelectorAll('.tab-content');
 
     allTabs.forEach((tab) => {
-      tab.classList.remove('active');
-      tab.classList.remove('border-blue-500', 'text-white', 'text-slate-700');
-
-      if (panel.classList.contains('left-panel')) {
-        tab.classList.add('text-slate-300', 'border-transparent');
-      } else {
-        tab.classList.add('text-slate-500', 'border-transparent');
-      }
+      tab.classList.remove('tab-active');
     });
 
     allContent.forEach((content) => {
@@ -41,16 +34,7 @@ export class TabManager {
     });
 
     // Activate selected tab
-    button.classList.add('active', 'border-blue-500');
-    button.classList.remove('border-transparent');
-
-    if (panel.classList.contains('left-panel')) {
-      button.classList.add('text-white');
-      button.classList.remove('text-slate-300');
-    } else {
-      button.classList.add('text-slate-700');
-      button.classList.remove('text-slate-500');
-    }
+    button.classList.add('tab-active');
 
     // Show selected content
     const targetContent = document.getElementById(`${tabId}-tab`);

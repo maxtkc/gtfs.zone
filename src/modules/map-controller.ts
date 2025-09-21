@@ -2,6 +2,11 @@ import { Map, Popup, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 export class MapController {
+  private map: Map | null;
+  private mapElementId: string;
+  private gtfsParser: any;
+  private resizeTimeout: NodeJS.Timeout | null;
+
   constructor(mapElementId = 'map') {
     this.map = null;
     this.mapElementId = mapElementId;
@@ -9,7 +14,7 @@ export class MapController {
     this.resizeTimeout = null;
   }
 
-  initialize(gtfsParser) {
+  initialize(gtfsParser: any) {
     this.gtfsParser = gtfsParser;
 
     // Initialize MapLibre GL JS map

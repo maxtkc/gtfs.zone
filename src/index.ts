@@ -10,6 +10,7 @@ import { SearchController } from './modules/search-controller';
 import { GTFSValidator } from './modules/gtfs-validator';
 import { KeyboardShortcuts } from './modules/keyboard-shortcuts';
 import { FieldDescriptionsDisplay } from './modules/field-descriptions';
+import { ScheduleController } from './modules/schedule-controller';
 import { notifications } from './modules/notification-system';
 import './styles/main.css';
 
@@ -32,6 +33,7 @@ export class GTFSEditor {
   public validator: GTFSValidator;
   public keyboardShortcuts: KeyboardShortcuts;
   public fieldDescriptions: FieldDescriptionsDisplay;
+  public scheduleController: ScheduleController;
 
   constructor() {
     this.gtfsParser = new GTFSParser();
@@ -41,6 +43,10 @@ export class GTFSEditor {
     this.tabManager = new TabManager();
     this.relationships = new GTFSRelationships(this.gtfsParser);
     this.infoDisplay = new InfoDisplay(this.relationships);
+    this.scheduleController = new ScheduleController(
+      this.relationships,
+      this.gtfsParser
+    );
     this.objectsNavigation = new ObjectsNavigation(
       this.relationships,
       this.mapController
@@ -67,20 +73,26 @@ export class GTFSEditor {
       // Initialize all modules
       this.mapController.initialize(this.gtfsParser);
       this.editor.initialize(this.gtfsParser);
+
+      // Set up cross-references for schedule controller
+      this.scheduleController.setUIController(this.uiController);
+
       // Note: InfoDisplay is not used in the new UI structure
       (this.uiController as any).initialize(
         this.gtfsParser,
         this.editor,
         this.mapController,
         this.objectsNavigation,
+        this.scheduleController,
         this.validateAndUpdateInfo.bind(this)
       );
 
       // Initialize Objects navigation
       this.objectsNavigation.initialize('objects-navigation');
 
-      // Set up circular reference
+      // Set up circular references
       this.objectsNavigation.uiController = this.uiController;
+      this.objectsNavigation.scheduleController = this.scheduleController;
 
       // Initialize search controller
       this.searchController.initialize();

@@ -259,6 +259,79 @@ export class GTFSRelationships {
   }
 
   /**
+   * Get unique service IDs for a specific route
+   */
+  getServicesForRoute(routeId: string) {
+    const trips = this.getTripsForRoute(routeId);
+    const serviceIds = [...new Set(trips.map((trip) => trip.serviceId))];
+
+    return serviceIds.map((serviceId) => {
+      const calendar = this.getCalendarForService(serviceId);
+      return {
+        serviceId,
+        calendar,
+        tripCount: trips.filter((trip) => trip.serviceId === serviceId).length,
+      };
+    });
+  }
+
+  /**
+   * Get route by ID
+   */
+  getRouteById(routeId: string) {
+    const routesData = this.gtfsParser.getFileData('routes.txt');
+    if (!routesData || !Array.isArray(routesData)) {
+      return null;
+    }
+
+    const route = routesData.find((route) => route.route_id === routeId);
+    if (!route) {
+      return null;
+    }
+
+    return {
+      id: route.route_id,
+      agencyId: route.agency_id,
+      shortName: route.route_short_name,
+      longName: route.route_long_name,
+      desc: route.route_desc,
+      type: route.route_type,
+      url: route.route_url,
+      color: route.route_color,
+      textColor: route.route_text_color,
+      sortOrder: route.route_sort_order,
+    };
+  }
+
+  /**
+   * Get trip by ID
+   */
+  getTripById(tripId: string) {
+    const tripsData = this.gtfsParser.getFileData('trips.txt');
+    if (!tripsData || !Array.isArray(tripsData)) {
+      return null;
+    }
+
+    const trip = tripsData.find((trip) => trip.trip_id === tripId);
+    if (!trip) {
+      return null;
+    }
+
+    return {
+      id: trip.trip_id,
+      routeId: trip.route_id,
+      serviceId: trip.service_id,
+      headsign: trip.trip_headsign,
+      shortName: trip.trip_short_name,
+      directionId: trip.direction_id,
+      blockId: trip.block_id,
+      shapeId: trip.shape_id,
+      wheelchairAccessible: trip.wheelchair_accessible,
+      bikesAllowed: trip.bikes_allowed,
+    };
+  }
+
+  /**
    * Check if GTFS data is available
    */
   hasData() {

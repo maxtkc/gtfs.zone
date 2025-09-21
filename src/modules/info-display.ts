@@ -31,6 +31,7 @@ export class InfoDisplay {
 
     const routes = this.relationships.getRoutesForAgency(agencyId);
 
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="mb-4">
@@ -85,6 +86,7 @@ export class InfoDisplay {
     const agencies = this.relationships.getAgencies();
     const agency = agencies.find((a: any) => a.id === route.agency_id);
 
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="mb-4">
@@ -144,6 +146,7 @@ export class InfoDisplay {
       this.relationships.gtfsParser.getFileData('routes.txt') || [];
     const route = allRoutes.find((r: any) => r.route_id === trip.route_id);
 
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="mb-4">
@@ -169,7 +172,7 @@ export class InfoDisplay {
           <div class="space-y-1 max-h-64 overflow-y-auto">
             ${stopTimes
               .map(
-                (st, _index: any) => `
+                (st: any, _index: number) => `
               <div class="bg-white border border-slate-200 rounded p-2 flex justify-between items-center">
                 <div class="flex-1">
                   <div class="font-medium text-sm">${st.stop ? this.escapeHtml(st.stop.name) : st.stopId}</div>
@@ -199,6 +202,7 @@ export class InfoDisplay {
 
     const trips = this.relationships.getTripsForStop(stopId);
 
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="mb-4">
@@ -250,12 +254,19 @@ export class InfoDisplay {
     `;
   }
 
-  showFeedStatistics(validationResults = null) {
+  showFeedStatistics(validationResults: any = null) {
     const stats = this.relationships.getStatistics();
 
     let validationSection = '';
     if (validationResults) {
-      const { summary } = validationResults;
+      const { summary } = validationResults as {
+        summary: {
+          isValid: boolean;
+          errorCount: number;
+          warningCount: number;
+          infoCount: number;
+        };
+      };
       const statusColor = summary.isValid
         ? 'green'
         : summary.errorCount > 0
@@ -295,6 +306,7 @@ export class InfoDisplay {
       `;
     }
 
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <h3 class="text-lg font-semibold text-slate-800 mb-4">📊 Feed Overview</h3>
@@ -389,6 +401,7 @@ export class InfoDisplay {
       `;
     };
 
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 overflow-y-auto h-full">
         <div class="flex items-center justify-between mb-4">
@@ -437,6 +450,7 @@ export class InfoDisplay {
   }
 
   showError(message: string) {
+    if (!this.container) return;
     this.container.innerHTML = `
       <div class="p-4 text-center">
         <div class="text-red-500 text-lg mb-2">⚠️</div>
@@ -457,8 +471,8 @@ export class InfoDisplay {
     }
   }
 
-  getRouteTypeText(routeType) {
-    const types = {
+  getRouteTypeText(routeType: number): string {
+    const types: Record<number, string> = {
       0: 'Tram/Light Rail',
       1: 'Subway/Metro',
       2: 'Rail',
@@ -473,8 +487,8 @@ export class InfoDisplay {
     return types[routeType] || `Unknown (${routeType})`;
   }
 
-  getLocationTypeText(locationType) {
-    const types = {
+  getLocationTypeText(locationType: number): string {
+    const types: Record<number, string> = {
       0: 'Stop/Platform',
       1: 'Station',
       2: 'Station Entrance/Exit',
@@ -484,8 +498,8 @@ export class InfoDisplay {
     return types[locationType] || `Unknown (${locationType})`;
   }
 
-  getWheelchairText(wheelchairBoarding) {
-    const values = {
+  getWheelchairText(wheelchairBoarding: number): string {
+    const values: Record<number, string> = {
       0: 'No information',
       1: 'Accessible',
       2: 'Not accessible',

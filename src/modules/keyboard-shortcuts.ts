@@ -1,5 +1,9 @@
 export class KeyboardShortcuts {
-  constructor(gtfsEditor) {
+  private gtfsEditor: any;
+  private shortcuts: Map<string, { handler: Function; description: string }>;
+  private initialized: boolean;
+
+  constructor(gtfsEditor: any) {
     this.gtfsEditor = gtfsEditor;
     this.shortcuts = new Map();
     this.initialized = false;
@@ -119,12 +123,12 @@ export class KeyboardShortcuts {
     );
   }
 
-  addShortcut(keys, handler, description) {
+  addShortcut(keys: string, handler: Function, description: string) {
     this.shortcuts.set(keys, { handler, description });
   }
 
   bindEventListeners() {
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
       const key = this.getKeyString(e);
       const shortcut = this.shortcuts.get(key);
 
@@ -135,7 +139,7 @@ export class KeyboardShortcuts {
           activeElement &&
           (activeElement.tagName === 'INPUT' ||
             activeElement.tagName === 'TEXTAREA' ||
-            activeElement.contentEditable === 'true' ||
+            (activeElement as HTMLElement).contentEditable === 'true' ||
             activeElement.classList.contains('cm-content')); // CodeMirror editor
 
         // Allow some shortcuts even in input fields
@@ -148,8 +152,8 @@ export class KeyboardShortcuts {
     });
   }
 
-  getKeyString(e) {
-    const parts = [];
+  getKeyString(e: KeyboardEvent): string {
+    const parts: string[] = [];
 
     if (e.ctrlKey || e.metaKey) {
       parts.push('ctrl');
@@ -164,7 +168,7 @@ export class KeyboardShortcuts {
     const key = e.key.toLowerCase();
 
     // Handle special keys
-    const specialKeys = {
+    const specialKeys: Record<string, string> = {
       ' ': 'space',
       enter: 'enter',
       tab: 'tab',
@@ -186,7 +190,7 @@ export class KeyboardShortcuts {
     // Switch to help tab
     const helpTab = document.querySelector('[data-tab="help"]');
     if (helpTab && !helpTab.classList.contains('active')) {
-      helpTab.click();
+      (helpTab as HTMLElement).click();
     }
   }
 
@@ -194,7 +198,7 @@ export class KeyboardShortcuts {
     const mapSearch = document.getElementById('map-search');
     if (mapSearch) {
       mapSearch.focus();
-      mapSearch.select();
+      (mapSearch as HTMLInputElement).select();
     }
   }
 
@@ -202,14 +206,14 @@ export class KeyboardShortcuts {
     // Clear map search
     const mapSearch = document.getElementById('map-search');
     if (mapSearch) {
-      mapSearch.value = '';
+      (mapSearch as HTMLInputElement).value = '';
       mapSearch.blur();
     }
 
     // Clear objects search
     const objectsSearch = document.getElementById('objects-search');
     if (objectsSearch) {
-      objectsSearch.value = '';
+      (objectsSearch as HTMLInputElement).value = '';
     }
 
     // Clear map highlights
@@ -229,26 +233,26 @@ export class KeyboardShortcuts {
     }
   }
 
-  switchToTab(tabName) {
+  switchToTab(tabName: string) {
     const tabButton = document.querySelector(`[data-tab="${tabName}"]`);
     if (tabButton && !tabButton.classList.contains('active')) {
-      tabButton.click();
+      (tabButton as HTMLElement).click();
     }
   }
 
   getShortcutsList() {
-    const shortcuts = [];
+    const shortcuts: Array<{ key: string; description: string }> = [];
     for (const [key, { description }] of this.shortcuts) {
       shortcuts.push({ key: this.formatKeyForDisplay(key), description });
     }
     return shortcuts.sort((a, b) => a.description.localeCompare(b.description));
   }
 
-  formatKeyForDisplay(keyString) {
+  formatKeyForDisplay(keyString: string): string {
     return keyString
       .split('+')
-      .map((part) => {
-        const capitalizeMap = {
+      .map((part: string) => {
+        const capitalizeMap: Record<string, string> = {
           ctrl: 'Ctrl',
           alt: 'Alt',
           shift: 'Shift',

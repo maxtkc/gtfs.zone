@@ -8,6 +8,7 @@ export class ObjectsNavigation {
   private relationships: any;
   private mapController: any;
   public uiController: any = null; // Will be set after initialization
+  public scheduleController: any = null; // Will be set after initialization
   private currentView: string = 'agencies'; // agencies, routes, trips, stop-times, stop-detail
   private breadcrumb: any[] = [];
   private container: HTMLElement | null = null;
@@ -534,14 +535,19 @@ export class ObjectsNavigation {
     const route = this.relationships.getRouteById(routeId);
 
     if (route) {
-      // Get trips for this route to show as related objects
-      const trips = this.relationships.getTripsForRoute(routeId);
-      const relatedObjects = trips.map((trip) => ({
-        name: trip.headsign || trip.id,
-        type: 'Trip',
-        data: trip,
-        relatedObjects: [],
-      }));
+      // Get services for this route to show as related objects
+      const services = this.relationships.getServicesForRoute(routeId);
+      const relatedObjects = services.map((service) => {
+        const serviceName = this.formatServiceName(service);
+        return {
+          name: serviceName,
+          type: 'Service',
+          data: service,
+          relatedObjects: [],
+          scheduleAction: true, // Flag to indicate this should open schedule view
+          routeId: routeId,
+        };
+      });
 
       // Show route details in the object details view
       if (this.uiController) {
@@ -626,6 +632,40 @@ export class ObjectsNavigation {
     if (this.mapController && this.mapController.highlightStop) {
       this.mapController.highlightStop(stopId);
     }
+  }
+
+  formatServiceName(service: any): string {
+    const { serviceId, calendar, tripCount } = service;
+
+    let serviceName = serviceId;
+
+    if (calendar) {
+      const days = [];
+      if (calendar.monday) days.push('Mon');
+      if (calendar.tuesday) days.push('Tue');
+      if (calendar.wednesday) days.push('Wed');
+      if (calendar.thursday) days.push('Thu');
+      if (calendar.friday) days.push('Fri');
+      if (calendar.saturday) days.push('Sat');
+      if (calendar.sunday) days.push('Sun');
+
+      let dayDescription = '';
+      if (days.length === 7) {
+        dayDescription = 'Daily';
+      } else if (days.length === 5 && !calendar.saturday && !calendar.sunday) {
+        dayDescription = 'Weekdays';
+      } else if (days.length === 2 && calendar.saturday && calendar.sunday) {
+        dayDescription = 'Weekends';
+      } else {
+        dayDescription = days.join(', ');
+      }
+
+      serviceName = `${serviceId} (${dayDescription})`;
+    }
+
+    serviceName += ` - ${tripCount} trips`;
+
+    return serviceName;
   }
 
   escapeHtml(text) {
