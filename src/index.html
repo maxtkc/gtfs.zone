@@ -4,10 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>gtfs.zone - GTFS Transit Data Editor</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body class="font-sans h-screen overflow-hidden">
@@ -163,19 +159,18 @@
       <div
         class="right-panel bg-base-200 border-l border-base-300 flex flex-col"
       >
-        <!-- Right Panel Tabs -->
-        <div role="tablist" class="tabs tabs-bordered bg-base-100 px-6 pt-4">
-          <button role="tab" class="tab tab-active" data-tab="files">
-            Files
-          </button>
-          <button role="tab" class="tab" data-tab="objects">Objects</button>
-          <button role="tab" class="tab" data-tab="help">Help</button>
-        </div>
-
-        <!-- Right Panel Content -->
-        <div class="flex-1 overflow-hidden">
-          <!-- Files Tab Content -->
-          <div id="files-tab" class="tab-content h-full">
+        <!-- Right Panel Tabs with DaisyUI -->
+        <div class="tabs tabs-bordered flex-1 overflow-hidden">
+          <!-- Files Tab -->
+          <input
+            type="radio"
+            name="main_tabs"
+            id="files-tab-radio"
+            class="tab"
+            aria-label="Files"
+            checked="checked"
+          />
+          <div class="tab-content h-full overflow-hidden">
             <!-- File List View -->
             <div id="file-list-view" class="h-full">
               <div id="file-list" class="p-4 overflow-y-auto h-full">
@@ -243,8 +238,15 @@
             </div>
           </div>
 
-          <!-- Objects Tab Content -->
-          <div id="objects-tab" class="tab-content h-full hidden">
+          <!-- Objects Tab -->
+          <input
+            type="radio"
+            name="main_tabs"
+            id="objects-tab-radio"
+            class="tab"
+            aria-label="Objects"
+          />
+          <div class="tab-content h-full overflow-hidden">
             <!-- Objects List View -->
             <div id="objects-list-view" class="h-full">
               <div id="objects-navigation" class="p-4 overflow-y-auto h-full">
@@ -297,8 +299,15 @@
             </div>
           </div>
 
-          <!-- Help Tab Content -->
-          <div id="help-tab" class="tab-content h-full hidden">
+          <!-- Help Tab -->
+          <input
+            type="radio"
+            name="main_tabs"
+            id="help-tab-radio"
+            class="tab"
+            aria-label="Help"
+          />
+          <div class="tab-content h-full overflow-hidden">
             <div class="p-4 overflow-y-auto h-full">
               <div class="text-base-content">
                 <!-- Getting Started Section -->
@@ -553,7 +562,6 @@
     <input type="file" id="file-input" accept=".zip" style="display: none" />
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="bundle.js"></script>
   </body>
 </html>

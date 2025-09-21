@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Monaco Editor styling */
-.monaco-editor {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-}
 
 /* File list styling */
 .file-item {
@@ -29,11 +25,6 @@
   @apply bg-white border-b-blue-500 text-blue-700;
 }
 
-/* Map controls */
-.leaflet-control-container .leaflet-top.leaflet-right {
-  top: 10px;
-  right: 10px;
-}
 
 /* Ensure proper height calculations */
 .h-calc-viewport {
@@ -180,8 +171,3 @@
   }
 }
 
-/* Ensure map takes full available space */
-.leaflet-container {
-  height: 100% !important;
-  width: 100% !important;
-}

@@ -33,7 +33,8 @@ export default {
     // Bundle CSS
     postcss({
       extract: 'styles.css',
-      minimize: isProduction
+      minimize: isProduction,
+      sourceMap: true
     }),
     
     // Copy HTML template and inject build assets

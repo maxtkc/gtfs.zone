@@ -181,43 +181,23 @@ export class UIController {
   }
 
   initializeTabs() {
-    // Initialize tab functionality
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab')) {
-        this.switchTab(e.target);
-      }
+    // Initialize DaisyUI tab functionality
+    // Listen for tab changes to handle special behaviors
+    const radioInputs = document.querySelectorAll('input[name="main_tabs"]');
+    radioInputs.forEach((radio) => {
+      radio.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        if (target.checked) {
+          const tabName = target.id.replace('-tab-radio', '');
+          this.handleTabChange(tabName);
+        }
+      });
     });
   }
 
-  switchTab(button) {
-    const tabId = button.dataset.tab;
-    const panel = button.closest('.left-panel, .right-panel');
-
-    if (!panel) {
-      return;
-    }
-
-    // Remove active state from all tabs in this panel
-    panel.querySelectorAll('.tab').forEach((btn) => {
-      btn.classList.remove('tab-active');
-    });
-
-    // Hide all tab content in this panel
-    panel.querySelectorAll('.tab-content').forEach((content) => {
-      content.classList.add('hidden');
-    });
-
-    // Activate clicked tab
-    button.classList.add('tab-active');
-
-    // Show corresponding content
-    const content = document.getElementById(`${tabId}-tab`);
-    if (content) {
-      content.classList.remove('hidden');
-    }
-
+  handleTabChange(tabName: string) {
     // If switching to Objects tab, refresh the navigation
-    if (tabId === 'objects' && this.objectsNavigation) {
+    if (tabName === 'objects' && this.objectsNavigation) {
       this.objectsNavigation.refresh();
     }
   }

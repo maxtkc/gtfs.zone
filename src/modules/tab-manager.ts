@@ -4,42 +4,49 @@ export class TabManager {
   }
 
   initialize() {
-    // Handle tab switching for both left and right panels
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab')) {
-        this.switchTab(e.target);
-      }
-    });
+    // DaisyUI radio tabs handle switching automatically
+    // This class is now mainly for programmatic tab switching if needed
+    console.log('TabManager: DaisyUI tabs initialized');
   }
 
-  switchTab(button) {
-    const tabId = button.dataset.tab;
-    const panel = button.closest('.left-panel, .right-panel');
-
-    if (!panel) {
-      console.error('TabManager: Could not find panel for button', button);
-      return;
+  // Programmatic tab switching for DaisyUI radio tabs
+  switchToTab(tabName: string) {
+    const radioInput = document.getElementById(
+      `${tabName}-tab-radio`
+    ) as HTMLInputElement;
+    if (radioInput) {
+      radioInput.checked = true;
+      // Trigger change event to ensure any listeners are notified
+      radioInput.dispatchEvent(new Event('change'));
+    } else {
+      console.warn(
+        `TabManager: Tab radio input not found: ${tabName}-tab-radio`
+      );
     }
+  }
 
-    // Remove active state from all tabs in this panel
-    const allTabs = panel.querySelectorAll('.tab');
-    const allContent = panel.querySelectorAll('.tab-content');
-
-    allTabs.forEach((tab) => {
-      tab.classList.remove('tab-active');
-    });
-
-    allContent.forEach((content) => {
-      content.classList.add('hidden');
-    });
-
-    // Activate selected tab
-    button.classList.add('tab-active');
-
-    // Show selected content
-    const targetContent = document.getElementById(`${tabId}-tab`);
-    if (targetContent) {
-      targetContent.classList.remove('hidden');
+  // Get currently active tab
+  getActiveTab(): string | null {
+    const checkedRadio = document.querySelector(
+      'input[name="main_tabs"]:checked'
+    ) as HTMLInputElement;
+    if (checkedRadio) {
+      return checkedRadio.id.replace('-tab-radio', '');
     }
+    return null;
+  }
+
+  // Listen for tab changes (if needed for other components)
+  onTabChange(callback: (tabName: string) => void) {
+    const radioInputs = document.querySelectorAll('input[name="main_tabs"]');
+    radioInputs.forEach((radio) => {
+      radio.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        if (target.checked) {
+          const tabName = target.id.replace('-tab-radio', '');
+          callback(tabName);
+        }
+      });
+    });
   }
 }

@@ -234,9 +234,9 @@ export class KeyboardShortcuts {
   }
 
   switchToTab(tabName: string) {
-    const tabButton = document.querySelector(`[data-tab="${tabName}"]`);
-    if (tabButton && !tabButton.classList.contains('active')) {
-      (tabButton as HTMLElement).click();
+    // Use TabManager for DaisyUI radio tabs
+    if (this.gtfsEditor.tabManager) {
+      this.gtfsEditor.tabManager.switchToTab(tabName);
     }
   }
 
