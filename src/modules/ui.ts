@@ -1,4 +1,11 @@
 import { notifications } from './notification-system';
+import {
+  getAgencyFieldDescription,
+  getRouteFieldDescription,
+  getCalendarFieldDescription,
+  createTooltip,
+  getSchemaFieldName,
+} from '../utils/zod-tooltip-helper.js';
 
 export class UIController {
   constructor() {
@@ -748,11 +755,63 @@ export class UIController {
       const propertyEl = document.createElement('div');
       propertyEl.className = 'flex flex-col gap-1';
 
-      const labelEl = document.createElement('label');
-      labelEl.className = 'text-xs font-medium text-secondary';
-      labelEl.textContent = key
+      // Debug logging
+      console.log('Processing property:', key, 'value:', value);
+
+      // Get tooltip description based on the field
+      let tooltipDescription = '';
+      const schemaFieldName = getSchemaFieldName(key);
+      console.log('Schema field name:', schemaFieldName);
+
+      // Try to get description from different schemas
+      // Check the current object type to determine which schema to use
+      const objectTypeEl = document.getElementById('object-type');
+      const objectType = objectTypeEl ? objectTypeEl.textContent : '';
+
+      if (
+        objectType === 'Agency' ||
+        key.startsWith('agency_') ||
+        key === 'agencyId'
+      ) {
+        tooltipDescription = getAgencyFieldDescription(schemaFieldName);
+        console.log('Agency tooltip for', key, ':', tooltipDescription);
+      } else if (
+        objectType === 'Route' ||
+        key.startsWith('route_') ||
+        key === 'routeId'
+      ) {
+        tooltipDescription = getRouteFieldDescription(schemaFieldName);
+        console.log('Route tooltip for', key, ':', tooltipDescription);
+      } else if (
+        objectType === 'Service' ||
+        key.startsWith('service_') ||
+        key === 'serviceId' ||
+        key.includes('date') ||
+        key.includes('day')
+      ) {
+        tooltipDescription = getCalendarFieldDescription(schemaFieldName);
+        console.log('Calendar tooltip for', key, ':', tooltipDescription);
+      }
+
+      const labelText = key
         .replace(/_/g, ' ')
         .replace(/\b\w/g, (l) => l.toUpperCase());
+
+      const labelEl = document.createElement('label');
+      labelEl.className = 'text-xs font-medium text-secondary';
+
+      if (tooltipDescription) {
+        console.log(
+          'Creating tooltip for',
+          key,
+          'with description:',
+          tooltipDescription
+        );
+        labelEl.innerHTML = createTooltip(labelText, tooltipDescription);
+      } else {
+        console.log('No tooltip for', key);
+        labelEl.textContent = labelText;
+      }
 
       const inputEl = document.createElement('input');
       inputEl.className =

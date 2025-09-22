@@ -8,7 +8,6 @@ import {
   getRouteFieldDescription,
   getCalendarFieldDescription,
   createTooltip,
-  getSchemaFieldName,
 } from '../utils/zod-tooltip-helper.js';
 
 export class InfoDisplay {

@@ -56,7 +56,6 @@ export class ScheduleController {
       if (this.uiController) {
         const route = timetableData.route;
         const service = timetableData.service;
-        const serviceName = this.formatServiceDays(service);
         const directionName = timetableData.directionName;
         let scheduleItemName = service.serviceId;
         if (directionName) {
@@ -230,9 +229,6 @@ export class ScheduleController {
       console.error('Object details view container not found');
       return;
     }
-
-    // Format service days for display
-    const serviceDays = this.formatServiceDays(data.service);
 
     const html = `
       <div id="schedule-view" class="h-full flex flex-col">
@@ -571,34 +567,6 @@ export class ScheduleController {
       .join('');
 
     return `<tbody>${rows}</tbody>`;
-  }
-
-  /**
-   * Format service days for display
-   */
-  private formatServiceDays(service: any): string {
-    if (!service || typeof service !== 'object') {
-      return '';
-    }
-
-    const days = [];
-    if (service.monday) days.push('Mon');
-    if (service.tuesday) days.push('Tue');
-    if (service.wednesday) days.push('Wed');
-    if (service.thursday) days.push('Thu');
-    if (service.friday) days.push('Fri');
-    if (service.saturday) days.push('Sat');
-    if (service.sunday) days.push('Sun');
-
-    if (days.length === 7) {
-      return 'Daily';
-    } else if (days.length === 5 && !service.saturday && !service.sunday) {
-      return 'Weekdays';
-    } else if (days.length === 2 && service.saturday && service.sunday) {
-      return 'Weekends';
-    } else {
-      return days.join(', ');
-    }
   }
 
   /**

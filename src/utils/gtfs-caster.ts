@@ -12,6 +12,9 @@ import {
 } from '../types/gtfs';
 import { GTFSRelationshipResolver } from './gtfs-relationships';
 
+console.log(z);
+console.log('hello world');
+
 export interface ValidationResult {
   success: boolean;
   data?: GTFSRecord[];
