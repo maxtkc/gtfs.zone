@@ -58,6 +58,10 @@ export default {
         {
           src: 'public/icons',
           dest: 'dist'
+        },
+        {
+          src: 'public/logo.svg',
+          dest: 'dist'
         }
       ]
     }),

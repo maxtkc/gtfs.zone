@@ -37,116 +37,156 @@
     <div
       class="app-container h-screen grid grid-cols-[1fr_400px] grid-rows-[auto_1fr]"
     >
-      <!-- Header -->
-      <header class="col-span-2 navbar bg-base-100">
+      <!-- Header - DaisyUI Navbar -->
+      <div class="navbar bg-base-100 col-span-2 border-b border-base-300">
         <div class="navbar-start">
           <div class="flex items-center gap-4">
-            <h1 class="text-xl font-normal">gtfs.zone</h1>
-            <span class="text-xs opacity-70 font-light"
-              >powered by OpenStreetMap</span
-            >
+            <div class="avatar">
+              <div class="w-8 rounded-lg">
+                <img src="logo.svg" alt="gtfs.zone logo" />
+              </div>
+            </div>
+            <div class="flex flex-col">
+              <h1 class="text-xl font-bold">gtfs.zone</h1>
+              <span class="text-xs opacity-60 font-light">
+                powered by OpenStreetMap
+              </span>
+            </div>
           </div>
         </div>
+
         <div class="navbar-end">
-          <div class="flex gap-2 items-center">
+          <div class="flex items-center gap-2">
             <!-- Load Dropdown -->
             <div class="dropdown dropdown-end">
-              <button
-                id="load-btn"
+              <div
                 tabindex="0"
                 role="button"
-                class="btn btn-ghost btn-sm"
+                class="btn btn-primary btn-sm"
+                id="load-btn"
               >
-                Load
                 <svg
-                  class="w-3 h-3"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
                   fill="none"
-                  stroke="currentColor"
                   viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M19 9l-7 7-7-7"
-                  ></path>
+                    stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
+                  />
                 </svg>
-              </button>
+                Load
+              </div>
               <ul
                 id="load-dropdown"
                 tabindex="0"
-                class="dropdown-content menu bg-base-200 rounded-box z-[1] w-52 p-2 shadow"
+                class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
               >
                 <li>
-                  <button
-                    id="empty-btn"
-                    class="btn btn-ghost btn-sm justify-start"
-                  >
-                    Empty
-                  </button>
+                  <a id="empty-btn" class="flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    New Empty Feed
+                  </a>
                 </li>
                 <li>
-                  <div class="dropdown dropdown-left dropdown-open">
-                    <button
-                      id="examples-btn"
-                      class="btn btn-ghost btn-sm justify-between w-full"
-                    >
-                      Examples
+                  <details>
+                    <summary class="flex items-center gap-2">
                       <svg
-                        class="w-3 h-3"
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
                         fill="none"
-                        stroke="currentColor"
                         viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
                         <path
                           stroke-linecap="round"
                           stroke-linejoin="round"
-                          stroke-width="1.5"
-                          d="M9 5l7 7-7 7"
-                        ></path>
+                          stroke-width="2"
+                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                        />
                       </svg>
-                    </button>
-                    <ul
-                      id="examples-dropdown"
-                      class="dropdown-content menu bg-base-200 rounded-box z-[1] w-52 p-2 shadow"
-                    >
+                      Examples
+                    </summary>
+                    <ul class="p-2">
                       <li>
-                        <button
+                        <a
                           id="example-columbia"
-                          class="btn btn-ghost btn-sm justify-start"
                           data-url="https://raw.githubusercontent.com/maxtkc/columbia-county-gtfs/refs/heads/main/columbia_county_gtfs.zip"
                         >
                           Columbia County
-                        </button>
+                        </a>
                       </li>
                       <li>
-                        <button
+                        <a
                           id="example-west"
-                          class="btn btn-ghost btn-sm justify-start"
                           data-url="https://westbusservice.com/west_gtfs.zip"
                         >
                           West Bus Service
-                        </button>
+                        </a>
                       </li>
                     </ul>
-                  </div>
+                  </details>
                 </li>
                 <li>
-                  <button
-                    id="upload-btn"
-                    class="btn btn-ghost btn-sm justify-start"
-                  >
-                    Upload
-                  </button>
+                  <a id="upload-btn" class="flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    Upload GTFS
+                  </a>
                 </li>
               </ul>
             </div>
-            <button id="export-btn" class="btn btn-ghost btn-sm" disabled>
+
+            <!-- Export Button -->
+            <button id="export-btn" class="btn btn-outline btn-sm" disabled>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
+                />
+              </svg>
               Export
             </button>
           </div>
         </div>
-      </header>
+      </div>
 
       <!-- Map Container -->
       <div class="relative bg-base-300">

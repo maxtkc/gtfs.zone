@@ -29,32 +29,7 @@ export class UIController {
   }
 
   setupEventListeners() {
-    // DaisyUI handles dropdown toggle automatically via :focus
-    // We just need to handle the submenu for examples
-    const examplesBtn = document.getElementById('examples-btn');
-    const examplesDropdown = document.getElementById('examples-dropdown');
-
-    if (examplesBtn && examplesDropdown) {
-      examplesBtn.addEventListener('mouseenter', () => {
-        examplesDropdown.classList.remove('hidden');
-      });
-
-      examplesBtn.addEventListener('mouseleave', (e) => {
-        // Only hide if not moving to submenu
-        setTimeout(() => {
-          if (
-            !examplesDropdown.matches(':hover') &&
-            !examplesBtn.matches(':hover')
-          ) {
-            examplesDropdown.classList.add('hidden');
-          }
-        }, 100);
-      });
-
-      examplesDropdown.addEventListener('mouseleave', () => {
-        examplesDropdown.classList.add('hidden');
-      });
-    }
+    // DaisyUI handles dropdown toggle automatically via tabindex and focus
 
     // Empty button (same as New)
     document.getElementById('empty-btn')?.addEventListener('click', () => {
@@ -74,15 +49,11 @@ export class UIController {
       ?.addEventListener('click', (e) => {
         const url = e.target.dataset.url;
         if (url) this.loadGTFSFromURL(url);
-        const examplesDropdown = document.getElementById('examples-dropdown');
-        if (examplesDropdown) examplesDropdown.classList.add('hidden');
       });
 
     document.getElementById('example-west')?.addEventListener('click', (e) => {
       const url = e.target.dataset.url;
       if (url) this.loadGTFSFromURL(url);
-      const examplesDropdown = document.getElementById('examples-dropdown');
-      if (examplesDropdown) examplesDropdown.classList.add('hidden');
     });
 
     // File input
