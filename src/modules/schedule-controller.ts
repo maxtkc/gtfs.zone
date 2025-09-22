@@ -297,7 +297,7 @@ export class ScheduleController {
 
     return `
       <div class="timetable-container flex-1 overflow-auto">
-        <table class="table table-zebra table-pin-rows w-full text-sm">
+        <table class="table table-zebra table-pin-rows table-compact table-hover w-full text-sm">
           ${this.renderTimetableHeader(data.trips)}
           ${this.renderTimetableBody(data.stops, data.trips)}
         </table>
@@ -312,7 +312,7 @@ export class ScheduleController {
     const tripHeaders = trips
       .map(
         (trip) => `
-      <th class="trip-header p-2 text-center min-w-[80px]">
+      <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300">
         <div class="trip-headsign font-medium text-xs mb-1">${this.escapeHtml(trip.headsign)}</div>
         <div class="trip-actions">
           <button class="duplicate-trip-btn text-xs btn btn-ghost btn-xs"
@@ -330,7 +330,7 @@ export class ScheduleController {
     return `
       <thead class="sticky top-0 bg-base-100 z-10">
         <tr>
-          <th class="stop-header p-2 text-left min-w-[200px] sticky left-0">
+          <th class="stop-header p-2 text-left min-w-[200px] sticky left-0 bg-base-100 border-b border-base-300">
             Stop
           </th>
           ${tripHeaders}
@@ -350,12 +350,12 @@ export class ScheduleController {
           .map((trip) => {
             const time = trip.stopTimes.get(stop.id);
             return `
-          <td class="time-cell p-2 text-center ${time ? 'has-time cursor-pointer hover:bg-base-200' : 'no-time'}"
+          <td class="time-cell p-2 text-center ${time ? 'has-time cursor-pointer hover:bg-base-200' : 'no-time text-base-content/30'}"
               data-trip-id="${trip.tripId}"
               data-stop-id="${stop.id}"
               data-time="${time || ''}"
               title="${time ? 'Click to edit' : 'No service'}">
-            ${time ? this.formatTime(time) : '—'}
+            ${time ? `<span class="badge badge-ghost badge-sm">${this.formatTime(time)}</span>` : '—'}
           </td>
         `;
           })
@@ -363,7 +363,7 @@ export class ScheduleController {
 
         return `
         <tr class="${rowClass}">
-          <td class="stop-name p-2 font-medium sticky left-0 bg-base-100">
+          <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
             <div class="stop-name-text">${this.escapeHtml(stop.name)}</div>
             <div class="stop-id text-xs opacity-70">${stop.id}</div>
           </td>
