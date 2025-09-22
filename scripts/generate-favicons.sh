@@ -30,30 +30,31 @@ echo "Generating favicons from $INPUT_IMAGE..."
 mkdir -p public/icons
 
 # Generate different sizes
-echo "Generating favicon.ico (16x16, 32x32, 48x48)..."
+echo "Generating favicon sizes..."
 inkscape "$INPUT_IMAGE" --export-type=png --export-width=16 --export-filename=public/icons/favicon-16x16.png
 inkscape "$INPUT_IMAGE" --export-type=png --export-width=32 --export-filename=public/icons/favicon-32x32.png
 inkscape "$INPUT_IMAGE" --export-type=png --export-width=48 --export-filename=public/icons/favicon-48x48.png
+inkscape "$INPUT_IMAGE" --export-type=png --export-width=192 --export-filename=public/icons/favicon-192x192.png
+inkscape "$INPUT_IMAGE" --export-type=png --export-width=512 --export-filename=public/icons/favicon-512x512.png
+
+echo "Generating Apple Touch Icon (180x180)..."
+inkscape "$INPUT_IMAGE" --export-type=png --export-width=180 --export-filename=public/icons/apple-touch-icon.png
 
 # Convert to ICO format (requires ImageMagick convert)
 if command -v convert &> /dev/null; then
     convert public/icons/favicon-16x16.png public/icons/favicon-32x32.png public/icons/favicon-48x48.png public/icons/favicon.ico
     echo "Generated favicon.ico"
-    # Clean up temporary PNG files
-    rm public/icons/favicon-16x16.png public/icons/favicon-32x32.png public/icons/favicon-48x48.png
 else
-    echo "Warning: ImageMagick not found. Generated PNG files instead of ICO."
+    echo "Warning: ImageMagick not found. Cannot generate favicon.ico"
     echo "Install ImageMagick to generate favicon.ico: sudo apt install imagemagick"
 fi
 
-echo "Generating Apple Touch Icon (180x180)..."
-inkscape "$INPUT_IMAGE" --export-type=png --export-width=180 --export-filename=public/icons/apple-touch-icon.png
-
-echo "Generating high-resolution favicon (512x512)..."
-inkscape "$INPUT_IMAGE" --export-type=png --export-width=512 --export-filename=public/icons/favicon-512x512.png
-
 echo "Favicon generation complete!"
 echo "Generated files:"
-echo "  - public/icons/favicon.ico (or PNG files if ImageMagick not available)"
-echo "  - public/icons/apple-touch-icon.png"
+echo "  - public/icons/favicon-16x16.png"
+echo "  - public/icons/favicon-32x32.png"
+echo "  - public/icons/favicon-48x48.png"
+echo "  - public/icons/favicon-192x192.png"
 echo "  - public/icons/favicon-512x512.png"
+echo "  - public/icons/apple-touch-icon.png"
+echo "  - public/icons/favicon.ico (if ImageMagick available)"

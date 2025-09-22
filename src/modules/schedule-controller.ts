@@ -41,6 +41,23 @@ export class ScheduleController {
     try {
       const timetableData = this.generateTimetableData(routeId, serviceId);
       this.renderTimetable(timetableData);
+
+      // Update UI controller breadcrumb trail to include schedule
+      if (this.uiController) {
+        const route = timetableData.route;
+        const service = timetableData.service;
+        const serviceName = this.formatServiceDays(service);
+        const scheduleItemName = `${service.serviceId}${serviceName ? ' (' + serviceName + ')' : ''} Schedule`;
+
+        // Add schedule item to existing breadcrumb trail instead of replacing it
+        this.uiController.updateBreadcrumbTrail('Schedule', scheduleItemName, {
+          routeId: routeId,
+          serviceId: serviceId,
+          route: route,
+          service: service,
+          isSchedule: true, // Flag to indicate this is a schedule view
+        });
+      }
     } catch (error) {
       console.error('Error showing schedule:', error);
       this.renderError('Failed to generate schedule view');
@@ -211,20 +228,53 @@ export class ScheduleController {
     service: any,
     serviceDays: string
   ): string {
-    return `
-      <div class="schedule-header p-4 border-b border-slate-200 bg-slate-50">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-800">
-              ${route.route_short_name ? route.route_short_name + ' - ' : ''}${route.route_long_name || route.route_id}
-            </h2>
-            <p class="text-sm text-slate-600">
-              Service: ${service.serviceId} ${serviceDays ? '(' + serviceDays + ')' : ''}
-            </p>
+    const routeName = route.route_short_name
+      ? `${route.route_short_name}${route.route_long_name ? ' - ' + route.route_long_name : ''}`
+      : route.route_long_name || route.route_id;
+
+    const serviceName = `${service.serviceId}${serviceDays ? ' (' + serviceDays + ')' : ''}`;
+
+    // Use UI controller's breadcrumb system if available
+    let breadcrumbHtml = '';
+    if (this.uiController) {
+      // Get the current breadcrumb trail from UI controller
+      breadcrumbHtml = `
+        <div class="p-3 bg-base-200">
+          <div class="breadcrumbs text-sm">
+            <ul id="breadcrumb-list">
+              <!-- Breadcrumbs will be rendered by UI controller -->
+            </ul>
           </div>
-          <button id="back-to-objects" class="btn btn-sm btn-ghost">
-            ← Back to Route
-          </button>
+        </div>
+      `;
+
+      // Re-render breadcrumbs to include schedule item
+      setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
+    } else {
+      // Fallback breadcrumb for when UI controller is not available
+      breadcrumbHtml = `
+        <div class="p-3 bg-base-200">
+          <div class="breadcrumbs text-sm">
+            <ul>
+              <li><a id="schedule-breadcrumb-agencies">Agencies</a></li>
+              <li><a id="schedule-breadcrumb-route">${routeName}</a></li>
+              <li>${serviceName} Schedule</li>
+            </ul>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="border-b border-base-300">
+        ${breadcrumbHtml}
+        <div class="p-4">
+          <h2 class="text-lg font-semibold">
+            ${routeName} - ${serviceName}
+          </h2>
+          <p class="text-sm opacity-70">
+            Timetable View
+          </p>
         </div>
       </div>
     `;
@@ -236,7 +286,7 @@ export class ScheduleController {
   private renderTimetableContent(data: TimetableData): string {
     if (data.trips.length === 0) {
       return `
-        <div class="flex-1 flex items-center justify-center text-slate-500">
+        <div class="flex-1 flex items-center justify-center">
           <div class="text-center">
             <div class="text-4xl mb-4">🚌</div>
             <p class="text-lg">No trips found for this service</p>
@@ -262,25 +312,25 @@ export class ScheduleController {
     const tripHeaders = trips
       .map(
         (trip) => `
-      <th class="trip-header p-2 text-center border border-slate-300 bg-slate-100 min-w-[80px]">
+      <th class="trip-header p-2 text-center min-w-[80px]">
         <div class="trip-headsign font-medium text-xs mb-1">${this.escapeHtml(trip.headsign)}</div>
         <div class="trip-actions">
-          <button class="duplicate-trip-btn text-xs text-info hover:text-info-content"
+          <button class="duplicate-trip-btn text-xs btn btn-ghost btn-xs"
                   data-trip-id="${trip.tripId}"
                   title="Duplicate Trip">
             📋
           </button>
         </div>
-        <div class="trip-id text-xs text-slate-500 mt-1">${trip.tripId}</div>
+        <div class="trip-id text-xs opacity-70 mt-1">${trip.tripId}</div>
       </th>
     `
       )
       .join('');
 
     return `
-      <thead class="sticky top-0 bg-white z-10">
+      <thead class="sticky top-0 bg-base-100 z-10">
         <tr>
-          <th class="stop-header p-2 text-left border border-slate-300 bg-slate-100 min-w-[200px]">
+          <th class="stop-header p-2 text-left min-w-[200px] sticky left-0">
             Stop
           </th>
           ${tripHeaders}
@@ -295,12 +345,12 @@ export class ScheduleController {
   private renderTimetableBody(stops: any[], trips: AlignedTrip[]): string {
     const rows = stops
       .map((stop, index) => {
-        const rowClass = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+        const rowClass = '';
         const timeCells = trips
           .map((trip) => {
             const time = trip.stopTimes.get(stop.id);
             return `
-          <td class="time-cell p-2 text-center border border-slate-300 ${time ? 'has-time cursor-pointer hover:bg-blue-50' : 'no-time'}"
+          <td class="time-cell p-2 text-center ${time ? 'has-time cursor-pointer hover:bg-base-200' : 'no-time'}"
               data-trip-id="${trip.tripId}"
               data-stop-id="${stop.id}"
               data-time="${time || ''}"
@@ -313,9 +363,9 @@ export class ScheduleController {
 
         return `
         <tr class="${rowClass}">
-          <td class="stop-name p-2 border border-slate-300 font-medium">
+          <td class="stop-name p-2 font-medium sticky left-0 bg-base-100">
             <div class="stop-name-text">${this.escapeHtml(stop.name)}</div>
-            <div class="stop-id text-xs text-slate-500">${stop.id}</div>
+            <div class="stop-id text-xs opacity-70">${stop.id}</div>
           </td>
           ${timeCells}
         </tr>
@@ -407,14 +457,34 @@ export class ScheduleController {
       }
     });
 
-    // Back to objects button
-    const backBtn = document.getElementById('back-to-objects');
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        if (this.uiController) {
-          this.uiController.showObjectsList();
-        }
-      });
+    // Breadcrumb navigation is now handled by UI controller
+    // Only add fallback handlers if UI controller is not available
+    if (!this.uiController) {
+      const agenciesBtn = document.getElementById(
+        'schedule-breadcrumb-agencies'
+      );
+      if (agenciesBtn) {
+        agenciesBtn.addEventListener('click', () => {
+          if (this.uiController) {
+            this.uiController.showObjectsList();
+          }
+        });
+      }
+
+      const routeBtn = document.getElementById('schedule-breadcrumb-route');
+      if (routeBtn) {
+        routeBtn.addEventListener('click', () => {
+          if (this.uiController) {
+            this.uiController.showObjectsList();
+            // Navigate back to the route view by calling the objects navigation
+            if (this.uiController.objectsNavigation) {
+              this.uiController.objectsNavigation.navigateToRoute(
+                data.route.route_id
+              );
+            }
+          }
+        });
+      }
     }
   }
 
@@ -675,23 +745,28 @@ export class ScheduleController {
     if (!container) return;
 
     container.innerHTML = `
-      <div class="h-full flex items-center justify-center text-slate-500">
-        <div class="text-center">
-          <div class="text-4xl mb-4">⚠️</div>
-          <p class="text-lg">${this.escapeHtml(message)}</p>
-          <button id="back-to-objects" class="btn btn-sm btn-primary mt-4">
-            ← Back to Objects
-          </button>
+      <div class="h-full flex flex-col">
+        <div class="border-b border-base-300">
+          <div class="p-3 bg-base-200">
+            <div class="breadcrumbs text-sm">
+              <ul id="breadcrumb-list">
+                <!-- Breadcrumbs will be rendered by UI controller -->
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="flex-1 flex items-center justify-center">
+          <div class="text-center">
+            <div class="text-4xl mb-4">⚠️</div>
+            <p class="text-lg">${this.escapeHtml(message)}</p>
+          </div>
         </div>
       </div>
     `;
 
-    // Attach back button
-    const backBtn = document.getElementById('back-to-objects');
-    if (backBtn && this.uiController) {
-      backBtn.addEventListener('click', () => {
-        this.uiController.showObjectsList();
-      });
+    // Re-render breadcrumbs using UI controller
+    if (this.uiController) {
+      setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
     }
   }
 

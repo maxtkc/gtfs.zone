@@ -8,6 +8,7 @@ export class UIController {
     this.objectsNavigation = null;
     this.scheduleController = null;
     this.validateCallback = null;
+    this.breadcrumbTrail = []; // Track navigation path for breadcrumbs
   }
 
   initialize(
@@ -76,13 +77,7 @@ export class UIController {
       });
     }
 
-    // Back to objects button
-    const backToObjectsBtn = document.getElementById('back-to-objects');
-    if (backToObjectsBtn) {
-      backToObjectsBtn.addEventListener('click', () => {
-        this.showObjectsList();
-      });
-    }
+    // Breadcrumb navigation is now handled dynamically in renderBreadcrumbs()
 
     // Panel toggle buttons
     const toggleLeftBtn = document.getElementById('toggle-left-panel');
@@ -461,6 +456,8 @@ export class UIController {
       listView.classList.remove('hidden');
       detailsView.classList.add('hidden');
     }
+    // Clear breadcrumb trail when returning to objects list
+    this.breadcrumbTrail = [];
   }
 
   showObjectDetails(objectType, objectData, relatedObjects = []) {
@@ -473,9 +470,50 @@ export class UIController {
       // Update object info
       const objectTypeEl = document.getElementById('object-type');
       const objectNameEl = document.getElementById('object-name');
-      if (objectTypeEl && objectNameEl) {
-        objectTypeEl.textContent = objectType;
-        objectNameEl.textContent =
+      let objectName = 'Unknown';
+
+      // Get the appropriate name based on object type
+      if (objectType === 'Agency') {
+        objectName =
+          objectData.name ||
+          objectData.agency_name ||
+          objectData.agency_id ||
+          'Unknown';
+      } else if (objectType === 'Route') {
+        // Try shortName first, then longName, then id
+        if (objectData.shortName) {
+          objectName = objectData.shortName;
+          if (objectData.longName) {
+            objectName += ' - ' + objectData.longName;
+          }
+        } else {
+          objectName =
+            objectData.longName ||
+            objectData.id ||
+            objectData.route_short_name ||
+            objectData.route_long_name ||
+            objectData.route_id ||
+            'Unknown';
+        }
+      } else if (objectType === 'Stop') {
+        objectName =
+          objectData.name ||
+          objectData.stop_name ||
+          objectData.id ||
+          objectData.stop_id ||
+          'Unknown';
+      } else if (objectType === 'Trip') {
+        objectName =
+          objectData.headsign ||
+          objectData.trip_headsign ||
+          objectData.id ||
+          objectData.trip_id ||
+          'Unknown';
+      } else {
+        // Fallback for other types
+        objectName =
+          objectData.name ||
+          objectData.id ||
           objectData.agency_name ||
           objectData.route_short_name ||
           objectData.stop_name ||
@@ -483,11 +521,126 @@ export class UIController {
           'Unknown';
       }
 
+      if (objectTypeEl && objectNameEl) {
+        objectTypeEl.textContent = objectType;
+        objectNameEl.textContent = objectName;
+      }
+
+      // Update breadcrumb trail
+      this.updateBreadcrumbTrail(objectType, objectName, objectData);
+
       // Populate properties
       this.populateObjectProperties(objectData);
 
       // Populate related objects
       this.populateRelatedObjects(relatedObjects);
+    }
+  }
+
+  updateBreadcrumbTrail(objectType, objectName, objectData) {
+    // Build breadcrumb trail based on object hierarchy - only store type and ID
+    const objectId =
+      objectData.id ||
+      objectData.agency_id ||
+      objectData.route_id ||
+      objectData.routeId ||
+      objectData.serviceId;
+
+    const breadcrumbItem = {
+      type: objectType,
+      name: objectName,
+      id: objectId,
+    };
+
+    // Check if this item is already in the trail to avoid duplicates
+    const existingIndex = this.breadcrumbTrail.findIndex(
+      (item) => item.type === objectType && item.id === objectId
+    );
+
+    if (existingIndex >= 0) {
+      // If item exists, truncate trail to that point
+      this.breadcrumbTrail = this.breadcrumbTrail.slice(0, existingIndex + 1);
+    } else {
+      // Add new item to trail
+      this.breadcrumbTrail.push(breadcrumbItem);
+    }
+
+    this.renderBreadcrumbs();
+  }
+
+  renderBreadcrumbs() {
+    const breadcrumbList = document.getElementById('breadcrumb-list');
+    if (!breadcrumbList) return;
+
+    // Clear existing breadcrumbs
+    breadcrumbList.innerHTML = '';
+
+    // Add Agencies link
+    const agenciesLi = document.createElement('li');
+    const agenciesLink = document.createElement('a');
+    agenciesLink.textContent = 'Agencies';
+    agenciesLink.href = '#';
+    agenciesLink.id = 'breadcrumb-objects';
+    agenciesLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showObjectsList();
+    });
+    agenciesLi.appendChild(agenciesLink);
+    breadcrumbList.appendChild(agenciesLi);
+
+    // Add each item in the trail
+    this.breadcrumbTrail.forEach((item, index) => {
+      const isLast = index === this.breadcrumbTrail.length - 1;
+      const li = document.createElement('li');
+
+      if (isLast) {
+        // Last item is not clickable
+        li.textContent = item.name;
+      } else {
+        // Previous items are clickable
+        const a = document.createElement('a');
+        a.textContent = item.name;
+        a.href = '#';
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.navigateToBreadcrumb(index);
+        });
+        li.appendChild(a);
+      }
+
+      breadcrumbList.appendChild(li);
+    });
+  }
+
+  navigateToBreadcrumb(index) {
+    console.log(
+      'navigateToBreadcrumb called with index:',
+      index,
+      'breadcrumbTrail:',
+      this.breadcrumbTrail
+    );
+    // Truncate trail to the clicked item
+    this.breadcrumbTrail = this.breadcrumbTrail.slice(0, index + 1);
+    const item = this.breadcrumbTrail[index];
+    console.log('Navigating to item:', item);
+
+    // Dynamically fetch object data and related objects based on type and ID
+    if (item.type === 'Agency' && this.objectsNavigation) {
+      // Use the objects navigation to navigate to this agency
+      this.objectsNavigation.navigateToAgency(item.id);
+    } else if (item.type === 'Route' && this.objectsNavigation) {
+      // Use the objects navigation to navigate to this route
+      this.objectsNavigation.navigateToRoute(item.id);
+    } else if (item.type === 'Schedule') {
+      // For schedule items, navigate back to the route view
+      const routeIndex = this.breadcrumbTrail.findIndex(
+        (breadcrumbItem) => breadcrumbItem.type === 'Route'
+      );
+      if (routeIndex >= 0) {
+        // Navigate to the route breadcrumb item
+        this.navigateToBreadcrumb(routeIndex);
+        return;
+      }
     }
   }
 
