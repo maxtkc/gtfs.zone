@@ -601,10 +601,14 @@ export class UIController {
     // Clear existing breadcrumbs
     breadcrumbList.innerHTML = '';
 
-    // Add Agencies link
+    // Add Home link with icon
     const agenciesLi = document.createElement('li');
     const agenciesLink = document.createElement('a');
-    agenciesLink.textContent = 'Agencies';
+    agenciesLink.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-4 w-4 stroke-current">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+      </svg>
+    `;
     agenciesLink.href = '#';
     agenciesLink.id = 'breadcrumb-objects';
     agenciesLink.addEventListener('click', (e) => {
@@ -689,7 +693,13 @@ export class UIController {
             <div id="object-breadcrumbs" class="p-3 bg-base-200">
               <div class="breadcrumbs text-sm">
                 <ul id="breadcrumb-list">
-                  <li><a id="breadcrumb-objects">Agencies</a></li>
+                  <li>
+                    <a id="breadcrumb-objects">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-4 w-4 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                      </svg>
+                    </a>
+                  </li>
                 </ul>
               </div>
             </div>
