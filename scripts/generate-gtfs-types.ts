@@ -3,6 +3,64 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+// Extract foreign key relationships from GTFS spec
+function extractForeignKeyRelationships(gtfsSpec: any): Array<{
+  sourceFile: string;
+  sourceField: string;
+  targetFile: string;
+  targetField: string;
+  description: string;
+  optional: boolean;
+}> {
+  const relationships = [];
+
+  for (const [filename, fields] of Object.entries(gtfsSpec.fieldDefinitions)) {
+    if (!fields || !Array.isArray(fields)) continue;
+
+    for (const field of fields) {
+      // Look for "Foreign ID referencing" pattern
+      if (field.type && field.type.includes('Foreign ID referencing')) {
+        // Parse patterns like:
+        // "Foreign ID referencing stops.stop_id"
+        // "Foreign ID referencing calendar.service_id or calendar_dates.service_id"
+        const foreignIdMatch = field.type.match(/Foreign ID referencing ([^,\s]+)/);
+
+        if (foreignIdMatch) {
+          const targetRef = foreignIdMatch[1];
+
+          // Handle multiple target files (e.g., "calendar.service_id or calendar_dates.service_id")
+          const targets = field.type.match(/referencing ([^,]+)/)[1]
+            .split(' or ')
+            .map(ref => ref.trim());
+
+          for (const target of targets) {
+            // Parse "table.field" or "table.field_name"
+            const targetMatch = target.match(/^([^.]+)\.(.+)$/);
+            if (targetMatch) {
+              const [, targetTable, targetField] = targetMatch;
+
+              // Convert to filename if needed
+              const targetFile = targetTable.includes('.') ? targetTable : `${targetTable}.txt`;
+
+              relationships.push({
+                sourceFile: filename,
+                sourceField: formatFieldName(field.fieldName),
+                targetFile: targetFile,
+                targetField: formatFieldName(targetField),
+                description: `${field.fieldName} references ${target}`,
+                optional: field.presence?.toLowerCase().includes('optional') ||
+                         field.presence?.toLowerCase().includes('conditionally')
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return relationships;
+}
+
 // Mapping from GTFS data types to TypeScript types
 const typeMapping: Record<string, string> = {
   'Text': 'string',
@@ -47,9 +105,12 @@ function mapGTFSTypeToTS(gtfsType: string): string {
   return typeMapping[gtfsType] || 'string';
 }
 
-function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: string): string {
+function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: string, relationships: any[]): string {
   let zodType;
-  
+
+  // Check if this field is a foreign key
+  const isForeignKey = gtfsType.includes('Foreign ID referencing');
+
   // Handle enum types with specific values
   if (gtfsType.includes('Enum') || gtfsType.includes('0 - ') || gtfsType.includes('1 - ')) {
     const enumMatch = gtfsType.match(/(\d+)\s*-\s*[^,\n]+/g);
@@ -71,6 +132,11 @@ function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: stri
       }
     });
     zodType = `z.union([${zodTypes.join(', ')}])`;
+  }
+  // Handle foreign key types
+  else if (isForeignKey) {
+    zodType = 'z.string()';
+    // Note: Foreign key validation will be added at the schema level
   }
   // Handle specific types
   else {
@@ -108,7 +174,7 @@ function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: stri
         zodType = 'z.string()';
     }
   }
-  
+
   // Add description
   const escapedDescription = description.replace(/'/g, "\\'").replace(/\n/g, ' ');
   return `${zodType}.describe('${escapedDescription}')`;
@@ -141,68 +207,124 @@ function generateInterfaceForFile(filename: string, fields: any[]): { interfaceN
   return { interfaceName, interfaceCode };
 }
 
-function generateZodSchemaForFile(filename: string, fields: any[]): { schemaName: string; schemaCode: string } {
+function generateZodSchemaForFile(filename: string, fields: any[], relationships: any[]): { schemaName: string; schemaCode: string } {
   const schemaName = filename.replace('.txt', '').split('_')
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join('') + 'Schema';
-  
+
+  // Get foreign key relationships for this file
+  const fileRelationships = relationships.filter(rel => rel.sourceFile === filename);
+
   let schemaCode = `export const ${schemaName} = z.object({\n`;
-  
+
   for (const field of fields) {
     const fieldName = formatFieldName(field.fieldName);
-    const zodType = mapGTFSTypeToZod(field.type, field.fieldName, field.description);
+    const zodType = mapGTFSTypeToZod(field.type, field.fieldName, field.description, relationships);
     const optional = field.presence.toLowerCase().includes('optional');
-    
+
     schemaCode += `  ${fieldName}: ${zodType}`;
     if (optional) {
       schemaCode += '.optional()';
     }
     schemaCode += ',\n';
   }
-  
-  schemaCode += '});\n\n';
-  
+
+  schemaCode += '})';
+
+  // Add foreign key validation refinements
+  if (fileRelationships.length > 0) {
+    schemaCode += `.superRefine((data, ctx) => {
+    // Foreign key validation will be added by GTFSValidator
+    // This allows for context-aware validation with access to all GTFS data
+  })`;
+  }
+
+  schemaCode += ';\n\n';
+
   return { schemaName, schemaCode };
 }
 
 async function generateGTFSTypes(): Promise<string> {
   console.log('Generating TypeScript definitions and Zod schemas from GTFS specification...');
-  
+
   try {
     // Read the scraped specification
     const specPath = path.join(process.cwd(), 'src', 'gtfs-spec.json');
     const specContent = await fs.readFile(specPath, 'utf-8');
     const gtfsSpec = JSON.parse(specContent);
-    
+
+    // Extract foreign key relationships from the specification
+    const relationships = extractForeignKeyRelationships(gtfsSpec);
+    console.log(`Found ${relationships.length} foreign key relationships`);
+
     let typeDefinitions = `/**
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
- * 
+ *
  * Generated from ${gtfsSpec.sourceUrl}
  * Scraped at: ${gtfsSpec.scrapedAt}
- * 
+ *
  * This file contains TypeScript interfaces and Zod schemas for all GTFS files and their fields.
- * Zod schemas include field descriptions accessible at runtime.
+ * Zod schemas include field descriptions accessible at runtime and foreign key validation.
  */
 
 import { z } from 'zod';
+
+// Foreign key relationships extracted from GTFS specification
+export const GTFS_RELATIONSHIPS = ${JSON.stringify(relationships, null, 2)} as const;
+
+// Validation context interface for foreign key checking
+export interface GTFSValidationContext {
+  [filename: string]: Map<string, any>;
+}
+
+// Foreign key validation utilities
+export function validateForeignKey(
+  value: string,
+  targetFile: string,
+  targetField: string,
+  context: GTFSValidationContext,
+  optional: boolean = false
+): { valid: boolean; message?: string } {
+  // Allow empty values for optional fields
+  if (optional && (!value || value.trim() === '')) {
+    return { valid: true };
+  }
+
+  const targetData = context[targetFile];
+  if (!targetData) {
+    return {
+      valid: false,
+      message: \`Target file \${targetFile} not found in validation context\`
+    };
+  }
+
+  if (!targetData.has(value)) {
+    return {
+      valid: false,
+      message: \`Referenced \${targetField} '\${value}' not found in \${targetFile}\`
+    };
+  }
+
+  return { valid: true };
+}
 
 `;
 
     const interfaces = [];
     const schemas = [];
-    
+
     // Generate interfaces and schemas for each file
     for (const [filename, fields] of Object.entries(gtfsSpec.fieldDefinitions)) {
       if (fields && fields.length > 0) {
         const { interfaceName, interfaceCode } = generateInterfaceForFile(filename, fields);
-        const { schemaName, schemaCode } = generateZodSchemaForFile(filename, fields);
-        
+        const { schemaName, schemaCode } = generateZodSchemaForFile(filename, fields, relationships);
+
         interfaces.push(interfaceName);
         schemas.push(schemaName);
-        
+
         // Add Zod schema first
         typeDefinitions += schemaCode;
-        
+
         // Add TypeScript interface (inferred from schema)
         typeDefinitions += `// TypeScript interface inferred from Zod schema\n`;
         typeDefinitions += `export type ${interfaceName} = z.infer<typeof ${schemaName}>;\n\n`;

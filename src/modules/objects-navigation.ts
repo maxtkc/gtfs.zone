@@ -261,7 +261,7 @@ export class ObjectsNavigation {
         <div class="text-lg">🚐</div>
         <div class="list-col-grow">
           <div class="font-medium">
-            ${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}
+            ${trip.id}
           </div>
           <div class="text-xs opacity-60">Trip ID: ${trip.id}</div>
           <div class="text-xs opacity-40">Service: ${trip.serviceId}</div>
@@ -345,7 +345,7 @@ export class ObjectsNavigation {
       .map(
         (trip) => `
       <div class="trip-item p-2 border border-slate-200 rounded mb-2">
-        <div class="font-medium text-sm">${trip.headsign || trip.id}</div>
+        <div class="font-medium text-sm">${trip.id}</div>
         <div class="text-xs text-slate-500">Trip: ${trip.id} | Route: ${trip.routeId}</div>
       </div>
     `
@@ -578,7 +578,7 @@ export class ObjectsNavigation {
       // Get trips for this stop to show as related objects
       const trips = this.relationships.getTripsForStop(stopId);
       const relatedObjects = trips.map((trip) => ({
-        name: trip.headsign || trip.id,
+        name: trip.id,
         type: 'Trip',
         data: trip,
         relatedObjects: [],
@@ -649,7 +649,7 @@ export class ObjectsNavigation {
         dayDescription = days.join(', ');
       }
 
-      serviceName = `${serviceId} (${dayDescription})`;
+      serviceName = serviceId;
     }
 
     serviceName += ` - ${tripCount} trips`;
@@ -683,7 +683,7 @@ export class ObjectsNavigation {
         dayDescription = days.join(', ');
       }
 
-      serviceName = `${serviceId} (${dayDescription})`;
+      serviceName = serviceId;
     }
 
     // Add direction information

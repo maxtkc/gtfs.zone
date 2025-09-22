@@ -1,118 +1,22 @@
 /**
  * GTFS Foreign Key Relationships and Enhanced Data Types
+ *
+ * This file now uses auto-generated relationships from the GTFS specification.
+ * Relationships are automatically extracted from "Foreign ID referencing" patterns
+ * in the official GTFS spec and regenerated with `npm run generate-gtfs-types`.
  */
 
-import { GTFSRecord, Agency, Stops, Routes, Trips } from '../types/gtfs';
+import {
+  GTFSRecord,
+  Agency,
+  Stops,
+  Routes,
+  Trips,
+  GTFS_RELATIONSHIPS,
+} from '../types/gtfs';
 
-// Define foreign key relationships based on GTFS specification
-export interface GTFSRelationship {
-  sourceFile: string;
-  sourceField: string;
-  targetFile: string;
-  targetField: string;
-  description: string;
-}
-
-export const GTFS_RELATIONSHIPS: GTFSRelationship[] = [
-  // Routes -> Agency
-  {
-    sourceFile: 'routes.txt',
-    sourceField: 'agencyId',
-    targetFile: 'agency.txt',
-    targetField: 'agencyId',
-    description: 'Route belongs to agency',
-  },
-
-  // Trips -> Routes
-  {
-    sourceFile: 'trips.txt',
-    sourceField: 'routeId',
-    targetFile: 'routes.txt',
-    targetField: 'routeId',
-    description: 'Trip belongs to route',
-  },
-
-  // Trips -> Calendar/Calendar Dates
-  {
-    sourceFile: 'trips.txt',
-    sourceField: 'serviceId',
-    targetFile: 'calendar.txt',
-    targetField: 'serviceId',
-    description: 'Trip uses service pattern',
-  },
-
-  // Stop Times -> Trips
-  {
-    sourceFile: 'stop_times.txt',
-    sourceField: 'tripId',
-    targetFile: 'trips.txt',
-    targetField: 'tripId',
-    description: 'Stop time belongs to trip',
-  },
-
-  // Stop Times -> Stops
-  {
-    sourceFile: 'stop_times.txt',
-    sourceField: 'stopId',
-    targetFile: 'stops.txt',
-    targetField: 'stopId',
-    description: 'Stop time at specific stop',
-  },
-
-  // Stops -> Parent Station
-  {
-    sourceFile: 'stops.txt',
-    sourceField: 'parentStation',
-    targetFile: 'stops.txt',
-    targetField: 'stopId',
-    description: 'Stop has parent station',
-  },
-
-  // Stops -> Level
-  {
-    sourceFile: 'stops.txt',
-    sourceField: 'levelId',
-    targetFile: 'levels.txt',
-    targetField: 'levelId',
-    description: 'Stop at specific level',
-  },
-
-  // Shapes -> Trips (reverse relationship)
-  {
-    sourceFile: 'trips.txt',
-    sourceField: 'shapeId',
-    targetFile: 'shapes.txt',
-    targetField: 'shapeId',
-    description: 'Trip follows shape',
-  },
-
-  // Frequencies -> Trips
-  {
-    sourceFile: 'frequencies.txt',
-    sourceField: 'tripId',
-    targetFile: 'trips.txt',
-    targetField: 'tripId',
-    description: 'Frequency applies to trip',
-  },
-
-  // Transfers -> Stops (from)
-  {
-    sourceFile: 'transfers.txt',
-    sourceField: 'fromStopId',
-    targetFile: 'stops.txt',
-    targetField: 'stopId',
-    description: 'Transfer from stop',
-  },
-
-  // Transfers -> Stops (to)
-  {
-    sourceFile: 'transfers.txt',
-    sourceField: 'toStopId',
-    targetFile: 'stops.txt',
-    targetField: 'stopId',
-    description: 'Transfer to stop',
-  },
-];
+// Export the auto-generated relationships for backwards compatibility
+export { GTFS_RELATIONSHIPS };
 
 // Enhanced types with resolved relationships
 export interface GTFSDatabase {

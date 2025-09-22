@@ -3,6 +3,14 @@
  * Handles displaying object details in the Info tab
  */
 
+import {
+  getAgencyFieldDescription,
+  getRouteFieldDescription,
+  getCalendarFieldDescription,
+  createTooltip,
+  getSchemaFieldName,
+} from '../utils/zod-tooltip-helper.js';
+
 export class InfoDisplay {
   private relationships: any;
   private container: HTMLElement | null;
@@ -40,12 +48,12 @@ export class InfoDisplay {
             <h4 class="font-medium text-slate-800 mb-3">${this.escapeHtml(agency.name)}</h4>
             
             <div class="space-y-2 text-sm">
-              <div><strong>ID:</strong> ${agency.id}</div>
-              ${agency.url ? `<div><strong>Website:</strong> <a href="${agency.url}" target="_blank" class="text-info hover:underline">${agency.url}</a></div>` : ''}
-              ${agency.timezone ? `<div><strong>Timezone:</strong> ${agency.timezone}</div>` : ''}
-              ${agency.lang ? `<div><strong>Language:</strong> ${agency.lang}</div>` : ''}
-              ${agency.phone ? `<div><strong>Phone:</strong> ${agency.phone}</div>` : ''}
-              ${agency.email ? `<div><strong>Email:</strong> <a href="mailto:${agency.email}" class="text-info hover:underline">${agency.email}</a></div>` : ''}
+              <div>${createTooltip('<strong>ID:</strong>', getAgencyFieldDescription('agencyId'))} ${agency.id}</div>
+              ${agency.url ? `<div>${createTooltip('<strong>Website:</strong>', getAgencyFieldDescription('agencyUrl'))} <a href="${agency.url}" target="_blank" class="text-info hover:underline">${agency.url}</a></div>` : ''}
+              ${agency.timezone ? `<div>${createTooltip('<strong>Timezone:</strong>', getAgencyFieldDescription('agencyTimezone'))} ${agency.timezone}</div>` : ''}
+              ${agency.lang ? `<div>${createTooltip('<strong>Language:</strong>', getAgencyFieldDescription('agencyLang'))} ${agency.lang}</div>` : ''}
+              ${agency.phone ? `<div>${createTooltip('<strong>Phone:</strong>', getAgencyFieldDescription('agencyPhone'))} ${agency.phone}</div>` : ''}
+              ${agency.email ? `<div>${createTooltip('<strong>Email:</strong>', getAgencyFieldDescription('agencyEmail'))} <a href="mailto:${agency.email}" class="text-info hover:underline">${agency.email}</a></div>` : ''}
             </div>
           </div>
         </div>
@@ -97,14 +105,14 @@ export class InfoDisplay {
             </h4>
             
             <div class="space-y-2 text-sm">
-              <div><strong>Route ID:</strong> ${route.route_id}</div>
-              ${route.route_short_name ? `<div><strong>Short Name:</strong> ${this.escapeHtml(route.route_short_name)}</div>` : ''}
-              ${route.route_long_name ? `<div><strong>Long Name:</strong> ${this.escapeHtml(route.route_long_name)}</div>` : ''}
-              ${route.route_desc ? `<div><strong>Description:</strong> ${this.escapeHtml(route.route_desc)}</div>` : ''}
-              <div><strong>Type:</strong> ${this.getRouteTypeText(route.route_type)}</div>
-              ${agency ? `<div><strong>Agency:</strong> ${this.escapeHtml(agency.name)}</div>` : ''}
-              ${route.route_color ? `<div><strong>Color:</strong> <span style="background: #${route.route_color}; color: #${route.route_text_color || 'ffffff'};" class="px-2 py-1 rounded">#${route.route_color}</span></div>` : ''}
-              ${route.route_url ? `<div><strong>URL:</strong> <a href="${route.route_url}" target="_blank" class="text-info hover:underline">${route.route_url}</a></div>` : ''}
+              <div>${createTooltip('<strong>Route ID:</strong>', getRouteFieldDescription('routeId'))} ${route.route_id}</div>
+              ${route.route_short_name ? `<div>${createTooltip('<strong>Short Name:</strong>', getRouteFieldDescription('routeShortName'))} ${this.escapeHtml(route.route_short_name)}</div>` : ''}
+              ${route.route_long_name ? `<div>${createTooltip('<strong>Long Name:</strong>', getRouteFieldDescription('routeLongName'))} ${this.escapeHtml(route.route_long_name)}</div>` : ''}
+              ${route.route_desc ? `<div>${createTooltip('<strong>Description:</strong>', getRouteFieldDescription('routeDesc'))} ${this.escapeHtml(route.route_desc)}</div>` : ''}
+              <div>${createTooltip('<strong>Type:</strong>', getRouteFieldDescription('routeType'))} ${this.getRouteTypeText(route.route_type)}</div>
+              ${agency ? `<div>${createTooltip('<strong>Agency:</strong>', getAgencyFieldDescription('agencyId'))} ${this.escapeHtml(agency.name)}</div>` : ''}
+              ${route.route_color ? `<div>${createTooltip('<strong>Color:</strong>', getRouteFieldDescription('routeColor'))} <span style="background: #${route.route_color}; color: #${route.route_text_color || 'ffffff'};" class="px-2 py-1 rounded">#${route.route_color}</span></div>` : ''}
+              ${route.route_url ? `<div>${createTooltip('<strong>URL:</strong>', getRouteFieldDescription('routeUrl'))} <a href="${route.route_url}" target="_blank" class="text-info hover:underline">${route.route_url}</a></div>` : ''}
             </div>
           </div>
         </div>
@@ -117,7 +125,7 @@ export class InfoDisplay {
               .map(
                 (trip: any) => `
               <div class="bg-white border border-slate-200 rounded p-3">
-                <div class="font-medium text-slate-800">${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}</div>
+                <div class="font-medium text-slate-800">${trip.id}</div>
                 <div class="text-sm text-slate-500">Trip ID: ${trip.id}</div>
                 <div class="text-xs text-slate-400">Service: ${trip.serviceId}</div>
               </div>
@@ -152,17 +160,16 @@ export class InfoDisplay {
         <div class="mb-4">
           <h3 class="text-lg font-semibold text-slate-800 mb-2">🚐 Trip Details</h3>
           <div class="bg-slate-50 rounded-lg p-4">
-            <h4 class="font-medium text-slate-800 mb-3">${trip.trip_headsign ? this.escapeHtml(trip.trip_headsign) : trip.trip_id}</h4>
+            <h4 class="font-medium text-slate-800 mb-3">${trip.trip_id}</h4>
             
             <div class="space-y-2 text-sm">
-              <div><strong>Trip ID:</strong> ${trip.trip_id}</div>
-              ${trip.trip_headsign ? `<div><strong>Headsign:</strong> ${this.escapeHtml(trip.trip_headsign)}</div>` : ''}
-              ${trip.trip_short_name ? `<div><strong>Short Name:</strong> ${this.escapeHtml(trip.trip_short_name)}</div>` : ''}
-              <div><strong>Route:</strong> ${route ? route.route_short_name || route.route_long_name || route.route_id : trip.route_id}</div>
-              <div><strong>Service ID:</strong> ${trip.service_id}</div>
-              ${trip.direction_id ? `<div><strong>Direction:</strong> ${trip.direction_id}</div>` : ''}
-              ${trip.block_id ? `<div><strong>Block ID:</strong> ${trip.block_id}</div>` : ''}
-              ${trip.shape_id ? `<div><strong>Shape ID:</strong> ${trip.shape_id}</div>` : ''}
+              <div>${createTooltip('<strong>Trip ID:</strong>', 'Identifies a trip.')} ${trip.trip_id}</div>
+              ${trip.trip_short_name ? `<div>${createTooltip('<strong>Short Name:</strong>', 'Short name of a trip.')} ${this.escapeHtml(trip.trip_short_name)}</div>` : ''}
+              <div>${createTooltip('<strong>Route:</strong>', getRouteFieldDescription('routeId'))} ${route ? route.route_short_name || route.route_long_name || route.route_id : trip.route_id}</div>
+              <div>${createTooltip('<strong>Service ID:</strong>', getCalendarFieldDescription('serviceId'))} ${trip.service_id}</div>
+              ${trip.direction_id ? `<div>${createTooltip('<strong>Direction:</strong>', 'Indicates the direction of travel for a trip.')} ${trip.direction_id}</div>` : ''}
+              ${trip.block_id ? `<div>${createTooltip('<strong>Block ID:</strong>', 'Identifies the block to which the trip belongs.')} ${trip.block_id}</div>` : ''}
+              ${trip.shape_id ? `<div>${createTooltip('<strong>Shape ID:</strong>', 'Identifies a geospatial shape that describes the vehicle travel path for a trip.')} ${trip.shape_id}</div>` : ''}
             </div>
           </div>
         </div>
@@ -241,7 +248,7 @@ export class InfoDisplay {
               .map(
                 (trip: any) => `
               <div class="bg-white border border-slate-200 rounded p-3">
-                <div class="font-medium text-slate-800">${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}</div>
+                <div class="font-medium text-slate-800">${trip.id}</div>
                 <div class="text-sm text-slate-500">Trip: ${trip.id} | Route: ${trip.routeId}</div>
               </div>
             `

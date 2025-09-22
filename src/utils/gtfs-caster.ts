@@ -3,7 +3,13 @@
  */
 
 import { z } from 'zod';
-import { GTFSSchemas, GTFSRecord } from '../types/gtfs';
+import {
+  GTFSSchemas,
+  GTFSRecord,
+  GTFS_RELATIONSHIPS,
+  GTFSValidationContext,
+  validateForeignKey,
+} from '../types/gtfs';
 import { GTFSRelationshipResolver } from './gtfs-relationships';
 
 export interface ValidationResult {
@@ -17,10 +23,12 @@ export interface CastOptions {
   strict?: boolean; // Fail on any validation error
   skipMissingFiles?: boolean; // Allow missing optional files
   resolveRelationships?: boolean; // Resolve foreign key relationships
+  validateForeignKeys?: boolean; // Validate foreign key references
 }
 
 export class GTFSCaster {
   private relationshipResolver?: GTFSRelationshipResolver;
+  private validationContext?: GTFSValidationContext;
 
   /**
    * Validate and cast a single GTFS file
@@ -80,6 +88,114 @@ export class GTFSCaster {
   }
 
   /**
+   * Build validation context from validated GTFS data
+   */
+  private buildValidationContext(results: {
+    [filename: string]: ValidationResult;
+  }): GTFSValidationContext {
+    const context: GTFSValidationContext = {};
+
+    for (const [filename, result] of Object.entries(results)) {
+      if (result.success && result.data) {
+        const dataMap = new Map<string, any>();
+
+        // Determine the primary key field for this file
+        const primaryKeyField = this.getPrimaryKeyField(filename);
+
+        for (const record of result.data) {
+          const primaryKey = (record as any)[primaryKeyField];
+          if (primaryKey) {
+            dataMap.set(primaryKey, record);
+          }
+        }
+
+        context[filename] = dataMap;
+      }
+    }
+
+    return context;
+  }
+
+  /**
+   * Get the primary key field name for a GTFS file
+   */
+  private getPrimaryKeyField(filename: string): string {
+    const primaryKeyMap: { [filename: string]: string } = {
+      'agency.txt': 'agencyId',
+      'stops.txt': 'stopId',
+      'routes.txt': 'routeId',
+      'trips.txt': 'tripId',
+      'stop_times.txt': 'tripId', // Composite key, using trip_id as primary
+      'calendar.txt': 'serviceId',
+      'calendar_dates.txt': 'serviceId',
+      'shapes.txt': 'shapeId',
+      'frequencies.txt': 'tripId',
+      'transfers.txt': 'fromStopId', // Composite key
+      'pathways.txt': 'pathwayId',
+      'levels.txt': 'levelId',
+      'fare_attributes.txt': 'fareId',
+      'fare_rules.txt': 'fareId',
+      'location_groups.txt': 'locationGroupId',
+      'booking_rules.txt': 'bookingRuleId',
+      'networks.txt': 'networkId',
+      'areas.txt': 'areaId',
+      'timeframes.txt': 'timeframeGroupId',
+      'rider_categories.txt': 'riderCategoryId',
+      'fare_media.txt': 'fareMediaId',
+      'fare_products.txt': 'fareProductId',
+      'translations.txt': 'tableName', // Composite key
+      'feed_info.txt': 'feedPublisherName',
+      'attributions.txt': 'attributionId',
+    };
+
+    return primaryKeyMap[filename] || 'id';
+  }
+
+  /**
+   * Validate foreign key references for a single record
+   */
+  private validateRecordForeignKeys(
+    filename: string,
+    record: any,
+    context: GTFSValidationContext
+  ): Array<{ field: string; message: string }> {
+    const errors: Array<{ field: string; message: string }> = [];
+
+    // Get foreign key relationships for this file
+    const relationships = GTFS_RELATIONSHIPS.filter(
+      (rel) => rel.sourceFile === filename
+    );
+
+    for (const relationship of relationships) {
+      const value = record[relationship.sourceField];
+
+      // Skip validation if field is empty and optional
+      if (relationship.optional && (!value || value.trim() === '')) {
+        continue;
+      }
+
+      if (value) {
+        const validation = validateForeignKey(
+          value,
+          relationship.targetFile,
+          relationship.targetField,
+          context,
+          relationship.optional
+        );
+
+        if (!validation.valid && validation.message) {
+          errors.push({
+            field: relationship.sourceField,
+            message: validation.message,
+          });
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /**
    * Validate and cast an entire GTFS feed
    */
   public validateFeed(
@@ -88,9 +204,49 @@ export class GTFSCaster {
   ): { [filename: string]: ValidationResult } {
     const results: { [filename: string]: ValidationResult } = {};
 
-    // Validate each file
+    // First pass: Basic validation of each file
     for (const [filename, data] of Object.entries(rawGtfsData)) {
       results[filename] = this.validateFile(filename, data, options);
+    }
+
+    // Second pass: Foreign key validation if requested
+    if (options.validateForeignKeys) {
+      this.validationContext = this.buildValidationContext(results);
+
+      // Re-validate each file with foreign key checks
+      for (const [filename, result] of Object.entries(results)) {
+        if (result.success && result.data) {
+          const foreignKeyErrors: z.ZodError[] = [];
+
+          for (let i = 0; i < result.data.length; i++) {
+            const record = result.data[i];
+            const fkErrors = this.validateRecordForeignKeys(
+              filename,
+              record,
+              this.validationContext
+            );
+
+            if (fkErrors.length > 0) {
+              const zodError = new z.ZodError(
+                fkErrors.map((err) => ({
+                  code: 'custom' as const,
+                  message: err.message,
+                  path: [err.field],
+                }))
+              );
+              foreignKeyErrors.push(zodError);
+
+              if (options.strict) {
+                result.success = false;
+              }
+            }
+          }
+
+          if (foreignKeyErrors.length > 0) {
+            result.errors = [...(result.errors || []), ...foreignKeyErrors];
+          }
+        }
+      }
     }
 
     // If relationship resolution is requested, build the resolver

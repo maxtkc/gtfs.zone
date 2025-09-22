@@ -58,7 +58,7 @@ export class ScheduleController {
         const service = timetableData.service;
         const serviceName = this.formatServiceDays(service);
         const directionName = timetableData.directionName;
-        let scheduleItemName = `${service.serviceId}${serviceName ? ' (' + serviceName + ')' : ''}`;
+        let scheduleItemName = service.serviceId;
         if (directionName) {
           scheduleItemName += ` - ${directionName}`;
         }
@@ -173,7 +173,7 @@ export class ScheduleController {
 
       alignedTrips.push({
         tripId: trip.id,
-        headsign: trip.headsign || trip.id,
+        headsign: trip.id,
         stopTimes: stopTimeMap,
       });
     }
@@ -236,7 +236,7 @@ export class ScheduleController {
 
     const html = `
       <div id="schedule-view" class="h-full flex flex-col">
-        ${this.renderScheduleHeader(data.route, data.service, serviceDays)}
+        ${this.renderScheduleHeader(data.route, data.service)}
         ${this.renderTimetableContent(data)}
       </div>
     `;
@@ -258,16 +258,12 @@ export class ScheduleController {
   /**
    * Render schedule header
    */
-  private renderScheduleHeader(
-    route: any,
-    service: any,
-    serviceDays: string
-  ): string {
+  private renderScheduleHeader(route: any, service: any): string {
     const routeName = route.route_short_name
       ? `${route.route_short_name}${route.route_long_name ? ' - ' + route.route_long_name : ''}`
       : route.route_long_name || route.route_id;
 
-    const serviceName = `${service.serviceId}${serviceDays ? ' (' + serviceDays + ')' : ''}`;
+    const serviceName = service.serviceId;
 
     // Use UI controller's breadcrumb system if available
     let breadcrumbHtml = '';
@@ -317,8 +313,180 @@ export class ScheduleController {
             Timetable View
           </p>
         </div>
+        ${this.renderServiceProperties(service)}
       </div>
     `;
+  }
+
+  /**
+   * Render service properties section
+   */
+  private renderServiceProperties(service: any): string {
+    if (!service || typeof service !== 'object') {
+      return '';
+    }
+
+    // Get routes that use this service to show the warning
+    const routesUsingService = this.getRoutesUsingService(service.serviceId);
+    const multipleRoutes = routesUsingService.length > 1;
+
+    // Format start and end dates
+    const startDate = service.startDate
+      ? this.formatDate(service.startDate)
+      : 'Not specified';
+    const endDate = service.endDate
+      ? this.formatDate(service.endDate)
+      : 'Not specified';
+
+    // Get day-of-week properties
+    const dayProps = [
+      { key: 'monday', label: 'Monday', short: 'Mon' },
+      { key: 'tuesday', label: 'Tuesday', short: 'Tue' },
+      { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+      { key: 'thursday', label: 'Thursday', short: 'Thu' },
+      { key: 'friday', label: 'Friday', short: 'Fri' },
+      { key: 'saturday', label: 'Saturday', short: 'Sat' },
+      { key: 'sunday', label: 'Sunday', short: 'Sun' },
+    ];
+
+    return `
+      <div class="p-4 bg-base-200/50">
+        ${
+          multipleRoutes
+            ? `
+          <div role="alert" class="alert alert-warning alert-outline mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <div class="font-medium">Service used by multiple routes</div>
+              <div class="text-sm opacity-80">This service is used by ${routesUsingService.length} routes. Modifying it will affect all of them.</div>
+            </div>
+          </div>
+        `
+            : ''
+        }
+
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body p-4">
+            <h3 class="card-title text-base flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Service Properties
+              <div class="badge badge-secondary badge-sm">${service.serviceId}</div>
+            </h3>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+              <!-- Service Period -->
+              <div>
+                <h4 class="font-medium text-sm mb-2 opacity-80">Service Period</h4>
+                <div class="space-y-1 text-sm">
+                  <div class="flex justify-between">
+                    <span>Start Date:</span>
+                    <span class="font-mono">${startDate}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>End Date:</span>
+                    <span class="font-mono">${endDate}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Operating Days -->
+              <div>
+                <h4 class="font-medium text-sm mb-2 opacity-80">Operating Days</h4>
+                <div class="flex flex-wrap gap-1">
+                  ${dayProps
+                    .map(
+                      (day) => `
+                    <div class="badge ${service[day.key] ? 'badge-success' : 'badge-ghost'} badge-sm">
+                      ${day.short}
+                    </div>
+                  `
+                    )
+                    .join('')}
+                </div>
+              </div>
+            </div>
+
+            ${
+              multipleRoutes
+                ? `
+              <div class="mt-4 pt-3 border-t border-base-300">
+                <h4 class="font-medium text-sm mb-2 opacity-80">Routes using this service</h4>
+                <div class="flex flex-wrap gap-2">
+                  ${routesUsingService
+                    .slice(0, 5)
+                    .map(
+                      (route) => `
+                    <div class="badge badge-outline badge-sm">
+                      ${route.route_short_name || route.route_id}
+                    </div>
+                  `
+                    )
+                    .join('')}
+                  ${
+                    routesUsingService.length > 5
+                      ? `
+                    <div class="badge badge-ghost badge-sm">
+                      +${routesUsingService.length - 5} more
+                    </div>
+                  `
+                      : ''
+                  }
+                </div>
+              </div>
+            `
+                : ''
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Get routes that use a specific service
+   */
+  private getRoutesUsingService(serviceId: string): any[] {
+    const allRoutes = this.gtfsParser.getFileData('routes.txt') || [];
+    const allTrips = this.gtfsParser.getFileData('trips.txt') || [];
+
+    // Get unique route IDs that have trips using this service
+    const routeIds = new Set();
+    allTrips.forEach((trip: any) => {
+      if (trip.service_id === serviceId) {
+        routeIds.add(trip.route_id);
+      }
+    });
+
+    // Return route objects for these route IDs
+    return allRoutes.filter((route: any) => routeIds.has(route.route_id));
+  }
+
+  /**
+   * Format GTFS date string (YYYYMMDD) to readable format
+   */
+  private formatDate(dateString: string): string {
+    if (!dateString || dateString.length !== 8) {
+      return dateString;
+    }
+
+    const year = dateString.substring(0, 4);
+    const month = dateString.substring(4, 6);
+    const day = dateString.substring(6, 8);
+
+    try {
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (error) {
+      return dateString;
+    }
   }
 
   /**
@@ -354,15 +522,7 @@ export class ScheduleController {
       .map(
         (trip) => `
       <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300">
-        <div class="trip-headsign font-medium text-xs mb-1">${this.escapeHtml(trip.headsign)}</div>
-        <div class="trip-actions">
-          <button class="duplicate-trip-btn text-xs btn btn-ghost btn-xs"
-                  data-trip-id="${trip.tripId}"
-                  title="Duplicate Trip">
-            📋
-          </button>
-        </div>
-        <div class="trip-id text-xs opacity-70 mt-1">${trip.tripId}</div>
+        <div class="trip-id text-xs font-medium">${trip.tripId}</div>
       </th>
     `
       )
@@ -391,12 +551,8 @@ export class ScheduleController {
           .map((trip) => {
             const time = trip.stopTimes.get(stop.id);
             return `
-          <td class="time-cell p-2 text-center ${time ? 'has-time cursor-pointer hover:bg-base-200' : 'no-time text-base-content/30'}"
-              data-trip-id="${trip.tripId}"
-              data-stop-id="${stop.id}"
-              data-time="${time || ''}"
-              title="${time ? 'Click to edit' : 'No service'}">
-            ${time ? `<span class="badge badge-ghost badge-sm">${this.formatTime(time)}</span>` : '—'}
+          <td class="time-cell p-2 text-center ${time ? 'has-time' : 'no-time text-base-content/30'}">
+            ${time ? `<span class="time-badge badge badge-ghost badge-sm font-mono">${this.formatTime(time)}</span>` : '—'}
           </td>
         `;
           })
@@ -475,29 +631,6 @@ export class ScheduleController {
     const container = document.getElementById('schedule-view');
     if (!container) return;
 
-    // Time cell editing
-    container.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.classList.contains('time-cell') &&
-        target.classList.contains('has-time')
-      ) {
-        this.editTimeCell(target, data);
-      }
-    });
-
-    // Trip duplication
-    container.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('duplicate-trip-btn')) {
-        e.stopPropagation();
-        const tripId = target.dataset.tripId;
-        if (tripId) {
-          this.duplicateTrip(tripId, data);
-        }
-      }
-    });
-
     // Breadcrumb navigation is now handled by UI controller
     // Only add fallback handlers if UI controller is not available
     if (!this.uiController) {
@@ -526,259 +659,6 @@ export class ScheduleController {
           }
         });
       }
-    }
-  }
-
-  /**
-   * Handle time cell editing
-   */
-  private editTimeCell(cell: HTMLElement, data: TimetableData): void {
-    const tripId = cell.dataset.tripId;
-    const stopId = cell.dataset.stopId;
-    const currentTime = cell.dataset.time;
-
-    if (!tripId || !stopId) return;
-
-    // Create inline editor
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentTime || '';
-    input.className =
-      'time-input w-full text-center bg-transparent border-none outline-none';
-    input.placeholder = 'HH:MM:SS';
-
-    // Create checkbox for "adjust future times"
-    const checkboxContainer = document.createElement('div');
-    checkboxContainer.className = 'mt-1 text-xs';
-    checkboxContainer.innerHTML = `
-      <label class="flex items-center justify-center">
-        <input type="checkbox" id="adjust-future" class="mr-1" />
-        <span>Adjust future times</span>
-      </label>
-    `;
-
-    // Replace cell content temporarily
-    const originalContent = cell.innerHTML;
-    cell.innerHTML = '';
-    cell.appendChild(input);
-    cell.appendChild(checkboxContainer);
-
-    input.focus();
-    input.select();
-
-    const saveEdit = () => {
-      const newTime = input.value.trim();
-      const adjustFuture =
-        (document.getElementById('adjust-future') as HTMLInputElement)
-          ?.checked || false;
-
-      this.handleTimeEdit(tripId, stopId, newTime, adjustFuture, data);
-      cell.innerHTML = originalContent;
-
-      // Update display
-      if (newTime) {
-        cell.dataset.time = newTime;
-        cell.innerHTML = this.formatTime(newTime);
-        cell.classList.add('has-time');
-        cell.classList.remove('no-time');
-      } else {
-        cell.dataset.time = '';
-        cell.innerHTML = '—';
-        cell.classList.remove('has-time');
-        cell.classList.add('no-time');
-      }
-    };
-
-    const cancelEdit = () => {
-      cell.innerHTML = originalContent;
-    };
-
-    // Save on Enter, cancel on Escape
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        saveEdit();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        cancelEdit();
-      }
-    });
-
-    // Save on blur
-    input.addEventListener('blur', saveEdit);
-  }
-
-  /**
-   * Handle time editing with optional future time adjustment
-   */
-  private handleTimeEdit(
-    tripId: string,
-    stopId: string,
-    newTime: string,
-    adjustFuture: boolean,
-    data: TimetableData
-  ): void {
-    try {
-      // Update the time in GTFS data
-      this.updateStopTime(tripId, stopId, newTime);
-
-      if (adjustFuture && newTime) {
-        // Calculate offset and apply to future stops
-        this.adjustFutureStopTimes(tripId, stopId, newTime, data);
-      }
-
-      console.log(
-        `Updated time for trip ${tripId}, stop ${stopId} to ${newTime}`
-      );
-    } catch (error) {
-      console.error('Error updating time:', error);
-      // Could show notification here
-    }
-  }
-
-  /**
-   * Update a specific stop time in the GTFS data
-   */
-  private updateStopTime(
-    tripId: string,
-    stopId: string,
-    newTime: string
-  ): void {
-    const stopTimesData = this.gtfsParser.getFileData('stop_times.txt');
-    if (!stopTimesData || !Array.isArray(stopTimesData)) {
-      throw new Error('Stop times data not found');
-    }
-
-    const stopTime = stopTimesData.find(
-      (st: any) => st.trip_id === tripId && st.stop_id === stopId
-    );
-
-    if (stopTime) {
-      stopTime.arrival_time = newTime;
-      stopTime.departure_time = newTime; // Keep dwell time simple for now
-    } else {
-      console.warn(`Stop time not found for trip ${tripId}, stop ${stopId}`);
-    }
-  }
-
-  /**
-   * Adjust all future stop times in a trip by the same offset
-   */
-  private adjustFutureStopTimes(
-    tripId: string,
-    stopId: string,
-    newTime: string,
-    data: TimetableData
-  ): void {
-    // Get the original time and calculate offset
-    const trip = data.trips.find((t) => t.tripId === tripId);
-    if (!trip) return;
-
-    const originalTime = trip.stopTimes.get(stopId);
-    if (!originalTime) return;
-
-    const offset = this.calculateTimeOffset(originalTime, newTime);
-    if (offset === 0) return;
-
-    // Get stop sequence for the edited stop
-    const stopTimes = this.relationships.getStopTimesForTrip(tripId);
-    const editedStopTime = stopTimes.find((st: any) => st.stopId === stopId);
-    if (!editedStopTime) return;
-
-    const editedSequence = editedStopTime.stopSequence;
-
-    // Apply offset to all future stops
-    stopTimes.forEach((st: any) => {
-      if (st.stopSequence > editedSequence) {
-        const currentTime = st.departureTime || st.arrivalTime;
-        if (currentTime) {
-          const newStopTime = this.addTimeOffset(currentTime, offset);
-          this.updateStopTime(tripId, st.stopId, newStopTime);
-
-          // Update the aligned trip data
-          trip.stopTimes.set(st.stopId, newStopTime);
-        }
-      }
-    });
-  }
-
-  /**
-   * Calculate time offset in minutes between two times
-   */
-  private calculateTimeOffset(oldTime: string, newTime: string): number {
-    const oldMinutes = this.timeToMinutes(oldTime);
-    const newMinutes = this.timeToMinutes(newTime);
-    return newMinutes - oldMinutes;
-  }
-
-  /**
-   * Convert time string to minutes since midnight
-   */
-  private timeToMinutes(time: string): number {
-    const parts = time.split(':');
-    if (parts.length < 2) return 0;
-
-    const hours = parseInt(parts[0]);
-    const minutes = parseInt(parts[1]);
-    return hours * 60 + minutes;
-  }
-
-  /**
-   * Add offset (in minutes) to a time string
-   */
-  private addTimeOffset(time: string, offsetMinutes: number): string {
-    const totalMinutes = this.timeToMinutes(time) + offsetMinutes;
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-  }
-
-  /**
-   * Duplicate a trip with a new ID
-   */
-  private duplicateTrip(tripId: string, data: TimetableData): void {
-    try {
-      // Generate new trip ID
-      const timestamp = Date.now();
-      const newTripId = `${tripId}_copy_${timestamp}`;
-
-      // Get original trip data
-      const tripsData = this.gtfsParser.getFileData('trips.txt');
-      const originalTrip = tripsData.find(
-        (trip: any) => trip.trip_id === tripId
-      );
-
-      if (!originalTrip) {
-        throw new Error(`Original trip ${tripId} not found`);
-      }
-
-      // Create new trip record
-      const newTrip = { ...originalTrip, trip_id: newTripId };
-      tripsData.push(newTrip);
-
-      // Duplicate stop times
-      const stopTimesData = this.gtfsParser.getFileData('stop_times.txt');
-      const originalStopTimes = stopTimesData.filter(
-        (st: any) => st.trip_id === tripId
-      );
-
-      originalStopTimes.forEach((stopTime: any) => {
-        const newStopTime = { ...stopTime, trip_id: newTripId };
-        stopTimesData.push(newStopTime);
-      });
-
-      console.log(`Duplicated trip ${tripId} as ${newTripId}`);
-
-      // Refresh the timetable to show the new trip
-      this.showScheduleForRoute(
-        data.route.route_id,
-        data.service.serviceId,
-        data.directionId
-      );
-    } catch (error) {
-      console.error('Error duplicating trip:', error);
-      // Could show notification here
     }
   }
 
@@ -819,18 +699,7 @@ export class ScheduleController {
    * Get a human-readable direction name
    */
   private getDirectionName(directionId: string, trips: any[]): string {
-    // Try to get direction name from trip headsigns
-    const headsigns = [
-      ...new Set(trips.map((trip) => trip.headsign).filter(Boolean)),
-    ];
-
-    if (headsigns.length === 1) {
-      return headsigns[0];
-    } else if (headsigns.length > 1) {
-      return headsigns.join(' / ');
-    }
-
-    // Fallback to standard direction names
+    // Use standard direction names
     switch (directionId) {
       case '0':
         return 'Outbound';

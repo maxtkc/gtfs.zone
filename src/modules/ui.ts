@@ -529,12 +529,7 @@ export class UIController {
           objectData.stop_id ||
           'Unknown';
       } else if (objectType === 'Trip') {
-        objectName =
-          objectData.headsign ||
-          objectData.trip_headsign ||
-          objectData.id ||
-          objectData.trip_id ||
-          'Unknown';
+        objectName = objectData.id || objectData.trip_id || 'Unknown';
       } else {
         // Fallback for other types
         objectName =

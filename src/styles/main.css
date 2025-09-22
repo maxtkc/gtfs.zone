@@ -191,11 +191,6 @@
     color: oklch(var(--bc));
   }
 
-  .timetable .time-cell.has-time:hover {
-    background-color: color-mix(in oklch, oklch(var(--p)), transparent 90%);
-    cursor: pointer;
-  }
-
   .timetable .time-cell.no-time {
     background-color: oklch(var(--b2));
     color: oklch(var(--bc) / 0.4);
@@ -213,40 +208,10 @@
     line-height: 1.2;
   }
 
-  .timetable .trip-actions {
-    margin: 0.25rem 0;
-  }
-
-  .duplicate-trip-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.25rem;
-    transition: background-color 0.15s ease;
-    font-size: 0.75rem;
-  }
-
-  .duplicate-trip-btn:hover {
-    background-color: color-mix(in oklch, oklch(var(--p)), transparent 80%);
-  }
-
-  /* Time editing styles */
-  .time-input {
-    background-color: oklch(var(--b1));
-    border: 1px solid oklch(var(--p));
-    border-radius: 0.25rem;
-    padding: 0.25rem;
+  .timetable .time-cell .time-badge {
     font-family:
       ui-monospace, 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,
       'Courier New', monospace;
-    font-size: 0.8rem;
-  }
-
-  .time-input:focus {
-    outline: none;
-    border-color: oklch(var(--s));
-    box-shadow: 0 0 0 2px color-mix(in oklch, oklch(var(--s)), transparent 80%);
   }
 
   /* Alternating row colors */
@@ -260,10 +225,6 @@
 
   .timetable tbody tr:nth-child(even) .time-cell.has-time {
     background-color: oklch(var(--b2) / 0.3);
-  }
-
-  .timetable tbody tr:nth-child(even) .time-cell.has-time:hover {
-    background-color: color-mix(in oklch, oklch(var(--p)), transparent 85%);
   }
 
   .timetable tbody tr:nth-child(even) .time-cell.no-time {
