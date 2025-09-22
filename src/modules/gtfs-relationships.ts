@@ -276,6 +276,69 @@ export class GTFSRelationships {
   }
 
   /**
+   * Get services for a route grouped by direction
+   */
+  getServicesForRouteByDirection(routeId: string) {
+    const trips = this.getTripsForRoute(routeId);
+
+    // Group services by direction_id
+    const directionGroups = new Map();
+
+    trips.forEach((trip) => {
+      const directionId = trip.directionId || '0'; // Default to 0 if not specified
+      const key = `${trip.serviceId}_${directionId}`;
+
+      if (!directionGroups.has(key)) {
+        directionGroups.set(key, {
+          serviceId: trip.serviceId,
+          directionId: directionId,
+          trips: [],
+        });
+      }
+
+      directionGroups.get(key).trips.push(trip);
+    });
+
+    // Convert to array and add additional service information
+    return Array.from(directionGroups.values()).map((group) => {
+      const calendar = this.getCalendarForService(group.serviceId);
+      return {
+        serviceId: group.serviceId,
+        directionId: group.directionId,
+        calendar,
+        tripCount: group.trips.length,
+        directionName: this.getDirectionName(group.directionId, group.trips),
+      };
+    });
+  }
+
+  /**
+   * Get a human-readable direction name
+   */
+  private getDirectionName(directionId: string, trips: any[]): string {
+    // Try to get direction name from trip headsigns
+    const headsigns = [
+      ...new Set(trips.map((trip) => trip.headsign).filter(Boolean)),
+    ];
+
+    if (headsigns.length === 1) {
+      return headsigns[0];
+    } else if (headsigns.length > 1) {
+      return headsigns.join(' / ');
+    }
+
+    // Fallback to standard direction names
+    switch (directionId) {
+      case '0':
+        return 'Outbound';
+      case '1':
+        return 'Inbound';
+      default:
+        return `Direction ${directionId}`;
+    }
+  }
+
+  /**
    * Get route by ID
    */
   getRouteById(routeId: string) {

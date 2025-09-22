@@ -15,6 +15,8 @@ export interface TimetableData {
   service: any;
   stops: any[];
   trips: AlignedTrip[];
+  directionId?: string;
+  directionName?: string;
 }
 
 export class ScheduleController {
@@ -37,9 +39,17 @@ export class ScheduleController {
   /**
    * Entry point - show schedule for a specific route and service
    */
-  showScheduleForRoute(routeId: string, serviceId: string): void {
+  showScheduleForRoute(
+    routeId: string,
+    serviceId: string,
+    directionId?: string
+  ): void {
     try {
-      const timetableData = this.generateTimetableData(routeId, serviceId);
+      const timetableData = this.generateTimetableData(
+        routeId,
+        serviceId,
+        directionId
+      );
       this.renderTimetable(timetableData);
 
       // Update UI controller breadcrumb trail to include schedule
@@ -47,14 +57,21 @@ export class ScheduleController {
         const route = timetableData.route;
         const service = timetableData.service;
         const serviceName = this.formatServiceDays(service);
-        const scheduleItemName = `${service.serviceId}${serviceName ? ' (' + serviceName + ')' : ''} Schedule`;
+        const directionName = timetableData.directionName;
+        let scheduleItemName = `${service.serviceId}${serviceName ? ' (' + serviceName + ')' : ''}`;
+        if (directionName) {
+          scheduleItemName += ` - ${directionName}`;
+        }
+        scheduleItemName += ' Schedule';
 
         // Add schedule item to existing breadcrumb trail instead of replacing it
         this.uiController.updateBreadcrumbTrail('Schedule', scheduleItemName, {
           routeId: routeId,
           serviceId: serviceId,
+          directionId: directionId,
           route: route,
           service: service,
+          directionName: directionName,
           isSchedule: true, // Flag to indicate this is a schedule view
         });
       }
@@ -69,7 +86,8 @@ export class ScheduleController {
    */
   private generateTimetableData(
     routeId: string,
-    serviceId: string
+    serviceId: string,
+    directionId?: string
   ): TimetableData {
     // Get route information
     const routesData = this.gtfsParser.getFileData('routes.txt') || [];
@@ -85,11 +103,20 @@ export class ScheduleController {
 
     // Get all trips for this route and service
     const allTrips = this.relationships.getTripsForRoute(routeId);
-    const trips = allTrips.filter((trip: any) => trip.serviceId === serviceId);
+    let trips = allTrips.filter((trip: any) => trip.serviceId === serviceId);
+
+    // Filter by direction if specified
+    if (directionId !== undefined) {
+      trips = trips.filter(
+        (trip: any) => (trip.directionId || '0') === directionId
+      );
+    }
 
     if (trips.length === 0) {
+      const directionFilter =
+        directionId !== undefined ? ` and direction ${directionId}` : '';
       throw new Error(
-        `No trips found for route ${routeId} and service ${serviceId}`
+        `No trips found for route ${routeId}, service ${serviceId}${directionFilter}`
       );
     }
 
@@ -109,11 +136,19 @@ export class ScheduleController {
     // Get stop details and sort by most common sequence
     const stops = this.getSortedStops(Array.from(allStopIds), trips);
 
+    // Get direction name
+    const directionName =
+      directionId !== undefined
+        ? this.getDirectionName(directionId, trips)
+        : undefined;
+
     return {
       route,
       service,
       stops,
       trips: alignedTrips,
+      directionId,
+      directionName,
     };
   }
 
@@ -730,7 +765,11 @@ export class ScheduleController {
       console.log(`Duplicated trip ${tripId} as ${newTripId}`);
 
       // Refresh the timetable to show the new trip
-      this.showScheduleForRoute(data.route.route_id, data.service.serviceId);
+      this.showScheduleForRoute(
+        data.route.route_id,
+        data.service.serviceId,
+        data.directionId
+      );
     } catch (error) {
       console.error('Error duplicating trip:', error);
       // Could show notification here
@@ -767,6 +806,32 @@ export class ScheduleController {
     // Re-render breadcrumbs using UI controller
     if (this.uiController) {
       setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
+    }
+  }
+
+  /**
+   * Get a human-readable direction name
+   */
+  private getDirectionName(directionId: string, trips: any[]): string {
+    // Try to get direction name from trip headsigns
+    const headsigns = [
+      ...new Set(trips.map((trip) => trip.headsign).filter(Boolean)),
+    ];
+
+    if (headsigns.length === 1) {
+      return headsigns[0];
+    } else if (headsigns.length > 1) {
+      return headsigns.join(' / ');
+    }
+
+    // Fallback to standard direction names
+    switch (directionId) {
+      case '0':
+        return 'Outbound';
+      case '1':
+        return 'Inbound';
+      default:
+        return `Direction ${directionId}`;
     }
   }
 

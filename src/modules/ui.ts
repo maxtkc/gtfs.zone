@@ -832,11 +832,12 @@ export class UIController {
 
       itemEl.addEventListener('click', () => {
         if (obj.scheduleAction && obj.routeId && obj.data?.serviceId) {
-          // Open schedule view for this service
+          // Open schedule view for this service with direction filtering
           if (this.scheduleController) {
             this.scheduleController.showScheduleForRoute(
               obj.routeId,
-              obj.data.serviceId
+              obj.data.serviceId,
+              obj.directionId || obj.data.directionId
             );
           }
         } else if (obj.routeAction && obj.routeId) {

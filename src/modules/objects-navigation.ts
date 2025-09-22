@@ -522,10 +522,11 @@ export class ObjectsNavigation {
     const route = this.relationships.getRouteById(routeId);
 
     if (route) {
-      // Get services for this route to show as related objects
-      const services = this.relationships.getServicesForRoute(routeId);
+      // Get services for this route grouped by direction
+      const services =
+        this.relationships.getServicesForRouteByDirection(routeId);
       const relatedObjects = services.map((service) => {
-        const serviceName = this.formatServiceName(service);
+        const serviceName = this.formatServiceNameWithDirection(service);
         return {
           name: serviceName,
           type: 'Service',
@@ -533,6 +534,7 @@ export class ObjectsNavigation {
           relatedObjects: [],
           scheduleAction: true, // Flag to indicate this should open schedule view
           routeId: routeId,
+          directionId: service.directionId, // Add direction ID for filtering
         };
       });
 
@@ -651,6 +653,41 @@ export class ObjectsNavigation {
     }
 
     serviceName += ` - ${tripCount} trips`;
+
+    return serviceName;
+  }
+
+  formatServiceNameWithDirection(service: any): string {
+    const { serviceId, calendar, tripCount, directionName } = service;
+
+    let serviceName = serviceId;
+
+    if (calendar) {
+      const days = [];
+      if (calendar.monday) days.push('Mon');
+      if (calendar.tuesday) days.push('Tue');
+      if (calendar.wednesday) days.push('Wed');
+      if (calendar.thursday) days.push('Thu');
+      if (calendar.friday) days.push('Fri');
+      if (calendar.saturday) days.push('Sat');
+      if (calendar.sunday) days.push('Sun');
+
+      let dayDescription = '';
+      if (days.length === 7) {
+        dayDescription = 'Daily';
+      } else if (days.length === 5 && !calendar.saturday && !calendar.sunday) {
+        dayDescription = 'Weekdays';
+      } else if (days.length === 2 && calendar.saturday && calendar.sunday) {
+        dayDescription = 'Weekends';
+      } else {
+        dayDescription = days.join(', ');
+      }
+
+      serviceName = `${serviceId} (${dayDescription})`;
+    }
+
+    // Add direction information
+    serviceName += ` - ${directionName} - ${tripCount} trips`;
 
     return serviceName;
   }
