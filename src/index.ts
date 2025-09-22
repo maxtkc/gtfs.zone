@@ -11,6 +11,7 @@ import { GTFSValidator } from './modules/gtfs-validator';
 import { KeyboardShortcuts } from './modules/keyboard-shortcuts';
 import { FieldDescriptionsDisplay } from './modules/field-descriptions';
 import { ScheduleController } from './modules/schedule-controller';
+import { ThemeController } from './modules/theme-controller';
 import { notifications } from './modules/notification-system';
 import './styles/main.css';
 
@@ -34,6 +35,7 @@ export class GTFSEditor {
   public keyboardShortcuts: KeyboardShortcuts;
   public fieldDescriptions: FieldDescriptionsDisplay;
   public scheduleController: ScheduleController;
+  public themeController: ThemeController;
 
   constructor() {
     this.gtfsParser = new GTFSParser();
@@ -58,6 +60,7 @@ export class GTFSEditor {
     this.validator = new GTFSValidator(this.gtfsParser);
     this.keyboardShortcuts = new KeyboardShortcuts(this);
     this.fieldDescriptions = FieldDescriptionsDisplay.integrate();
+    this.themeController = new ThemeController();
 
     this.init();
   }
@@ -99,6 +102,9 @@ export class GTFSEditor {
 
       // Initialize keyboard shortcuts
       this.keyboardShortcuts.initialize();
+
+      // Initialize theme controller
+      this.themeController.initialize();
 
       // Initialize tab manager
       this.tabManager.initialize();
