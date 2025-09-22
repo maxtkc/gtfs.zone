@@ -567,16 +567,23 @@ export class UIController {
   }
 
   updateBreadcrumbTrail(objectType, objectName, objectData) {
-    // Build breadcrumb trail based on object hierarchy
+    // Build breadcrumb trail based on object hierarchy - only store type and ID
+    const objectId =
+      objectData.id ||
+      objectData.agency_id ||
+      objectData.route_id ||
+      objectData.routeId ||
+      objectData.serviceId;
+
     const breadcrumbItem = {
       type: objectType,
       name: objectName,
-      data: objectData,
+      id: objectId,
     };
 
     // Check if this item is already in the trail to avoid duplicates
     const existingIndex = this.breadcrumbTrail.findIndex(
-      (item) => item.type === objectType && item.name === objectName
+      (item) => item.type === objectType && item.id === objectId
     );
 
     if (existingIndex >= 0) {
@@ -635,12 +642,35 @@ export class UIController {
   }
 
   navigateToBreadcrumb(index) {
+    console.log(
+      'navigateToBreadcrumb called with index:',
+      index,
+      'breadcrumbTrail:',
+      this.breadcrumbTrail
+    );
     // Truncate trail to the clicked item
     this.breadcrumbTrail = this.breadcrumbTrail.slice(0, index + 1);
     const item = this.breadcrumbTrail[index];
+    console.log('Navigating to item:', item);
 
-    // Navigate to the item (this will update the view)
-    this.showObjectDetails(item.type, item.data, []);
+    // Dynamically fetch object data and related objects based on type and ID
+    if (item.type === 'Agency' && this.objectsNavigation) {
+      // Use the objects navigation to navigate to this agency
+      this.objectsNavigation.navigateToAgency(item.id);
+    } else if (item.type === 'Route' && this.objectsNavigation) {
+      // Use the objects navigation to navigate to this route
+      this.objectsNavigation.navigateToRoute(item.id);
+    } else if (item.type === 'Schedule') {
+      // For schedule items, navigate back to the route view
+      const routeIndex = this.breadcrumbTrail.findIndex(
+        (breadcrumbItem) => breadcrumbItem.type === 'Route'
+      );
+      if (routeIndex >= 0) {
+        // Navigate to the route breadcrumb item
+        this.navigateToBreadcrumb(routeIndex);
+        return;
+      }
+    }
   }
 
   populateObjectProperties(objectData) {

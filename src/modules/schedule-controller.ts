@@ -41,6 +41,23 @@ export class ScheduleController {
     try {
       const timetableData = this.generateTimetableData(routeId, serviceId);
       this.renderTimetable(timetableData);
+
+      // Update UI controller breadcrumb trail to include schedule
+      if (this.uiController) {
+        const route = timetableData.route;
+        const service = timetableData.service;
+        const serviceName = this.formatServiceDays(service);
+        const scheduleItemName = `${service.serviceId}${serviceName ? ' (' + serviceName + ')' : ''} Schedule`;
+
+        // Add schedule item to existing breadcrumb trail instead of replacing it
+        this.uiController.updateBreadcrumbTrail('Schedule', scheduleItemName, {
+          routeId: routeId,
+          serviceId: serviceId,
+          route: route,
+          service: service,
+          isSchedule: true, // Flag to indicate this is a schedule view
+        });
+      }
     } catch (error) {
       console.error('Error showing schedule:', error);
       this.renderError('Failed to generate schedule view');
@@ -217,8 +234,25 @@ export class ScheduleController {
 
     const serviceName = `${service.serviceId}${serviceDays ? ' (' + serviceDays + ')' : ''}`;
 
-    return `
-      <div class="border-b border-base-300">
+    // Use UI controller's breadcrumb system if available
+    let breadcrumbHtml = '';
+    if (this.uiController) {
+      // Get the current breadcrumb trail from UI controller
+      breadcrumbHtml = `
+        <div class="p-3 bg-base-200">
+          <div class="breadcrumbs text-sm">
+            <ul id="breadcrumb-list">
+              <!-- Breadcrumbs will be rendered by UI controller -->
+            </ul>
+          </div>
+        </div>
+      `;
+
+      // Re-render breadcrumbs to include schedule item
+      setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
+    } else {
+      // Fallback breadcrumb for when UI controller is not available
+      breadcrumbHtml = `
         <div class="p-3 bg-base-200">
           <div class="breadcrumbs text-sm">
             <ul>
@@ -228,6 +262,12 @@ export class ScheduleController {
             </ul>
           </div>
         </div>
+      `;
+    }
+
+    return `
+      <div class="border-b border-base-300">
+        ${breadcrumbHtml}
         <div class="p-4">
           <h2 class="text-lg font-semibold">
             ${routeName} - ${serviceName}
@@ -417,29 +457,34 @@ export class ScheduleController {
       }
     });
 
-    // Breadcrumb navigation
-    const agenciesBtn = document.getElementById('schedule-breadcrumb-agencies');
-    if (agenciesBtn) {
-      agenciesBtn.addEventListener('click', () => {
-        if (this.uiController) {
-          this.uiController.showObjectsList();
-        }
-      });
-    }
-
-    const routeBtn = document.getElementById('schedule-breadcrumb-route');
-    if (routeBtn) {
-      routeBtn.addEventListener('click', () => {
-        if (this.uiController) {
-          this.uiController.showObjectsList();
-          // Navigate back to the route view by calling the objects navigation
-          if (this.uiController.objectsNavigation) {
-            this.uiController.objectsNavigation.navigateToRoute(
-              data.route.route_id
-            );
+    // Breadcrumb navigation is now handled by UI controller
+    // Only add fallback handlers if UI controller is not available
+    if (!this.uiController) {
+      const agenciesBtn = document.getElementById(
+        'schedule-breadcrumb-agencies'
+      );
+      if (agenciesBtn) {
+        agenciesBtn.addEventListener('click', () => {
+          if (this.uiController) {
+            this.uiController.showObjectsList();
           }
-        }
-      });
+        });
+      }
+
+      const routeBtn = document.getElementById('schedule-breadcrumb-route');
+      if (routeBtn) {
+        routeBtn.addEventListener('click', () => {
+          if (this.uiController) {
+            this.uiController.showObjectsList();
+            // Navigate back to the route view by calling the objects navigation
+            if (this.uiController.objectsNavigation) {
+              this.uiController.objectsNavigation.navigateToRoute(
+                data.route.route_id
+              );
+            }
+          }
+        });
+      }
     }
   }
 
@@ -704,9 +749,8 @@ export class ScheduleController {
         <div class="border-b border-base-300">
           <div class="p-3 bg-base-200">
             <div class="breadcrumbs text-sm">
-              <ul>
-                <li><a id="error-breadcrumb-agencies">Agencies</a></li>
-                <li>Error</li>
+              <ul id="breadcrumb-list">
+                <!-- Breadcrumbs will be rendered by UI controller -->
               </ul>
             </div>
           </div>
@@ -720,12 +764,9 @@ export class ScheduleController {
       </div>
     `;
 
-    // Attach breadcrumb navigation
-    const agenciesBtn = document.getElementById('error-breadcrumb-agencies');
-    if (agenciesBtn && this.uiController) {
-      agenciesBtn.addEventListener('click', () => {
-        this.uiController.showObjectsList();
-      });
+    // Re-render breadcrumbs using UI controller
+    if (this.uiController) {
+      setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
     }
   }
 
