@@ -333,41 +333,59 @@ export class UIController {
     // Get categorized files
     const { required, optional, other } = this.gtfsParser.categorizeFiles();
 
+    // Create DaisyUI menu structure
+    const menu = document.createElement('ul');
+    menu.className = 'menu w-full';
+
     // Add required files section
     if (required.length > 0) {
+      const requiredSection = document.createElement('li');
       const requiredHeader = document.createElement('div');
-      requiredHeader.className = 'section-header';
+      requiredHeader.className = 'menu-title';
       requiredHeader.textContent = 'Required Files';
-      fileList.appendChild(requiredHeader);
+      requiredSection.appendChild(requiredHeader);
 
+      const requiredList = document.createElement('ul');
       required.forEach((fileName) => {
-        this.addFileItem(fileList, fileName, true);
+        this.addFileItem(requiredList, fileName, true);
       });
+      requiredSection.appendChild(requiredList);
+      menu.appendChild(requiredSection);
     }
 
     // Add optional files section
     if (optional.length > 0) {
+      const optionalSection = document.createElement('li');
       const optionalHeader = document.createElement('div');
-      optionalHeader.className = 'section-header';
+      optionalHeader.className = 'menu-title';
       optionalHeader.textContent = 'Optional Files';
-      fileList.appendChild(optionalHeader);
+      optionalSection.appendChild(optionalHeader);
 
+      const optionalList = document.createElement('ul');
       optional.forEach((fileName) => {
-        this.addFileItem(fileList, fileName, false);
+        this.addFileItem(optionalList, fileName, false);
       });
+      optionalSection.appendChild(optionalList);
+      menu.appendChild(optionalSection);
     }
 
     // Add other files section
     if (other.length > 0) {
+      const otherSection = document.createElement('li');
       const otherHeader = document.createElement('div');
-      otherHeader.className = 'section-header';
+      otherHeader.className = 'menu-title';
       otherHeader.textContent = 'Other Files';
-      fileList.appendChild(otherHeader);
+      otherSection.appendChild(otherHeader);
 
+      const otherList = document.createElement('ul');
       other.forEach((fileName) => {
-        this.addFileItem(fileList, fileName, false);
+        this.addFileItem(otherList, fileName, false);
       });
+      otherSection.appendChild(otherList);
+      menu.appendChild(otherSection);
     }
+
+    fileList.appendChild(menu);
 
     // Enable export button if we have files
     const hasFiles =
@@ -376,28 +394,32 @@ export class UIController {
   }
 
   addFileItem(container, fileName, isRequired) {
-    const item = document.createElement('div');
-    item.className = `file-item ${isRequired ? 'required' : ''}`;
+    const listItem = document.createElement('li');
+
+    const link = document.createElement('a');
+    link.className = `flex justify-between items-center ${isRequired ? 'file-required' : ''}`;
 
     const nameSpan = document.createElement('span');
     nameSpan.textContent = fileName;
-    item.appendChild(nameSpan);
+    link.appendChild(nameSpan);
 
     // Add record count if available
     const data = this.gtfsParser.getFileData(fileName);
     if (data) {
       const count = Array.isArray(data) ? data.length : 1;
       const countSpan = document.createElement('span');
-      countSpan.className = 'file-count';
+      countSpan.className = 'badge badge-neutral badge-sm';
       countSpan.textContent = `${count}`;
-      item.appendChild(countSpan);
+      link.appendChild(countSpan);
     }
 
-    item.addEventListener('click', (event) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
       this.openFile(fileName, event.currentTarget);
     });
 
-    container.appendChild(item);
+    listItem.appendChild(link);
+    container.appendChild(listItem);
   }
 
   openFile(fileName, clickedElement = null) {
@@ -406,11 +428,11 @@ export class UIController {
     }
 
     // Update active file styling
-    document.querySelectorAll('.file-item').forEach((item) => {
-      item.classList.remove('active');
+    document.querySelectorAll('.menu a').forEach((item) => {
+      item.classList.remove('menu-active');
     });
     if (clickedElement) {
-      clickedElement.classList.add('active');
+      clickedElement.classList.add('menu-active');
     }
 
     // Show file editor view
@@ -742,15 +764,51 @@ export class UIController {
 
   populateRelatedObjects(relatedObjects) {
     const container = document.getElementById('related-objects');
+    const headerEl =
+      document.querySelector('#related-objects').previousElementSibling;
+
     if (!container) {
       return;
+    }
+
+    // Update the header text based on the types of related objects
+    if (headerEl && relatedObjects.length > 0) {
+      const objectTypes = [...new Set(relatedObjects.map((obj) => obj.type))];
+      let headerText = 'Related Objects';
+
+      if (objectTypes.length === 1) {
+        const type = objectTypes[0];
+        switch (type) {
+          case 'Route':
+            headerText = 'Routes';
+            break;
+          case 'Service':
+            headerText = 'Services';
+            break;
+          case 'Trip':
+            headerText = 'Trips';
+            break;
+          case 'Stop':
+            headerText = 'Stops';
+            break;
+          case 'Agency':
+            headerText = 'Agencies';
+            break;
+          default:
+            headerText = `${type}s`;
+        }
+      } else {
+        headerText = 'Related Objects';
+      }
+
+      headerEl.textContent = headerText;
     }
 
     container.innerHTML = '';
 
     if (relatedObjects.length === 0) {
       const noRelatedEl = document.createElement('div');
-      noRelatedEl.className = 'text-tertiary text-sm';
+      noRelatedEl.className = 'text-sm opacity-60';
       noRelatedEl.textContent = 'No related objects';
       container.appendChild(noRelatedEl);
       return;
@@ -759,14 +817,14 @@ export class UIController {
     relatedObjects.forEach((obj) => {
       const itemEl = document.createElement('div');
       itemEl.className =
-        'flex items-center justify-between p-2 bg-surface-secondary rounded cursor-pointer hover:bg-hover';
+        'flex items-center justify-between p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300';
 
       const nameEl = document.createElement('span');
-      nameEl.className = 'text-sm text-primary';
+      nameEl.className = 'text-sm';
       nameEl.textContent = obj.name;
 
       const typeEl = document.createElement('span');
-      typeEl.className = 'text-xs text-tertiary';
+      typeEl.className = 'text-xs opacity-60';
       typeEl.textContent = obj.type;
 
       itemEl.appendChild(nameEl);
