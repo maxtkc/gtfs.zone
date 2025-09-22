@@ -142,10 +142,10 @@ export class ObjectsNavigation {
         : 'Add agency.txt to get started';
 
       return `
-        <div class="p-4 text-center text-slate-500">
+        <div class="p-4 text-center">
           <div class="text-lg mb-2">🏢</div>
           <div>${message}</div>
-          <div class="text-sm mt-1">${submessage}</div>
+          <div class="text-sm mt-1 opacity-60">${submessage}</div>
         </div>
       `;
     }
@@ -153,30 +153,27 @@ export class ObjectsNavigation {
     const agencyItems = agencies
       .map(
         (agency) => `
-      <div class="object-item agency-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
-           data-agency-id="${agency.id}">
-        <div class="flex items-center">
-          <div class="text-lg mr-3">🏢</div>
-          <div class="flex-1">
-            <div class="font-medium text-slate-800">${this.escapeHtml(agency.name)}</div>
-            <div class="text-sm text-slate-500">ID: ${agency.id}</div>
-            ${agency.timezone ? `<div class="text-xs text-slate-400">${agency.timezone}</div>` : ''}
-          </div>
-          <div class="text-slate-400">›</div>
+      <li class="list-row agency-item cursor-pointer" data-agency-id="${agency.id}">
+        <div class="text-lg">🏢</div>
+        <div class="list-col-grow">
+          <div class="font-medium">${this.escapeHtml(agency.name)}</div>
+          <div class="text-xs opacity-60">ID: ${agency.id}</div>
+          ${agency.timezone ? `<div class="text-xs opacity-40">${agency.timezone}</div>` : ''}
         </div>
-      </div>
+        <div class="opacity-60">›</div>
+      </li>
     `
       )
       .join('');
 
     return `
       <div class="content flex-1 overflow-y-auto">
-        <div class="p-3">
-          <h3 class="text-lg font-medium text-slate-800 mb-3">
-            Agencies ${this.searchQuery ? `(${agencies.length} of ${this.relationships.getAgencies().length})` : ''}
-          </h3>
+        <div class="p-4 pb-2 text-xs opacity-60 tracking-wide">
+          Agencies ${this.searchQuery ? `(${agencies.length} of ${this.relationships.getAgencies().length})` : ''}
         </div>
-        ${agencyItems}
+        <ul class="list">
+          ${agencyItems}
+        </ul>
       </div>
     `;
   }
@@ -204,10 +201,10 @@ export class ObjectsNavigation {
       const submessage = this.searchQuery ? 'Try a different search term' : '';
 
       return `
-        <div class="p-4 text-center text-slate-500">
+        <div class="p-4 text-center">
           <div class="text-lg mb-2">🚌</div>
           <div>${message}</div>
-          ${submessage ? `<div class="text-sm mt-1">${submessage}</div>` : ''}
+          ${submessage ? `<div class="text-sm mt-1 opacity-60">${submessage}</div>` : ''}
         </div>
       `;
     }
@@ -215,20 +212,17 @@ export class ObjectsNavigation {
     const routeItems = routes
       .map(
         (route) => `
-      <div class="object-item route-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
-           data-route-id="${route.id}">
-        <div class="flex items-center">
-          <div class="text-lg mr-3">🚌</div>
-          <div class="flex-1">
-            <div class="font-medium text-slate-800">
-              ${route.shortName ? this.escapeHtml(route.shortName) + ' - ' : ''}${this.escapeHtml(route.longName || route.id)}
-            </div>
-            <div class="text-sm text-slate-500">Route ID: ${route.id}</div>
-            ${route.desc ? `<div class="text-xs text-slate-400">${this.escapeHtml(route.desc)}</div>` : ''}
+      <li class="list-row route-item cursor-pointer" data-route-id="${route.id}">
+        <div class="text-lg">🚌</div>
+        <div class="list-col-grow">
+          <div class="font-medium">
+            ${route.shortName ? this.escapeHtml(route.shortName) + ' - ' : ''}${this.escapeHtml(route.longName || route.id)}
           </div>
-          <div class="text-slate-400">›</div>
+          <div class="text-xs opacity-60">Route ID: ${route.id}</div>
+          ${route.desc ? `<div class="text-xs opacity-40">${this.escapeHtml(route.desc)}</div>` : ''}
         </div>
-      </div>
+        <div class="opacity-60">›</div>
+      </li>
     `
       )
       .join('');
@@ -237,12 +231,12 @@ export class ObjectsNavigation {
 
     return `
       <div class="content flex-1 overflow-y-auto">
-        <div class="p-3">
-          <h3 class="text-lg font-medium text-slate-800 mb-3">
-            Routes ${this.searchQuery ? `(${routes.length} of ${allRoutes.length})` : ''}
-          </h3>
+        <div class="p-4 pb-2 text-xs opacity-60 tracking-wide">
+          Routes ${this.searchQuery ? `(${routes.length} of ${allRoutes.length})` : ''}
         </div>
-        ${routeItems}
+        <ul class="list">
+          ${routeItems}
+        </ul>
       </div>
     `;
   }
@@ -253,7 +247,7 @@ export class ObjectsNavigation {
 
     if (trips.length === 0) {
       return `
-        <div class="p-4 text-center text-slate-500">
+        <div class="p-4 text-center">
           <div class="text-lg mb-2">🚐</div>
           <div>No trips found for this route</div>
         </div>
@@ -263,30 +257,27 @@ export class ObjectsNavigation {
     const tripItems = trips
       .map(
         (trip) => `
-      <div class="object-item trip-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
-           data-trip-id="${trip.id}">
-        <div class="flex items-center">
-          <div class="text-lg mr-3">🚐</div>
-          <div class="flex-1">
-            <div class="font-medium text-slate-800">
-              ${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}
-            </div>
-            <div class="text-sm text-slate-500">Trip ID: ${trip.id}</div>
-            <div class="text-xs text-slate-400">Service: ${trip.serviceId}</div>
+      <li class="list-row trip-item cursor-pointer" data-trip-id="${trip.id}">
+        <div class="text-lg">🚐</div>
+        <div class="list-col-grow">
+          <div class="font-medium">
+            ${trip.headsign ? this.escapeHtml(trip.headsign) : trip.id}
           </div>
-          <div class="text-slate-400">›</div>
+          <div class="text-xs opacity-60">Trip ID: ${trip.id}</div>
+          <div class="text-xs opacity-40">Service: ${trip.serviceId}</div>
         </div>
-      </div>
+        <div class="opacity-60">›</div>
+      </li>
     `
       )
       .join('');
 
     return `
       <div class="content flex-1 overflow-y-auto">
-        <div class="p-3">
-          <h3 class="text-lg font-medium text-slate-800 mb-3">Trips</h3>
-        </div>
-        ${tripItems}
+        <div class="p-4 pb-2 text-xs opacity-60 tracking-wide">Trips</div>
+        <ul class="list">
+          ${tripItems}
+        </ul>
       </div>
     `;
   }
@@ -297,7 +288,7 @@ export class ObjectsNavigation {
 
     if (stopTimes.length === 0) {
       return `
-        <div class="p-4 text-center text-slate-500">
+        <div class="p-4 text-center">
           <div class="text-lg mb-2">⏰</div>
           <div>No stop times found for this trip</div>
         </div>
@@ -307,34 +298,31 @@ export class ObjectsNavigation {
     const stopTimeItems = stopTimes
       .map(
         (stopTime) => `
-      <div class="object-item stop-time-item p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
-           data-stop-id="${stopTime.stopId}">
-        <div class="flex items-center">
-          <div class="text-lg mr-3">🚏</div>
-          <div class="flex-1">
-            <div class="font-medium text-slate-800">
-              ${stopTime.stop ? this.escapeHtml(stopTime.stop.name) : stopTime.stopId}
-            </div>
-            <div class="text-sm text-slate-500">
-              ${stopTime.arrivalTime} - ${stopTime.departureTime}
-            </div>
-            <div class="text-xs text-slate-400">
-              Stop ${stopTime.stopSequence}: ${stopTime.stopId}
-            </div>
+      <li class="list-row stop-time-item cursor-pointer" data-stop-id="${stopTime.stopId}">
+        <div class="text-lg">🚏</div>
+        <div class="list-col-grow">
+          <div class="font-medium">
+            ${stopTime.stop ? this.escapeHtml(stopTime.stop.name) : stopTime.stopId}
           </div>
-          <div class="text-slate-400">›</div>
+          <div class="text-xs opacity-60">
+            ${stopTime.arrivalTime} - ${stopTime.departureTime}
+          </div>
+          <div class="text-xs opacity-40">
+            Stop ${stopTime.stopSequence}: ${stopTime.stopId}
+          </div>
         </div>
-      </div>
+        <div class="opacity-60">›</div>
+      </li>
     `
       )
       .join('');
 
     return `
       <div class="content flex-1 overflow-y-auto">
-        <div class="p-3">
-          <h3 class="text-lg font-medium text-slate-800 mb-3">Stop Times</h3>
-        </div>
-        ${stopTimeItems}
+        <div class="p-4 pb-2 text-xs opacity-60 tracking-wide">Stop Times</div>
+        <ul class="list">
+          ${stopTimeItems}
+        </ul>
       </div>
     `;
   }

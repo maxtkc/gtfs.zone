@@ -18,42 +18,10 @@
 }
 
 @layer components {
-  /* File item styles using DaisyUI patterns */
-  .file-item {
-    padding: 0.75rem;
-    cursor: pointer;
-    border-radius: 0.375rem;
-    transition: colors 0.15s ease;
-    border-left: 4px solid transparent;
-    opacity: 0.7;
-  }
-
-  .file-item:hover {
-    background-color: oklch(var(--b2));
-  }
-
-  .file-item.required {
-    border-left-color: oklch(var(--p));
-  }
-
-  .file-item.active {
-    background-color: color-mix(in oklch, oklch(var(--p)), transparent 80%);
-    border-left-color: oklch(var(--s));
-    opacity: 1;
-  }
-
-  .section-header {
-    font-size: 0.875rem;
-    font-weight: 600;
-    opacity: 0.7;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .section-header:first-child {
-    margin-top: 0;
+  /* File list styles using DaisyUI menu */
+  .file-required {
+    border-left: 3px solid oklch(var(--p));
+    padding-left: 0.75rem;
   }
 }
 
