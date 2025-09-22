@@ -467,6 +467,10 @@ export class UIController {
       listView.classList.add('hidden');
       detailsView.classList.remove('hidden');
 
+      // Ensure the proper object details structure exists
+      // (schedule controller may have replaced it completely)
+      this.ensureObjectDetailsStructure(detailsView);
+
       // Update object info
       const objectTypeEl = document.getElementById('object-type');
       const objectNameEl = document.getElementById('object-name');
@@ -633,13 +637,74 @@ export class UIController {
       this.objectsNavigation.navigateToRoute(item.id);
     } else if (item.type === 'Schedule') {
       // For schedule items, navigate back to the route view
-      const routeIndex = this.breadcrumbTrail.findIndex(
+      const routeItem = this.breadcrumbTrail.find(
         (breadcrumbItem) => breadcrumbItem.type === 'Route'
       );
-      if (routeIndex >= 0) {
-        // Navigate to the route breadcrumb item
-        this.navigateToBreadcrumb(routeIndex);
+      if (routeItem && this.objectsNavigation) {
+        // Truncate breadcrumb trail to just include the route
+        const routeIndex = this.breadcrumbTrail.findIndex(
+          (breadcrumbItem) => breadcrumbItem.type === 'Route'
+        );
+        this.breadcrumbTrail = this.breadcrumbTrail.slice(0, routeIndex + 1);
+        // Navigate directly to the route
+        this.objectsNavigation.navigateToRoute(routeItem.id);
         return;
+      }
+    }
+  }
+
+  ensureObjectDetailsStructure(detailsView) {
+    // Check if the proper structure exists (object-type, object-name, etc.)
+    if (
+      !document.getElementById('object-type') ||
+      !document.getElementById('object-name')
+    ) {
+      // Restore the original object details structure
+      detailsView.innerHTML = `
+        <div class="h-full flex flex-col">
+          <!-- Object Header with Breadcrumbs -->
+          <div class="border-b border-base-300">
+            <div id="object-breadcrumbs" class="p-3 bg-base-200">
+              <div class="breadcrumbs text-sm">
+                <ul id="breadcrumb-list">
+                  <li><a id="breadcrumb-objects">Agencies</a></li>
+                </ul>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 p-4">
+              <span id="object-type" class="text-sm font-medium opacity-70">Agency</span>
+              <span id="object-name" class="text-sm font-medium">None</span>
+            </div>
+          </div>
+
+          <!-- Object Properties -->
+          <div class="flex-1 overflow-y-auto">
+            <div class="p-4">
+              <h3 class="text-sm font-semibold mb-3">Properties</h3>
+              <div id="object-properties" class="space-y-3">
+                <!-- Properties will be populated here -->
+              </div>
+            </div>
+
+            <!-- Related Objects -->
+            <div class="border-t border-base-300 p-4">
+              <h3 class="text-sm font-semibold mb-3">Related Objects</h3>
+              <div id="related-objects" class="space-y-2">
+                <!-- Related objects will be populated here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Re-attach the breadcrumb event listener
+      const breadcrumbObjectsBtn =
+        document.getElementById('breadcrumb-objects');
+      if (breadcrumbObjectsBtn) {
+        breadcrumbObjectsBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.showObjectsList();
+        });
       }
     }
   }
