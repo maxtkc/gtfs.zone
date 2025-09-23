@@ -792,6 +792,7 @@ export class ObjectsNavigation {
 
     if (calendar) {
       const days = [];
+      let dayDescription;
       if (calendar.monday) {
         days.push('Mon');
       }
@@ -824,7 +825,7 @@ export class ObjectsNavigation {
         dayDescription = days.join(', ');
       }
 
-      serviceName = serviceId;
+      serviceName = `${serviceId} (${dayDescription})`;
     }
 
     // Add direction information
