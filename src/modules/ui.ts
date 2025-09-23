@@ -56,12 +56,16 @@ export class UIController {
       .getElementById('example-columbia')
       ?.addEventListener('click', (e) => {
         const url = e.target.dataset.url;
-        if (url) this.loadGTFSFromURL(url);
+        if (url) {
+          this.loadGTFSFromURL(url);
+        }
       });
 
     document.getElementById('example-west')?.addEventListener('click', (e) => {
       const url = e.target.dataset.url;
-      if (url) this.loadGTFSFromURL(url);
+      if (url) {
+        this.loadGTFSFromURL(url);
+      }
     });
 
     // File input
@@ -411,7 +415,7 @@ export class UIController {
     link.appendChild(nameSpan);
 
     // Add record count if available
-    const data = this.gtfsParser.getFileData(fileName);
+    const data = this.gtfsParser.getFileDataSync(fileName);
     if (data) {
       const count = Array.isArray(data) ? data.length : 1;
       const countSpan = document.createElement('span');
@@ -420,16 +424,16 @@ export class UIController {
       link.appendChild(countSpan);
     }
 
-    link.addEventListener('click', (event) => {
+    link.addEventListener('click', async (event) => {
       event.preventDefault();
-      this.openFile(fileName, event.currentTarget);
+      await this.openFile(fileName, event.currentTarget);
     });
 
     listItem.appendChild(link);
     container.appendChild(listItem);
   }
 
-  openFile(fileName, clickedElement = null) {
+  async openFile(fileName, clickedElement = null) {
     if (!this.gtfsParser.getFileContent(fileName)) {
       return;
     }
@@ -443,7 +447,7 @@ export class UIController {
     }
 
     // Show file editor view
-    this.showFileEditor(fileName);
+    await this.showFileEditor(fileName);
 
     // Update map if it's a spatial file
     if (fileName === 'stops.txt' || fileName === 'shapes.txt') {
@@ -460,7 +464,7 @@ export class UIController {
     }
   }
 
-  showFileEditor(fileName) {
+  async showFileEditor(fileName) {
     const listView = document.getElementById('file-list-view');
     const editorView = document.getElementById('file-editor-view');
     if (listView && editorView) {
@@ -474,7 +478,7 @@ export class UIController {
       }
 
       // Open file in editor
-      this.editor.openFile(fileName);
+      await this.editor.openFile(fileName);
     }
   }
 
@@ -598,7 +602,9 @@ export class UIController {
 
   renderBreadcrumbs() {
     const breadcrumbList = document.getElementById('breadcrumb-list');
-    if (!breadcrumbList) return;
+    if (!breadcrumbList) {
+      return;
+    }
 
     // Clear existing breadcrumbs
     breadcrumbList.innerHTML = '';

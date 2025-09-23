@@ -2,6 +2,7 @@
  * Error Test Helpers for Development
  * Use these functions to test the error visibility system
  */
+import { ErrorHandler } from './error-handler';
 
 /**
  * Test functions to validate error system is working
@@ -44,8 +45,6 @@ export const ErrorTestHelpers = {
    * Test ErrorHandler integration
    */
   testErrorHandler() {
-    const { ErrorHandler } = require('./error-handler');
-
     ErrorHandler.handle(
       new Error('Test ErrorHandler: This error was handled by ErrorHandler'),
       'error-test',
@@ -57,8 +56,6 @@ export const ErrorTestHelpers = {
    * Test validation error
    */
   testValidationError() {
-    const { ErrorHandler } = require('./error-handler');
-
     try {
       ErrorHandler.throwValidationError(
         'Test Validation Error: Invalid data format',
@@ -74,8 +71,6 @@ export const ErrorTestHelpers = {
    * Test async error
    */
   async testAsyncError() {
-    const { ErrorHandler } = require('./error-handler');
-
     const faultyPromise = new Promise((resolve, reject) => {
       setTimeout(() => {
         reject(new Error('Test Async Error: This async operation failed'));

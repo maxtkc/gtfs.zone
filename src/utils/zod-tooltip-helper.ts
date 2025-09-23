@@ -12,7 +12,10 @@ import {
 /**
  * Extract description from a Zod schema field
  */
-function getFieldDescription(schema: any, fieldName: string): string {
+function getFieldDescription(
+  schema: Record<string, unknown>,
+  fieldName: string
+): string {
   try {
     console.log(
       'getFieldDescription called with:',

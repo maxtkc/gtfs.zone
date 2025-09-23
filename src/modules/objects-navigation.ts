@@ -5,17 +5,83 @@
  */
 
 export class ObjectsNavigation {
-  private relationships: any;
-  private mapController: any;
-  public uiController: any = null; // Will be set after initialization
-  public scheduleController: any = null; // Will be set after initialization
+  private relationships: {
+    hasDataAsync: () => Promise<boolean>;
+    getAgenciesAsync: () => Promise<Record<string, unknown>[]>;
+    getRoutesForAgencyAsync: (
+      agencyId: string
+    ) => Promise<Record<string, unknown>[]>;
+    getTripsForRouteAsync: (
+      routeId: string
+    ) => Promise<Record<string, unknown>[]>;
+    getStopTimesForTripAsync: (
+      tripId: string
+    ) => Promise<Record<string, unknown>[]>;
+    getStopByIdAsync: (
+      stopId: string
+    ) => Promise<Record<string, unknown> | null>;
+    getServicesForRouteByDirectionAsync: (
+      routeId: string
+    ) => Promise<Record<string, unknown>[]>;
+    getRouteByIdAsync: (
+      routeId: string
+    ) => Promise<Record<string, unknown> | null>;
+    getTripByIdAsync: (
+      tripId: string
+    ) => Promise<Record<string, unknown> | null>;
+    getCalendarForServiceAsync: (
+      serviceId: string
+    ) => Promise<Record<string, unknown> | null>;
+  };
+  private mapController: {
+    highlightTrip: (tripId: string) => void;
+    highlightStop: (stopId: string) => void;
+  };
+  public uiController: {
+    showFileInEditor: (filename: string, rowId?: string) => void;
+  } | null = null; // Will be set after initialization
+  public scheduleController: Record<string, unknown> | null = null; // Will be set after initialization
   private currentView: string = 'agencies'; // agencies, routes, trips, stop-times, stop-detail
-  private breadcrumb: any[] = [];
+  private breadcrumb: Record<string, unknown>[] = [];
   private container: HTMLElement | null = null;
   private searchQuery: string = '';
   private searchTimeout: NodeJS.Timeout | null = null;
+  private isLoading: boolean = false;
 
-  constructor(gtfsRelationships: any, mapController: any) {
+  constructor(
+    gtfsRelationships: {
+      hasDataAsync: () => Promise<boolean>;
+      getAgenciesAsync: () => Promise<Record<string, unknown>[]>;
+      getRoutesForAgencyAsync: (
+        agencyId: string
+      ) => Promise<Record<string, unknown>[]>;
+      getTripsForRouteAsync: (
+        routeId: string
+      ) => Promise<Record<string, unknown>[]>;
+      getStopTimesForTripAsync: (
+        tripId: string
+      ) => Promise<Record<string, unknown>[]>;
+      getStopByIdAsync: (
+        stopId: string
+      ) => Promise<Record<string, unknown> | null>;
+      getServicesForRouteByDirectionAsync: (
+        routeId: string
+      ) => Promise<Record<string, unknown>[]>;
+      getRouteByIdAsync: (
+        routeId: string
+      ) => Promise<Record<string, unknown> | null>;
+      getTripByIdAsync: (
+        tripId: string
+      ) => Promise<Record<string, unknown> | null>;
+      getCalendarForServiceAsync: (
+        serviceId: string
+      ) => Promise<Record<string, unknown> | null>;
+    },
+    mapController: {
+      highlightTrip: (tripId: string) => void;
+      highlightStop: (stopId: string) => void;
+    }
+  ) {
     this.relationships = gtfsRelationships;
     this.mapController = mapController;
   }
@@ -23,6 +89,7 @@ export class ObjectsNavigation {
   initialize(containerId: string): void {
     this.container = document.getElementById(containerId);
     if (!this.container) {
+      // eslint-disable-next-line no-console
       console.error(`Objects navigation container ${containerId} not found`);
       return;
     }
@@ -30,13 +97,18 @@ export class ObjectsNavigation {
     this.render();
   }
 
-  render(): void {
+  async render(): Promise<void> {
     if (!this.container) {
       return;
     }
 
-    if (!this.relationships.hasData()) {
+    if (!(await this.relationships.hasDataAsync())) {
       this.renderEmptyState();
+      return;
+    }
+
+    if (this.isLoading) {
+      this.renderLoadingState();
       return;
     }
 
@@ -44,7 +116,28 @@ export class ObjectsNavigation {
       <div class="objects-navigation h-full flex flex-col">
         ${this.renderBreadcrumb()}
         ${this.renderSearchBar()}
-        ${this.renderContent()}
+        ${await this.renderContent()}
+      </div>
+    `;
+
+    this.attachEventListeners();
+  }
+
+  renderLoadingState(): void {
+    if (!this.container) {
+      return;
+    }
+
+    this.container.innerHTML = `
+      <div class="objects-navigation h-full flex flex-col">
+        ${this.renderBreadcrumb()}
+        ${this.renderSearchBar()}
+        <div class="content flex-1 flex items-center justify-center">
+          <div class="text-center">
+            <div class="loading loading-spinner loading-lg mb-4"></div>
+            <div class="text-sm opacity-60">Loading...</div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -102,25 +195,25 @@ export class ObjectsNavigation {
     `;
   }
 
-  renderContent() {
+  async renderContent() {
     switch (this.currentView) {
       case 'agencies':
-        return this.renderAgencies();
+        return await this.renderAgencies();
       case 'routes':
-        return this.renderRoutes();
+        return await this.renderRoutes();
       case 'trips':
-        return this.renderTrips();
+        return await this.renderTrips();
       case 'stop-times':
-        return this.renderStopTimes();
+        return await this.renderStopTimes();
       case 'stop-detail':
-        return this.renderStopDetail();
+        return await this.renderStopDetail();
       default:
-        return this.renderAgencies();
+        return await this.renderAgencies();
     }
   }
 
-  renderAgencies() {
-    let agencies = this.relationships.getAgencies();
+  async renderAgencies() {
+    let agencies = await this.relationships.getAgenciesAsync();
 
     // Apply search filter
     if (this.searchQuery) {
@@ -166,10 +259,11 @@ export class ObjectsNavigation {
       )
       .join('');
 
+    const totalAgencies = await this.relationships.getAgenciesAsync();
     return `
       <div class="content flex-1 overflow-y-auto">
         <div class="p-4 pb-2 text-xs opacity-60 tracking-wide">
-          Agencies ${this.searchQuery ? `(${agencies.length} of ${this.relationships.getAgencies().length})` : ''}
+          Agencies ${this.searchQuery ? `(${agencies.length} of ${totalAgencies.length})` : ''}
         </div>
         <ul class="list">
           ${agencyItems}
@@ -178,9 +272,11 @@ export class ObjectsNavigation {
     `;
   }
 
-  renderRoutes() {
+  async renderRoutes() {
     const currentAgency = this.breadcrumb[this.breadcrumb.length - 1];
-    let routes = this.relationships.getRoutesForAgency(currentAgency.id);
+    let routes = await this.relationships.getRoutesForAgencyAsync(
+      currentAgency.id
+    );
 
     // Apply search filter
     if (this.searchQuery) {
@@ -227,7 +323,9 @@ export class ObjectsNavigation {
       )
       .join('');
 
-    const allRoutes = this.relationships.getRoutesForAgency(currentAgency.id);
+    const allRoutes = await this.relationships.getRoutesForAgencyAsync(
+      currentAgency.id
+    );
 
     return `
       <div class="content flex-1 overflow-y-auto">
@@ -241,9 +339,11 @@ export class ObjectsNavigation {
     `;
   }
 
-  renderTrips() {
+  async renderTrips() {
     const currentRoute = this.breadcrumb[this.breadcrumb.length - 1];
-    const trips = this.relationships.getTripsForRoute(currentRoute.id);
+    const trips = await this.relationships.getTripsForRouteAsync(
+      currentRoute.id
+    );
 
     if (trips.length === 0) {
       return `
@@ -282,9 +382,11 @@ export class ObjectsNavigation {
     `;
   }
 
-  renderStopTimes() {
+  async renderStopTimes() {
     const currentTrip = this.breadcrumb[this.breadcrumb.length - 1];
-    const stopTimes = this.relationships.getStopTimesForTrip(currentTrip.id);
+    const stopTimes = await this.relationships.getStopTimesForTripAsync(
+      currentTrip.id
+    );
 
     if (stopTimes.length === 0) {
       return `
@@ -327,10 +429,10 @@ export class ObjectsNavigation {
     `;
   }
 
-  renderStopDetail() {
+  async renderStopDetail() {
     const currentStop = this.breadcrumb[this.breadcrumb.length - 1];
-    const stop = this.relationships.getStopById(currentStop.id);
-    const trips = this.relationships.getTripsForStop(currentStop.id);
+    const stop = await this.relationships.getStopByIdAsync(currentStop.id);
+    const trips = await this.relationships.getTripsForStopAsync(currentStop.id);
 
     if (!stop) {
       return `
@@ -416,67 +518,76 @@ export class ObjectsNavigation {
           clearTimeout(this.searchTimeout);
         }
 
-        this.searchTimeout = setTimeout(() => {
+        this.searchTimeout = setTimeout(async () => {
           this.searchQuery = query;
-          this.render();
+          this.isLoading = true;
+          await this.render();
+          this.isLoading = false;
+          await this.render();
         }, 300);
       });
     }
 
     // Clear search button
-    this.container.addEventListener('click', (e) => {
+    this.container.addEventListener('click', async (e) => {
       if (e.target.id === 'clear-objects-search') {
         this.searchQuery = '';
         const searchInput = document.getElementById('objects-search');
         if (searchInput) {
           searchInput.value = '';
         }
-        this.render();
+        this.isLoading = true;
+        await this.render();
+        this.isLoading = false;
+        await this.render();
       }
     });
 
     // Breadcrumb navigation
-    this.container.addEventListener('click', (e) => {
+    this.container.addEventListener('click', async (e) => {
       if (e.target.classList.contains('breadcrumb-home')) {
-        this.navigateHome();
+        await this.navigateHome();
       } else if (e.target.classList.contains('breadcrumb-item')) {
         const index = parseInt(e.target.dataset.breadcrumbIndex);
-        this.navigateToBreadcrumb(index);
+        await this.navigateToBreadcrumb(index);
       }
     });
 
     // Object item clicks
-    this.container.addEventListener('click', (e) => {
+    this.container.addEventListener('click', async (e) => {
       const agencyItem = e.target.closest('.agency-item');
       const routeItem = e.target.closest('.route-item');
       const tripItem = e.target.closest('.trip-item');
       const stopTimeItem = e.target.closest('.stop-time-item');
 
       if (agencyItem) {
-        this.navigateToAgency(agencyItem.dataset.agencyId);
+        await this.navigateToAgency(agencyItem.dataset.agencyId);
       } else if (routeItem) {
-        this.navigateToRoute(routeItem.dataset.routeId);
+        await this.navigateToRoute(routeItem.dataset.routeId);
       } else if (tripItem) {
-        this.navigateToTrip(tripItem.dataset.tripId);
+        await this.navigateToTrip(tripItem.dataset.tripId);
       } else if (stopTimeItem) {
-        this.navigateToStop(stopTimeItem.dataset.stopId);
+        await this.navigateToStop(stopTimeItem.dataset.stopId);
       }
     });
   }
 
-  navigateHome() {
+  async navigateHome() {
     this.currentView = 'agencies';
     this.breadcrumb = [];
     this.searchQuery = ''; // Clear search when navigating
-    this.render();
+    this.isLoading = true;
+    await this.render();
+    this.isLoading = false;
+    await this.render();
 
     // Show feed statistics in Info tab when at home
-    if (this.infoDisplay && this.relationships.hasData()) {
+    if (this.infoDisplay && (await this.relationships.hasDataAsync())) {
       this.infoDisplay.showFeedStatistics();
     }
   }
 
-  navigateToBreadcrumb(index) {
+  async navigateToBreadcrumb(index) {
     this.breadcrumb = this.breadcrumb.slice(0, index + 1);
 
     if (index === 0) {
@@ -487,16 +598,19 @@ export class ObjectsNavigation {
       this.currentView = 'stop-times';
     }
 
-    this.render();
+    this.isLoading = true;
+    await this.render();
+    this.isLoading = false;
+    await this.render();
   }
 
-  navigateToAgency(agencyId) {
-    const agencies = this.relationships.getAgencies();
+  async navigateToAgency(agencyId) {
+    const agencies = await this.relationships.getAgenciesAsync();
     const agency = agencies.find((a) => a.id === agencyId);
 
     if (agency) {
       // Get routes for this agency to show as related objects
-      const routes = this.relationships.getRoutesForAgency(agencyId);
+      const routes = await this.relationships.getRoutesForAgencyAsync(agencyId);
       const relatedObjects = routes.map((route) => ({
         name: route.shortName
           ? `${route.shortName} - ${route.longName || route.id}`
@@ -518,13 +632,13 @@ export class ObjectsNavigation {
     }
   }
 
-  navigateToRoute(routeId) {
-    const route = this.relationships.getRouteById(routeId);
+  async navigateToRoute(routeId) {
+    const route = await this.relationships.getRouteByIdAsync(routeId);
 
     if (route) {
       // Get services for this route grouped by direction
       const services =
-        this.relationships.getServicesForRouteByDirection(routeId);
+        await this.relationships.getServicesForRouteByDirectionAsync(routeId);
       const relatedObjects = services.map((service) => {
         const serviceName = this.formatServiceNameWithDirection(service);
         return {
@@ -548,12 +662,13 @@ export class ObjectsNavigation {
     }
   }
 
-  navigateToTrip(tripId) {
-    const trip = this.relationships.getTripById(tripId);
+  async navigateToTrip(tripId) {
+    const trip = await this.relationships.getTripByIdAsync(tripId);
 
     if (trip) {
       // Get stop times for this trip to show as related objects
-      const stopTimes = this.relationships.getStopTimesForTrip(tripId);
+      const stopTimes =
+        await this.relationships.getStopTimesForTripAsync(tripId);
       const relatedObjects = stopTimes.map((stopTime) => ({
         name: stopTime.stop ? stopTime.stop.name : stopTime.stopId,
         type: 'Stop',
@@ -571,12 +686,12 @@ export class ObjectsNavigation {
     }
   }
 
-  navigateToStop(stopId) {
-    const stop = this.relationships.getStopById(stopId);
+  async navigateToStop(stopId) {
+    const stop = await this.relationships.getStopByIdAsync(stopId);
 
     if (stop) {
       // Get trips for this stop to show as related objects
-      const trips = this.relationships.getTripsForStop(stopId);
+      const trips = await this.relationships.getTripsForStopAsync(stopId);
       const relatedObjects = trips.map((trip) => ({
         name: trip.id,
         type: 'Trip',
@@ -623,22 +738,35 @@ export class ObjectsNavigation {
     }
   }
 
-  formatServiceName(service: any): string {
+  formatServiceName(service: Record<string, unknown>): string {
     const { serviceId, calendar, tripCount } = service;
 
     let serviceName = serviceId;
 
     if (calendar) {
       const days = [];
-      if (calendar.monday) days.push('Mon');
-      if (calendar.tuesday) days.push('Tue');
-      if (calendar.wednesday) days.push('Wed');
-      if (calendar.thursday) days.push('Thu');
-      if (calendar.friday) days.push('Fri');
-      if (calendar.saturday) days.push('Sat');
-      if (calendar.sunday) days.push('Sun');
+      if (calendar.monday) {
+        days.push('Mon');
+      }
+      if (calendar.tuesday) {
+        days.push('Tue');
+      }
+      if (calendar.wednesday) {
+        days.push('Wed');
+      }
+      if (calendar.thursday) {
+        days.push('Thu');
+      }
+      if (calendar.friday) {
+        days.push('Fri');
+      }
+      if (calendar.saturday) {
+        days.push('Sat');
+      }
+      if (calendar.sunday) {
+        days.push('Sun');
+      }
 
-      let dayDescription = '';
       if (days.length === 7) {
         dayDescription = 'Daily';
       } else if (days.length === 5 && !calendar.saturday && !calendar.sunday) {
@@ -657,22 +785,35 @@ export class ObjectsNavigation {
     return serviceName;
   }
 
-  formatServiceNameWithDirection(service: any): string {
+  formatServiceNameWithDirection(service: Record<string, unknown>): string {
     const { serviceId, calendar, tripCount, directionName } = service;
 
     let serviceName = serviceId;
 
     if (calendar) {
       const days = [];
-      if (calendar.monday) days.push('Mon');
-      if (calendar.tuesday) days.push('Tue');
-      if (calendar.wednesday) days.push('Wed');
-      if (calendar.thursday) days.push('Thu');
-      if (calendar.friday) days.push('Fri');
-      if (calendar.saturday) days.push('Sat');
-      if (calendar.sunday) days.push('Sun');
+      if (calendar.monday) {
+        days.push('Mon');
+      }
+      if (calendar.tuesday) {
+        days.push('Tue');
+      }
+      if (calendar.wednesday) {
+        days.push('Wed');
+      }
+      if (calendar.thursday) {
+        days.push('Thu');
+      }
+      if (calendar.friday) {
+        days.push('Fri');
+      }
+      if (calendar.saturday) {
+        days.push('Sat');
+      }
+      if (calendar.sunday) {
+        days.push('Sun');
+      }
 
-      let dayDescription = '';
       if (days.length === 7) {
         dayDescription = 'Daily';
       } else if (days.length === 5 && !calendar.saturday && !calendar.sunday) {
@@ -698,7 +839,7 @@ export class ObjectsNavigation {
     return div.innerHTML;
   }
 
-  refresh() {
-    this.render();
+  async refresh() {
+    await this.render();
   }
 }

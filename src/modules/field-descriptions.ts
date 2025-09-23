@@ -55,13 +55,17 @@ export class FieldDescriptionsDisplay {
   }
 
   public showDescriptionsForFile(filename: string): void {
-    if (!this.descriptionsContainer) return;
+    if (!this.descriptionsContainer) {
+      return;
+    }
 
     this.currentFile = filename;
     const content = this.descriptionsContainer.querySelector(
       '#descriptions-content'
     );
-    if (!content) return;
+    if (!content) {
+      return;
+    }
 
     try {
       const fieldInfo = GTFSMetadata.getAllFieldInfo(filename);

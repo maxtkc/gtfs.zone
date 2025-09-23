@@ -4,7 +4,9 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 export class MapController {
   private map: Map | null;
   private mapElementId: string;
-  private gtfsParser: any;
+  private gtfsParser: {
+    getFileDataSync: (filename: string) => Record<string, unknown>[];
+  } | null;
   private resizeTimeout: NodeJS.Timeout | null;
 
   constructor(mapElementId = 'map') {
@@ -14,7 +16,9 @@ export class MapController {
     this.resizeTimeout = null;
   }
 
-  initialize(gtfsParser: any) {
+  initialize(gtfsParser: {
+    getFileDataSync: (filename: string) => Record<string, unknown>[];
+  }) {
     this.gtfsParser = gtfsParser;
 
     // Initialize MapLibre GL JS map
@@ -50,7 +54,7 @@ export class MapController {
   }
 
   updateMap() {
-    if (!this.gtfsParser || !this.gtfsParser.getFileData('stops.txt')) {
+    if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt')) {
       return;
     }
 
@@ -70,7 +74,7 @@ export class MapController {
     this.addRoutesToMap();
 
     // Add shapes if available (this will overlay on routes)
-    if (this.gtfsParser.getFileData('shapes.txt')) {
+    if (this.gtfsParser.getFileDataSync('shapes.txt')) {
       this.addShapesToMap();
     }
   }
@@ -108,7 +112,7 @@ export class MapController {
   }
 
   addStopsToMap() {
-    const stops = this.gtfsParser.getFileData('stops.txt');
+    const stops = this.gtfsParser.getFileDataSync('stops.txt');
     if (!stops) {
       return;
     }
@@ -268,10 +272,10 @@ export class MapController {
   }
 
   addRoutesToMap() {
-    const routes = this.gtfsParser.getFileData('routes.txt');
-    const trips = this.gtfsParser.getFileData('trips.txt');
-    const stopTimes = this.gtfsParser.getFileData('stop_times.txt');
-    const stops = this.gtfsParser.getFileData('stops.txt');
+    const routes = this.gtfsParser.getFileDataSync('routes.txt');
+    const trips = this.gtfsParser.getFileDataSync('trips.txt');
+    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
+    const stops = this.gtfsParser.getFileDataSync('stops.txt');
 
     if (!routes || !trips || !stopTimes || !stops) {
       return;
@@ -426,7 +430,7 @@ export class MapController {
   }
 
   addShapesToMap() {
-    const shapes = this.gtfsParser.getFileData('shapes.txt');
+    const shapes = this.gtfsParser.getFileDataSync('shapes.txt');
     if (!shapes) {
       return;
     }
@@ -528,12 +532,13 @@ export class MapController {
   highlightFileData(fileName) {
     // Add visual emphasis for the selected file's data on map
     // This could be enhanced to highlight specific elements
+    // eslint-disable-next-line no-console
     console.log(`Highlighting data for ${fileName}`);
   }
 
   // Object highlighting methods for Objects navigation
   highlightAgencyRoutes(agencyId) {
-    const routes = this.gtfsParser.getFileData('routes.txt') || [];
+    const routes = this.gtfsParser.getFileDataSync('routes.txt') || [];
     const agencyRoutes = routes.filter((route) => route.agency_id === agencyId);
 
     if (agencyRoutes.length === 0) {
@@ -553,9 +558,9 @@ export class MapController {
   }
 
   highlightRoute(routeId, color = '#ff6b35', weight = 6) {
-    const trips = this.gtfsParser.getFileData('trips.txt') || [];
-    const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    const trips = this.gtfsParser.getFileDataSync('trips.txt') || [];
+    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -634,8 +639,8 @@ export class MapController {
   }
 
   highlightTrip(tripId, color = '#e74c3c', weight = 5) {
-    const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -800,7 +805,7 @@ export class MapController {
   }
 
   highlightStop(stopId, color = '#e74c3c', radius = 12) {
-    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -890,9 +895,9 @@ export class MapController {
   }
 
   fitToRoutes(routeIds) {
-    const trips = this.gtfsParser.getFileData('trips.txt') || [];
-    const stopTimes = this.gtfsParser.getFileData('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileData('stops.txt') || [];
+    const trips = this.gtfsParser.getFileDataSync('trips.txt') || [];
+    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
 
     // Find all stops for these routes
     const allStops = new Set();

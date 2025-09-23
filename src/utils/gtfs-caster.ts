@@ -12,9 +12,6 @@ import {
 } from '../types/gtfs';
 import { GTFSRelationshipResolver } from './gtfs-relationships';
 
-console.log(z);
-console.log('hello world');
-
 export interface ValidationResult {
   success: boolean;
   data?: GTFSRecord[];
@@ -38,7 +35,7 @@ export class GTFSCaster {
    */
   public validateFile(
     filename: string,
-    rawData: any[],
+    rawData: Record<string, unknown>[],
     options: CastOptions = {}
   ): ValidationResult {
     const schema = GTFSSchemas[filename as keyof typeof GTFSSchemas];
@@ -100,13 +97,15 @@ export class GTFSCaster {
 
     for (const [filename, result] of Object.entries(results)) {
       if (result.success && result.data) {
-        const dataMap = new Map<string, any>();
+        const dataMap = new Map<string, Record<string, unknown>>();
 
         // Determine the primary key field for this file
         const primaryKeyField = this.getPrimaryKeyField(filename);
 
         for (const record of result.data) {
-          const primaryKey = (record as any)[primaryKeyField];
+          const primaryKey = (record as Record<string, unknown>)[
+            primaryKeyField
+          ];
           if (primaryKey) {
             dataMap.set(primaryKey, record);
           }
@@ -159,7 +158,7 @@ export class GTFSCaster {
    */
   private validateRecordForeignKeys(
     filename: string,
-    record: any,
+    record: Record<string, unknown>,
     context: GTFSValidationContext
   ): Array<{ field: string; message: string }> {
     const errors: Array<{ field: string; message: string }> = [];
@@ -202,7 +201,7 @@ export class GTFSCaster {
    * Validate and cast an entire GTFS feed
    */
   public validateFeed(
-    rawGtfsData: { [filename: string]: any[] },
+    rawGtfsData: { [filename: string]: Record<string, unknown>[] },
     options: CastOptions = {}
   ): { [filename: string]: ValidationResult } {
     const results: { [filename: string]: ValidationResult } = {};
@@ -332,7 +331,7 @@ export class GTFSCaster {
    */
   public castToTyped<T extends GTFSRecord>(
     filename: string,
-    rawData: any[]
+    rawData: Record<string, unknown>[]
   ): T[] {
     const result = this.validateFile(filename, rawData, { strict: false });
     return (result.data || []) as T[];
@@ -341,7 +340,10 @@ export class GTFSCaster {
   /**
    * Get enhanced record with resolved relationships
    */
-  public getEnhancedRecord(filename: string, recordId: string): any {
+  public getEnhancedRecord(
+    filename: string,
+    recordId: string
+  ): Record<string, unknown> | null {
     if (!this.relationshipResolver) {
       throw new Error(
         'Relationship resolver not initialized. Use validateFeed with resolveRelationships: true'
@@ -365,10 +367,12 @@ export class GTFSCaster {
    */
   public getFieldErrors(
     filename: string,
-    record: any
+    record: Record<string, unknown>
   ): { [fieldName: string]: string[] } {
     const schema = GTFSSchemas[filename as keyof typeof GTFSSchemas];
-    if (!schema) return {};
+    if (!schema) {
+      return {};
+    }
 
     try {
       schema.parse(record);
@@ -402,17 +406,17 @@ export class GTFSCaster {
       switch (issue.code) {
         case 'invalid_type':
           suggestions.push(
-            `Field '${issue.path.join('.')}' should be ${(issue as any).expected} but got ${(issue as any).received}`
+            `Field '${issue.path.join('.')}' should be ${(issue as Record<string, unknown>).expected} but got ${(issue as Record<string, unknown>).received}`
           );
           break;
         case 'too_small':
           suggestions.push(
-            `Field '${issue.path.join('.')}' is too small. Minimum value: ${(issue as any).minimum}`
+            `Field '${issue.path.join('.')}' is too small. Minimum value: ${(issue as Record<string, unknown>).minimum}`
           );
           break;
         case 'too_big':
           suggestions.push(
-            `Field '${issue.path.join('.')}' is too large. Maximum value: ${(issue as any).maximum}`
+            `Field '${issue.path.join('.')}' is too large. Maximum value: ${(issue as Record<string, unknown>).maximum}`
           );
           break;
         default:
@@ -428,28 +432,34 @@ export class GTFSCaster {
    */
   public getSchemaInfo(filename: string) {
     const schema = GTFSSchemas[filename as keyof typeof GTFSSchemas];
-    if (!schema) return null;
+    if (!schema) {
+      return null;
+    }
 
-    const shape = (schema as any).shape;
+    const shape = (schema as Record<string, unknown>).shape;
     const fields: Array<{
       name: string;
       type: string;
       required: boolean;
       description?: string;
-      constraints?: any;
+      constraints?: Record<string, unknown>;
     }> = [];
 
     for (const [fieldName, fieldSchema] of Object.entries(shape || {})) {
-      const isOptional = (fieldSchema as any)?._def?.typeName === 'ZodOptional';
+      const isOptional =
+        (fieldSchema as Record<string, unknown>)?._def?.typeName ===
+        'ZodOptional';
       const baseSchema = isOptional
-        ? (fieldSchema as any)._def.innerType
+        ? (fieldSchema as Record<string, unknown>)._def.innerType
         : fieldSchema;
 
       fields.push({
         name: fieldName,
         type: baseSchema?._def?.typeName || 'unknown',
         required: !isOptional,
-        description: (fieldSchema as any)?.description,
+        description: (fieldSchema as Record<string, unknown>)?.description as
+          | string
+          | undefined,
         constraints: this.extractConstraints(baseSchema),
       });
     }
@@ -462,10 +472,14 @@ export class GTFSCaster {
     };
   }
 
-  private extractConstraints(schema: any): any {
-    if (!schema || !schema._def) return {};
+  private extractConstraints(
+    schema: Record<string, unknown>
+  ): Record<string, unknown> {
+    if (!schema || !schema._def) {
+      return {};
+    }
 
-    const constraints: any = {};
+    const constraints: Record<string, unknown> = {};
 
     // Extract constraints based on schema type
     if (schema._def.checks) {

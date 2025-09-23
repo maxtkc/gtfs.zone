@@ -11,20 +11,23 @@ export interface AlignedTrip {
 }
 
 export interface TimetableData {
-  route: any;
-  service: any;
-  stops: any[];
+  route: Record<string, unknown>;
+  service: Record<string, unknown>;
+  stops: Record<string, unknown>[];
   trips: AlignedTrip[];
   directionId?: string;
   directionName?: string;
 }
 
 export class ScheduleController {
-  private relationships: any;
-  private gtfsParser: any;
-  private uiController: any = null;
+  private relationships: Record<string, unknown>;
+  private gtfsParser: Record<string, unknown>;
+  private uiController: Record<string, unknown> | null = null;
 
-  constructor(gtfsRelationships: any, gtfsParser: any) {
+  constructor(
+    gtfsRelationships: Record<string, unknown>,
+    gtfsParser: Record<string, unknown>
+  ) {
     this.relationships = gtfsRelationships;
     this.gtfsParser = gtfsParser;
   }
@@ -32,7 +35,7 @@ export class ScheduleController {
   /**
    * Set UI controller reference for integration
    */
-  setUIController(uiController: any): void {
+  setUIController(uiController: Record<string, unknown>): void {
     this.uiController = uiController;
   }
 
@@ -89,8 +92,10 @@ export class ScheduleController {
     directionId?: string
   ): TimetableData {
     // Get route information
-    const routesData = this.gtfsParser.getFileData('routes.txt') || [];
-    const route = routesData.find((r: any) => r.route_id === routeId);
+    const routesData = this.gtfsParser.getFileDataSync('routes.txt') || [];
+    const route = routesData.find(
+      (r: Record<string, unknown>) => r.route_id === routeId
+    );
     if (!route) {
       throw new Error(`Route ${routeId} not found`);
     }
@@ -102,12 +107,15 @@ export class ScheduleController {
 
     // Get all trips for this route and service
     const allTrips = this.relationships.getTripsForRoute(routeId);
-    let trips = allTrips.filter((trip: any) => trip.serviceId === serviceId);
+    let trips = allTrips.filter(
+      (trip: Record<string, unknown>) => trip.serviceId === serviceId
+    );
 
     // Filter by direction if specified
     if (directionId !== undefined) {
       trips = trips.filter(
-        (trip: any) => (trip.directionId || '0') === directionId
+        (trip: Record<string, unknown>) =>
+          (trip.directionId || '0') === directionId
       );
     }
 
@@ -154,7 +162,7 @@ export class ScheduleController {
   /**
    * Core alignment algorithm - align trips by stops, allowing gaps
    */
-  private alignTrips(trips: any[]): AlignedTrip[] {
+  private alignTrips(trips: Record<string, unknown>[]): AlignedTrip[] {
     const alignedTrips: AlignedTrip[] = [];
 
     for (const trip of trips) {
@@ -162,7 +170,7 @@ export class ScheduleController {
       const stopTimeMap = new Map<string, string>();
 
       // Populate stop times for this trip
-      stopTimes.forEach((st: any) => {
+      stopTimes.forEach((st: Record<string, unknown>) => {
         // Use departure time, fallback to arrival time
         const time = st.departureTime || st.arrivalTime;
         if (time) {
@@ -183,13 +191,16 @@ export class ScheduleController {
   /**
    * Get stops sorted by most common sequence position
    */
-  private getSortedStops(stopIds: string[], trips: any[]): any[] {
+  private getSortedStops(
+    stopIds: string[],
+    trips: Record<string, unknown>[]
+  ): Record<string, unknown>[] {
     const stopSequences = new Map<string, number[]>();
 
     // Collect all sequence positions for each stop
     for (const trip of trips) {
       const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
-      stopTimes.forEach((st: any) => {
+      stopTimes.forEach((st: Record<string, unknown>) => {
         if (stopIds.includes(st.stopId)) {
           if (!stopSequences.has(st.stopId)) {
             stopSequences.set(st.stopId, []);
@@ -254,7 +265,10 @@ export class ScheduleController {
   /**
    * Render schedule header
    */
-  private renderScheduleHeader(route: any, service: any): string {
+  private renderScheduleHeader(
+    route: Record<string, unknown>,
+    service: Record<string, unknown>
+  ): string {
     const routeName = route.route_short_name
       ? `${route.route_short_name}${route.route_long_name ? ' - ' + route.route_long_name : ''}`
       : route.route_long_name || route.route_id;
@@ -317,7 +331,7 @@ export class ScheduleController {
   /**
    * Render service properties section
    */
-  private renderServiceProperties(service: any): string {
+  private renderServiceProperties(service: Record<string, unknown>): string {
     if (!service || typeof service !== 'object') {
       return '';
     }
@@ -445,20 +459,22 @@ export class ScheduleController {
   /**
    * Get routes that use a specific service
    */
-  private getRoutesUsingService(serviceId: string): any[] {
-    const allRoutes = this.gtfsParser.getFileData('routes.txt') || [];
-    const allTrips = this.gtfsParser.getFileData('trips.txt') || [];
+  private getRoutesUsingService(serviceId: string): Record<string, unknown>[] {
+    const allRoutes = this.gtfsParser.getFileDataSync('routes.txt') || [];
+    const allTrips = this.gtfsParser.getFileDataSync('trips.txt') || [];
 
     // Get unique route IDs that have trips using this service
     const routeIds = new Set();
-    allTrips.forEach((trip: any) => {
+    allTrips.forEach((trip: Record<string, unknown>) => {
       if (trip.service_id === serviceId) {
         routeIds.add(trip.route_id);
       }
     });
 
     // Return route objects for these route IDs
-    return allRoutes.filter((route: any) => routeIds.has(route.route_id));
+    return allRoutes.filter((route: Record<string, unknown>) =>
+      routeIds.has(route.route_id)
+    );
   }
 
   /**
@@ -480,7 +496,7 @@ export class ScheduleController {
         month: 'short',
         day: 'numeric',
       });
-    } catch (error) {
+    } catch {
       return dateString;
     }
   }
@@ -539,9 +555,12 @@ export class ScheduleController {
   /**
    * Render timetable body with stop rows
    */
-  private renderTimetableBody(stops: any[], trips: AlignedTrip[]): string {
+  private renderTimetableBody(
+    stops: Record<string, unknown>[],
+    trips: AlignedTrip[]
+  ): string {
     const rows = stops
-      .map((stop, index) => {
+      .map((stop) => {
         const rowClass = '';
         const timeCells = trips
           .map((trip) => {
@@ -573,7 +592,9 @@ export class ScheduleController {
    * Format time for display (HH:MM)
    */
   private formatTime(time: string): string {
-    if (!time) return '';
+    if (!time) {
+      return '';
+    }
 
     // Handle times like "24:30:00" or "25:15:00" (next day)
     const parts = time.split(':');
@@ -597,7 +618,9 @@ export class ScheduleController {
    */
   private attachScheduleEventListeners(data: TimetableData): void {
     const container = document.getElementById('schedule-view');
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     // Breadcrumb navigation is now handled by UI controller
     // Only add fallback handlers if UI controller is not available
@@ -635,7 +658,9 @@ export class ScheduleController {
    */
   private renderError(message: string): void {
     const container = document.getElementById('object-details-view');
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     container.innerHTML = `
       <div class="h-full flex flex-col">
@@ -666,7 +691,10 @@ export class ScheduleController {
   /**
    * Get a human-readable direction name
    */
-  private getDirectionName(directionId: string, trips: any[]): string {
+  private getDirectionName(
+    directionId: string,
+    _trips: Record<string, unknown>[]
+  ): string {
     // Use standard direction names
     switch (directionId) {
       case '0':

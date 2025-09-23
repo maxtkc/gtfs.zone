@@ -69,7 +69,7 @@ export class GTFSMetadata {
     }
 
     // Extract additional information from the schema
-    const shape = (schema as any).shape;
+    const shape = (schema as Record<string, unknown>).shape;
     const fieldSchema = shape?.[fieldName];
 
     const isOptional = fieldSchema?._def?.typeName === 'ZodOptional';

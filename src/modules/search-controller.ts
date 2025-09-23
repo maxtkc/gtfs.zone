@@ -92,7 +92,10 @@ export class SearchController {
     this.showLoadingState();
 
     try {
-      const results = this.gtfsParser.searchAll(query);
+      // Use async search methods if available, fallback to sync
+      const results = this.gtfsParser.searchAllAsync
+        ? await this.gtfsParser.searchAllAsync(query)
+        : this.gtfsParser.searchAll(query);
       this.displayResults(results, query);
     } catch (error) {
       console.error('Search error:', error);

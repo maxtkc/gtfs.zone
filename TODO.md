@@ -46,14 +46,20 @@ This will show everything at a high level.
 
 - This is less important
 
-#### GTFS State
+#### GTFS State ✅ COMPLETED
 
-- We need to use IndexedDB because of size limitations. This will maybe help performance too?
-- Try running everything through indexeddb? Load -> indexeddb -> ui. Modify -> indexeddb -> ui. Maybe we can cache for performance?
-- Web worker for initial load into the state
+- ✅ IndexedDB implementation complete with row-level storage
+- ✅ Persistent storage for 30MB+ files with real-time editing
+- ✅ Complete fallback system for unsupported browsers
+- ✅ Performance optimizations and comprehensive testing
+
+### Mobile support
+
+- The map is still the main thing. The sidebar becomes a bottom bar and you can swipe down to see more there
 
 ### Misc
 
-- Fix the hot reloading -- it's BAD
+- Fix the lint issue
 - Add dropdowns for enum fields
 - Fix the tooltips, zod isn't working correctly
+- Remove the junk gtfs feed and start properly empty

@@ -1,9 +1,54 @@
 export class KeyboardShortcuts {
-  private gtfsEditor: any;
-  private shortcuts: Map<string, { handler: Function; description: string }>;
+  private gtfsEditor: {
+    uiController: {
+      createNewFeed: () => void;
+      exportGTFS: () => void;
+    };
+    editor: {
+      saveCurrentFileChanges: () => void;
+    };
+    mapController?: {
+      clearHighlights: () => void;
+    };
+    searchController?: {
+      clearSearch: () => void;
+    };
+    objectsNavigation?: {
+      searchQuery: string;
+      render: () => void;
+    };
+    tabManager?: {
+      switchToTab: (tabName: string) => void;
+    };
+  };
+  private shortcuts: Map<
+    string,
+    { handler: (e?: Event) => void; description: string }
+  >;
   private initialized: boolean;
 
-  constructor(gtfsEditor: any) {
+  constructor(gtfsEditor: {
+    uiController: {
+      createNewFeed: () => void;
+      exportGTFS: () => void;
+    };
+    editor: {
+      saveCurrentFileChanges: () => void;
+    };
+    mapController?: {
+      clearHighlights: () => void;
+    };
+    searchController?: {
+      clearSearch: () => void;
+    };
+    objectsNavigation?: {
+      searchQuery: string;
+      render: () => void;
+    };
+    tabManager?: {
+      switchToTab: (tabName: string) => void;
+    };
+  }) {
     this.gtfsEditor = gtfsEditor;
     this.shortcuts = new Map();
     this.initialized = false;
@@ -123,7 +168,7 @@ export class KeyboardShortcuts {
     );
   }
 
-  addShortcut(keys: string, handler: Function, description: string) {
+  addShortcut(keys: string, handler: (e?: Event) => void, description: string) {
     this.shortcuts.set(keys, { handler, description });
   }
 

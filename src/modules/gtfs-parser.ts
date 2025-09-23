@@ -1,5 +1,7 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
+import { GTFSDatabase, GTFSRecord } from './gtfs-database.js';
+import { loadingStateManager } from './loading-state-manager.js';
 
 // GTFS file definitions
 export const GTFS_FILES = {
@@ -25,18 +27,24 @@ export const GTFS_FILES = {
 
 interface GTFSFileData {
   content: string;
-  data: any[];
-  errors: any[];
+  data: GTFSRecord[];
+  errors: Papa.ParseError[];
 }
 
 export class GTFSParser {
   private gtfsData: { [fileName: string]: GTFSFileData } = {};
+  private gtfsDatabase: GTFSDatabase;
 
   constructor() {
     this.gtfsData = {};
+    this.gtfsDatabase = new GTFSDatabase();
   }
 
-  initializeEmpty(): void {
+  async initialize(): Promise<void> {
+    await this.gtfsDatabase.initialize();
+  }
+
+  async initializeEmpty(): Promise<void> {
     // Initialize with realistic sample GTFS structure
     const sampleData = {
       'agency.txt': [
@@ -208,6 +216,9 @@ export class GTFSParser {
       ],
     };
 
+    // Clear existing data from database
+    await this.gtfsDatabase.clearDatabase();
+
     // Convert to expected format with content and data properties
     this.gtfsData = {};
     for (const [fileName, data] of Object.entries(sampleData)) {
@@ -216,8 +227,8 @@ export class GTFSParser {
         const headers = Object.keys(data[0]);
         const csvContent = [
           headers.join(','),
-          ...data.map((row: any) =>
-            headers.map((header) => (row as any)[header] || '').join(',')
+          ...data.map((row: GTFSRecord) =>
+            headers.map((header) => row[header] || '').join(',')
           ),
         ].join('\n');
 
@@ -226,19 +237,53 @@ export class GTFSParser {
           data: data,
           errors: [],
         };
+
+        // Store in IndexedDB
+        const tableName = this.getTableName(fileName);
+        const rows = data as GTFSRecord[];
+        await this.gtfsDatabase.insertRows(tableName, rows);
       }
     }
 
+    // Update project metadata
+    await this.gtfsDatabase.updateProjectMetadata({
+      name: 'Sample GTFS Feed',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      fileCount: Object.keys(sampleData).length,
+    });
+
+    // eslint-disable-next-line no-console
     console.log('Initialized empty GTFS feed with sample data');
+    // eslint-disable-next-line no-console
     console.log('Final gtfsData structure:', this.gtfsData);
   }
 
   async parseFile(
     file: File | Blob
   ): Promise<{ [fileName: string]: GTFSFileData }> {
+    const operation = 'parseFile';
+
     try {
+      // eslint-disable-next-line no-console
       console.log('Loading GTFS file:', (file as File).name || 'blob');
 
+      // Start loading indicator
+      loadingStateManager.startLoading(operation, 'Loading GTFS file...');
+
+      // Clear existing data from database
+      loadingStateManager.updateProgress(
+        operation,
+        10,
+        'Clearing existing data...'
+      );
+      await this.gtfsDatabase.clearDatabase();
+
+      loadingStateManager.updateProgress(
+        operation,
+        20,
+        'Extracting ZIP file...'
+      );
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(file);
 
@@ -248,8 +293,17 @@ export class GTFSParser {
       );
 
       this.gtfsData = {};
+      const totalFiles = files.length;
 
-      for (const fileName of files) {
+      for (let i = 0; i < files.length; i++) {
+        const fileName = files[i];
+        const progress = 20 + 60 * (i / totalFiles); // 20-80% for file processing
+
+        loadingStateManager.updateProgress(
+          operation,
+          progress,
+          `Processing ${fileName}...`
+        );
         const fileContent = await zipContent.files[fileName].async('text');
 
         if (fileName.endsWith('.txt')) {
@@ -258,11 +312,25 @@ export class GTFSParser {
             header: true,
             skipEmptyLines: true,
           });
+
+          // Store in memory for compatibility
           this.gtfsData[fileName] = {
             content: fileContent,
             data: parsed.data,
             errors: parsed.errors,
           };
+
+          // Store in IndexedDB
+          const tableName = this.getTableName(fileName);
+          const rows = parsed.data as GTFSRecord[];
+          if (rows.length > 0) {
+            loadingStateManager.updateProgress(
+              operation,
+              progress + 5,
+              `Storing ${fileName} (${rows.length} records)...`
+            );
+            await this.gtfsDatabase.insertRows(tableName, rows);
+          }
         } else if (fileName.endsWith('.geojson')) {
           // Handle GeoJSON files
           this.gtfsData[fileName] = {
@@ -270,19 +338,52 @@ export class GTFSParser {
             data: JSON.parse(fileContent),
             errors: [],
           };
+
+          // Store GeoJSON in IndexedDB as well
+          const tableName = this.getTableName(fileName);
+          const geoJsonData = JSON.parse(fileContent);
+          await this.gtfsDatabase.insertRows(tableName, [
+            geoJsonData as GTFSRecord,
+          ]);
         }
       }
 
-      console.log('Loaded GTFS data:', this.gtfsData);
+      // Update project metadata
+      loadingStateManager.updateProgress(operation, 90, 'Finalizing...');
+      await this.gtfsDatabase.updateProjectMetadata({
+        name: (file as File).name || 'Uploaded GTFS',
+        createdAt: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        fileCount: files.length,
+      });
+
+      loadingStateManager.updateProgress(operation, 100, 'Complete!');
+      loadingStateManager.finishLoading(operation);
+      loadingStateManager.showSuccess(
+        `Successfully loaded ${files.length} GTFS files`
+      );
+
+      // eslint-disable-next-line no-console
+      console.log('Loaded GTFS data to IndexedDB and memory:', this.gtfsData);
       return this.gtfsData;
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error loading GTFS file:', error);
+      loadingStateManager.finishLoading(operation);
+      loadingStateManager.showError(
+        `Failed to load GTFS file: ${error.message}`
+      );
       throw error;
     }
   }
 
+  private getTableName(fileName: string): string {
+    return fileName.replace('.txt', '').replace('.geojson', '');
+  }
+
   async parseFromURL(url: string): Promise<void> {
     try {
+      // eslint-disable-next-line no-console
       console.log('Loading GTFS from URL:', url);
 
       const response = await fetch(url);
@@ -294,12 +395,13 @@ export class GTFSParser {
       await this.parseFile(blob);
       return;
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error loading GTFS from URL:', error);
       throw error;
     }
   }
 
-  updateFileContent(fileName: string, content: string): void {
+  async updateFileContent(fileName: string, content: string): Promise<void> {
     if (this.gtfsData[fileName]) {
       this.gtfsData[fileName].content = content;
 
@@ -311,6 +413,30 @@ export class GTFSParser {
         });
         this.gtfsData[fileName].data = parsed.data;
         this.gtfsData[fileName].errors = parsed.errors;
+
+        // Update IndexedDB with new data
+        const tableName = this.getTableName(fileName);
+
+        // Clear existing rows for this table
+        await this.gtfsDatabase.clearTable(tableName);
+
+        // Insert new rows
+        const rows = parsed.data as GTFSRecord[];
+        if (rows.length > 0) {
+          await this.gtfsDatabase.insertRows(tableName, rows);
+        }
+      } else if (fileName.endsWith('.geojson')) {
+        // Handle GeoJSON updates
+        this.gtfsData[fileName].data = JSON.parse(content);
+
+        const tableName = this.getTableName(fileName);
+        // Clear and re-insert GeoJSON data
+        await this.gtfsDatabase.clearTable(tableName);
+
+        const geoJsonData = JSON.parse(content);
+        await this.gtfsDatabase.insertRows(tableName, [
+          geoJsonData as GTFSRecord,
+        ]);
       }
     }
   }
@@ -319,7 +445,28 @@ export class GTFSParser {
     return this.gtfsData[fileName]?.content || '';
   }
 
-  getFileData(fileName: string): any[] | null {
+  async getFileData(fileName: string): Promise<GTFSRecord[] | null> {
+    // Try to get from IndexedDB first
+    try {
+      const tableName = this.getTableName(fileName);
+      const rows = await this.gtfsDatabase.getAllRows(tableName);
+      if (rows.length > 0) {
+        return rows;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `Failed to get data from IndexedDB for ${fileName}, falling back to memory:`,
+        error
+      );
+    }
+
+    // Fallback to memory
+    return this.gtfsData[fileName]?.data || null;
+  }
+
+  // Synchronous version for backward compatibility (will use memory data)
+  getFileDataSync(fileName: string): GTFSRecord[] | null {
     return this.gtfsData[fileName]?.data || null;
   }
 
@@ -344,23 +491,80 @@ export class GTFSParser {
   }
 
   async exportAsZip() {
-    if (Object.keys(this.gtfsData).length === 0) {
-      throw new Error('No GTFS data to export');
+    try {
+      // Get all available files from memory (for file list)
+      const fileNames = Object.keys(this.gtfsData);
+
+      if (fileNames.length === 0) {
+        throw new Error('No GTFS data to export');
+      }
+
+      const zip = new JSZip();
+
+      for (const fileName of fileNames) {
+        try {
+          // Get data from IndexedDB first
+          const tableName = this.getTableName(fileName);
+          const rows = await this.gtfsDatabase.getAllRows(tableName);
+
+          if (rows.length > 0) {
+            // Generate CSV content from IndexedDB data
+            let csvContent = '';
+
+            if (fileName.endsWith('.txt')) {
+              // Remove the auto-generated 'id' field and create CSV
+              const cleanRows = rows.map((row) => {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { id, ...cleanRow } = row;
+                return cleanRow;
+              });
+
+              if (cleanRows.length > 0) {
+                const headers = Object.keys(cleanRows[0]);
+                csvContent = [
+                  headers.join(','),
+                  ...cleanRows.map((row) =>
+                    headers.map((header) => row[header] || '').join(',')
+                  ),
+                ].join('\n');
+              }
+            } else if (fileName.endsWith('.geojson')) {
+              // For GeoJSON, use the stored data directly
+              csvContent = JSON.stringify(rows[0], null, 2);
+            }
+
+            zip.file(fileName, csvContent);
+          } else {
+            // Fallback to memory content if IndexedDB is empty
+            // eslint-disable-next-line no-console
+            console.warn(
+              `No data in IndexedDB for ${fileName}, using memory content`
+            );
+            zip.file(fileName, this.gtfsData[fileName].content);
+          }
+        } catch (dbError) {
+          // Fallback to memory content if IndexedDB fails
+          // eslint-disable-next-line no-console
+          console.warn(
+            `IndexedDB error for ${fileName}, using memory content:`,
+            dbError
+          );
+          zip.file(fileName, this.gtfsData[fileName].content);
+        }
+      }
+
+      return await zip.generateAsync({ type: 'blob' });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error exporting GTFS data:', error);
+      throw error;
     }
-
-    const zip = new JSZip();
-
-    Object.keys(this.gtfsData).forEach((fileName) => {
-      zip.file(fileName, this.gtfsData[fileName].content);
-    });
-
-    return await zip.generateAsync({ type: 'blob' });
   }
 
   getRoutesForStop(stopId: string) {
-    const routes = this.getFileData('routes.txt');
-    const trips = this.getFileData('trips.txt');
-    const stopTimes = this.getFileData('stop_times.txt');
+    const routes = this.getFileDataSync('routes.txt');
+    const trips = this.getFileDataSync('trips.txt');
+    const stopTimes = this.getFileDataSync('stop_times.txt');
 
     if (!routes || !trips || !stopTimes) {
       return [];
@@ -412,7 +616,7 @@ export class GTFSParser {
 
   // Search functionality
   searchStops(query: string) {
-    const stops = this.getFileData('stops.txt') || [];
+    const stops = this.getFileDataSync('stops.txt') || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -434,7 +638,7 @@ export class GTFSParser {
   }
 
   searchRoutes(query: string) {
-    const routes = this.getFileData('routes.txt') || [];
+    const routes = this.getFileDataSync('routes.txt') || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -466,5 +670,89 @@ export class GTFSParser {
       stops: this.searchStops(query),
       routes: this.searchRoutes(query),
     };
+  }
+
+  // Async versions of search methods that use IndexedDB
+  async searchStopsAsync(query: string) {
+    const stops = (await this.getFileData('stops.txt')) || [];
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = query.toLowerCase().trim();
+
+    return stops
+      .filter((stop) => {
+        return (
+          (stop.stop_name &&
+            stop.stop_name.toLowerCase().includes(searchTerm)) ||
+          (stop.stop_id && stop.stop_id.toLowerCase().includes(searchTerm)) ||
+          (stop.stop_code &&
+            stop.stop_code.toLowerCase().includes(searchTerm)) ||
+          (stop.stop_desc && stop.stop_desc.toLowerCase().includes(searchTerm))
+        );
+      })
+      .slice(0, 10); // Limit to 10 results
+  }
+
+  async searchRoutesAsync(query: string) {
+    const routes = (await this.getFileData('routes.txt')) || [];
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = query.toLowerCase().trim();
+
+    return routes
+      .filter((route) => {
+        return (
+          (route.route_short_name &&
+            route.route_short_name.toLowerCase().includes(searchTerm)) ||
+          (route.route_long_name &&
+            route.route_long_name.toLowerCase().includes(searchTerm)) ||
+          (route.route_id &&
+            route.route_id.toLowerCase().includes(searchTerm)) ||
+          (route.route_desc &&
+            route.route_desc.toLowerCase().includes(searchTerm))
+        );
+      })
+      .slice(0, 10); // Limit to 10 results
+  }
+
+  async searchAllAsync(query: string) {
+    if (!query || query.trim().length < 2) {
+      return { stops: [], routes: [] };
+    }
+
+    return {
+      stops: await this.searchStopsAsync(query),
+      routes: await this.searchRoutesAsync(query),
+    };
+  }
+
+  async getRoutesForStopAsync(stopId: string) {
+    const routes = await this.getFileData('routes.txt');
+    const trips = await this.getFileData('trips.txt');
+    const stopTimes = await this.getFileData('stop_times.txt');
+
+    if (!routes || !trips || !stopTimes) {
+      return [];
+    }
+
+    // Find trips that serve this stop
+    const tripsAtStop = stopTimes
+      .filter((st) => st.stop_id === stopId)
+      .map((st) => st.trip_id);
+
+    // Find routes for those trips
+    const routeIds = [
+      ...new Set(
+        trips
+          .filter((trip) => tripsAtStop.includes(trip.trip_id))
+          .map((trip) => trip.route_id)
+      ),
+    ];
+
+    return routes.filter((route) => routeIds.includes(route.route_id));
   }
 }

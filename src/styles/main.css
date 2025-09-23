@@ -66,6 +66,25 @@
     background-color: oklch(var(--b2));
     outline: none;
   }
+
+  /* Table cell save state indicators */
+  .clusterize-table input.pending-save {
+    background-color: oklch(var(--warning) / 0.1);
+    border-left: 3px solid oklch(var(--warning));
+  }
+
+  .clusterize-table input.saved {
+    background-color: oklch(var(--success) / 0.1);
+    border-left: 3px solid oklch(var(--success));
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease;
+  }
+
+  .clusterize-table input.save-error {
+    background-color: oklch(var(--error) / 0.1);
+    border-left: 3px solid oklch(var(--error));
+  }
 }
 
 @layer components {

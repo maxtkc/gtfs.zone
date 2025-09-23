@@ -1,5 +1,5 @@
 interface ErrorMetadata {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ErrorOptions {
@@ -155,7 +155,7 @@ export class ErrorHandler {
     }
   }
 
-  static wrap<T extends (...args: any[]) => any>(
+  static wrap<T extends (...args: unknown[]) => unknown>(
     handler: T,
     context: string
   ): T {

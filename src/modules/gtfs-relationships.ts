@@ -4,18 +4,30 @@
  * Agency → Routes → Trips → Stop Times → Stops
  */
 
-export class GTFSRelationships {
-  private gtfsParser: any;
+import { GTFSDatabase, GTFSRecord } from './gtfs-database.js';
 
-  constructor(gtfsParser: any) {
+interface GTFSParserInterface {
+  getFileDataSync: (filename: string) => GTFSRecord[];
+  gtfsDatabase: GTFSDatabase;
+  searchStops: (query: string) => GTFSRecord[];
+  searchRoutes: (query: string) => GTFSRecord[];
+  searchAll: (query: string) => { stops: GTFSRecord[]; routes: GTFSRecord[] };
+}
+
+export class GTFSRelationships {
+  private gtfsParser: GTFSParserInterface;
+  private gtfsDatabase: GTFSDatabase;
+
+  constructor(gtfsParser: GTFSParserInterface) {
     this.gtfsParser = gtfsParser;
+    this.gtfsDatabase = gtfsParser.gtfsDatabase;
   }
 
   /**
    * Get all agencies in the GTFS feed
    */
   getAgencies() {
-    const agencyData = this.gtfsParser.getFileData('agency.txt');
+    const agencyData = this.gtfsParser.getFileDataSync('agency.txt');
     if (!agencyData || !Array.isArray(agencyData)) {
       return [];
     }
@@ -35,7 +47,7 @@ export class GTFSRelationships {
    * Get all routes for a specific agency
    */
   getRoutesForAgency(agencyId: string) {
-    const routesData = this.gtfsParser.getFileData('routes.txt');
+    const routesData = this.gtfsParser.getFileDataSync('routes.txt');
     if (!routesData || !Array.isArray(routesData)) {
       return [];
     }
@@ -60,7 +72,7 @@ export class GTFSRelationships {
    * Get all trips for a specific route
    */
   getTripsForRoute(routeId: string) {
-    const tripsData = this.gtfsParser.getFileData('trips.txt');
+    const tripsData = this.gtfsParser.getFileDataSync('trips.txt');
     if (!tripsData || !Array.isArray(tripsData)) {
       return [];
     }
@@ -85,7 +97,7 @@ export class GTFSRelationships {
    * Get stop times for a specific trip
    */
   getStopTimesForTrip(tripId: string) {
-    const stopTimesData = this.gtfsParser.getFileData('stop_times.txt');
+    const stopTimesData = this.gtfsParser.getFileDataSync('stop_times.txt');
     if (!stopTimesData || !Array.isArray(stopTimesData)) {
       return [];
     }
@@ -116,7 +128,7 @@ export class GTFSRelationships {
    * Get stop details by stop ID
    */
   getStopById(stopId: string) {
-    const stopsData = this.gtfsParser.getFileData('stops.txt');
+    const stopsData = this.gtfsParser.getFileDataSync('stops.txt');
     if (!stopsData || !Array.isArray(stopsData)) {
       return null;
     }
@@ -148,7 +160,7 @@ export class GTFSRelationships {
    * Get all trips that serve a specific stop
    */
   getTripsForStop(stopId: string) {
-    const stopTimesData = this.gtfsParser.getFileData('stop_times.txt');
+    const stopTimesData = this.gtfsParser.getFileDataSync('stop_times.txt');
     if (!stopTimesData || !Array.isArray(stopTimesData)) {
       return [];
     }
@@ -161,7 +173,7 @@ export class GTFSRelationships {
       ),
     ];
 
-    const tripsData = this.gtfsParser.getFileData('trips.txt');
+    const tripsData = this.gtfsParser.getFileDataSync('trips.txt');
     if (!tripsData || !Array.isArray(tripsData)) {
       return [];
     }
@@ -184,7 +196,7 @@ export class GTFSRelationships {
    * Get calendar information for a service ID
    */
   getCalendarForService(serviceId: string) {
-    const calendarData = this.gtfsParser.getFileData('calendar.txt');
+    const calendarData = this.gtfsParser.getFileDataSync('calendar.txt');
     if (!calendarData || !Array.isArray(calendarData)) {
       return null;
     }
@@ -212,7 +224,8 @@ export class GTFSRelationships {
    * Get calendar exceptions for a service ID
    */
   getCalendarDatesForService(serviceId: string) {
-    const calendarDatesData = this.gtfsParser.getFileData('calendar_dates.txt');
+    const calendarDatesData =
+      this.gtfsParser.getFileDataSync('calendar_dates.txt');
     if (!calendarDatesData || !Array.isArray(calendarDatesData)) {
       return [];
     }
@@ -229,8 +242,8 @@ export class GTFSRelationships {
   /**
    * Enrich stop times with stop information
    */
-  enrichStopTimesWithStops(stopTimes: any[]) {
-    return stopTimes.map((stopTime: any) => {
+  enrichStopTimesWithStops(stopTimes: Record<string, unknown>[]) {
+    return stopTimes.map((stopTime: Record<string, unknown>) => {
       const stop = this.getStopById(stopTime.stop_id);
       return {
         ...stopTime,
@@ -244,10 +257,11 @@ export class GTFSRelationships {
    */
   getStatistics() {
     const agencies = this.getAgencies();
-    const routesData = this.gtfsParser.getFileData('routes.txt') || [];
-    const tripsData = this.gtfsParser.getFileData('trips.txt') || [];
-    const stopsData = this.gtfsParser.getFileData('stops.txt') || [];
-    const stopTimesData = this.gtfsParser.getFileData('stop_times.txt') || [];
+    const routesData = this.gtfsParser.getFileDataSync('routes.txt') || [];
+    const tripsData = this.gtfsParser.getFileDataSync('trips.txt') || [];
+    const stopsData = this.gtfsParser.getFileDataSync('stops.txt') || [];
+    const stopTimesData =
+      this.gtfsParser.getFileDataSync('stop_times.txt') || [];
 
     return {
       agencies: agencies.length,
@@ -315,7 +329,10 @@ export class GTFSRelationships {
   /**
    * Get a human-readable direction name
    */
-  private getDirectionName(directionId: string, trips: any[]): string {
+  private getDirectionName(
+    directionId: string,
+    trips: Record<string, unknown>[]
+  ): string {
     // Try to get direction name from trip headsigns
     const headsigns = [
       ...new Set(trips.map((trip) => trip.headsign).filter(Boolean)),
@@ -342,7 +359,7 @@ export class GTFSRelationships {
    * Get route by ID
    */
   getRouteById(routeId: string) {
-    const routesData = this.gtfsParser.getFileData('routes.txt');
+    const routesData = this.gtfsParser.getFileDataSync('routes.txt');
     if (!routesData || !Array.isArray(routesData)) {
       return null;
     }
@@ -370,7 +387,7 @@ export class GTFSRelationships {
    * Get trip by ID
    */
   getTripById(tripId: string) {
-    const tripsData = this.gtfsParser.getFileData('trips.txt');
+    const tripsData = this.gtfsParser.getFileDataSync('trips.txt');
     if (!tripsData || !Array.isArray(tripsData)) {
       return null;
     }
@@ -405,5 +422,620 @@ export class GTFSRelationships {
       stats.trips > 0 ||
       stats.stops > 0
     );
+  }
+
+  // ========== ASYNC INDEXEDDB METHODS ==========
+
+  /**
+   * Get all agencies in the GTFS feed (async)
+   */
+  async getAgenciesAsync() {
+    try {
+      const agencyData = await this.gtfsDatabase.getAllRows('agencies');
+      if (!agencyData || !Array.isArray(agencyData)) {
+        return [];
+      }
+      return agencyData.map((agency) => ({
+        id: agency.agency_id,
+        name: agency.agency_name || `Agency ${agency.agency_id}`,
+        url: agency.agency_url,
+        timezone: agency.agency_timezone,
+        lang: agency.agency_lang,
+        phone: agency.agency_phone,
+        fare_url: agency.agency_fare_url,
+        email: agency.agency_email,
+      }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting agencies from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getAgencies();
+    }
+  }
+
+  /**
+   * Get all routes for a specific agency (async)
+   */
+  async getRoutesForAgencyAsync(agencyId: string) {
+    try {
+      const routesData = await this.gtfsDatabase.queryRows('routes', {
+        agency_id: agencyId,
+      });
+      if (!routesData || !Array.isArray(routesData)) {
+        return [];
+      }
+
+      return routesData.map((route) => ({
+        id: route.route_id,
+        agencyId: route.agency_id,
+        shortName: route.route_short_name,
+        longName: route.route_long_name,
+        desc: route.route_desc,
+        type: route.route_type,
+        url: route.route_url,
+        color: route.route_color,
+        textColor: route.route_text_color,
+        sortOrder: route.route_sort_order,
+      }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting routes for agency from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getRoutesForAgency(agencyId);
+    }
+  }
+
+  /**
+   * Get all trips for a specific route (async)
+   */
+  async getTripsForRouteAsync(routeId: string) {
+    try {
+      const tripsData = await this.gtfsDatabase.queryRows('trips', {
+        route_id: routeId,
+      });
+      if (!tripsData || !Array.isArray(tripsData)) {
+        return [];
+      }
+
+      return tripsData.map((trip) => ({
+        id: trip.trip_id,
+        routeId: trip.route_id,
+        serviceId: trip.service_id,
+        headsign: trip.trip_headsign,
+        shortName: trip.trip_short_name,
+        directionId: trip.direction_id,
+        blockId: trip.block_id,
+        shapeId: trip.shape_id,
+        wheelchairAccessible: trip.wheelchair_accessible,
+        bikesAllowed: trip.bikes_allowed,
+      }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting trips for route from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getTripsForRoute(routeId);
+    }
+  }
+
+  /**
+   * Get stop times for a specific trip (async)
+   */
+  async getStopTimesForTripAsync(tripId: string) {
+    try {
+      const stopTimesData = await this.gtfsDatabase.queryRows('stop_times', {
+        trip_id: tripId,
+      });
+      if (!stopTimesData || !Array.isArray(stopTimesData)) {
+        return [];
+      }
+
+      const stopTimes = stopTimesData
+        .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence))
+        .map((stopTime) => ({
+          tripId: stopTime.trip_id,
+          stopId: stopTime.stop_id,
+          stopSequence: parseInt(stopTime.stop_sequence),
+          arrivalTime: stopTime.arrival_time,
+          departureTime: stopTime.departure_time,
+          stopHeadsign: stopTime.stop_headsign,
+          pickupType: stopTime.pickup_type,
+          dropOffType: stopTime.drop_off_type,
+          continuousPickup: stopTime.continuous_pickup,
+          continuousDropOff: stopTime.continuous_drop_off,
+          shapeDistTraveled: stopTime.shape_dist_traveled,
+          timepoint: stopTime.timepoint,
+        }));
+
+      // Enrich with stop information
+      return await this.enrichStopTimesWithStopsAsync(stopTimes);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting stop times for trip from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getStopTimesForTrip(tripId);
+    }
+  }
+
+  /**
+   * Get stop details by stop ID (async)
+   */
+  async getStopByIdAsync(stopId: string) {
+    try {
+      const stopsData = await this.gtfsDatabase.queryRows('stops', {
+        stop_id: stopId,
+      });
+      if (!stopsData || !Array.isArray(stopsData) || stopsData.length === 0) {
+        return null;
+      }
+
+      const stop = stopsData[0];
+      return {
+        id: stop.stop_id,
+        code: stop.stop_code,
+        name: stop.stop_name,
+        desc: stop.stop_desc,
+        lat: parseFloat(stop.stop_lat),
+        lon: parseFloat(stop.stop_lon),
+        zoneId: stop.zone_id,
+        url: stop.stop_url,
+        locationType: stop.location_type,
+        parentStation: stop.parent_station,
+        timezone: stop.stop_timezone,
+        wheelchairBoarding: stop.wheelchair_boarding,
+        levelId: stop.level_id,
+        platformCode: stop.platform_code,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting stop by ID from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getStopById(stopId);
+    }
+  }
+
+  /**
+   * Get all trips that serve a specific stop (async)
+   */
+  async getTripsForStopAsync(stopId: string) {
+    try {
+      const stopTimesData = await this.gtfsDatabase.queryRows('stop_times', {
+        stop_id: stopId,
+      });
+      if (!stopTimesData || !Array.isArray(stopTimesData)) {
+        return [];
+      }
+
+      const tripIds = [
+        ...new Set(stopTimesData.map((stopTime) => stopTime.trip_id)),
+      ];
+
+      const tripsData = await this.gtfsDatabase.getAllRows('trips');
+      if (!tripsData || !Array.isArray(tripsData)) {
+        return [];
+      }
+
+      return tripsData
+        .filter((trip) => tripIds.includes(trip.trip_id))
+        .map((trip) => ({
+          id: trip.trip_id,
+          routeId: trip.route_id,
+          serviceId: trip.service_id,
+          headsign: trip.trip_headsign,
+          shortName: trip.trip_short_name,
+          directionId: trip.direction_id,
+          blockId: trip.block_id,
+          shapeId: trip.shape_id,
+        }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting trips for stop from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getTripsForStop(stopId);
+    }
+  }
+
+  /**
+   * Get calendar information for a service ID (async)
+   */
+  async getCalendarForServiceAsync(serviceId: string) {
+    try {
+      const calendarData = await this.gtfsDatabase.queryRows('calendar', {
+        service_id: serviceId,
+      });
+      if (
+        !calendarData ||
+        !Array.isArray(calendarData) ||
+        calendarData.length === 0
+      ) {
+        return null;
+      }
+
+      const calendar = calendarData[0];
+      return {
+        serviceId: calendar.service_id,
+        monday: calendar.monday === '1',
+        tuesday: calendar.tuesday === '1',
+        wednesday: calendar.wednesday === '1',
+        thursday: calendar.thursday === '1',
+        friday: calendar.friday === '1',
+        saturday: calendar.saturday === '1',
+        sunday: calendar.sunday === '1',
+        startDate: calendar.start_date,
+        endDate: calendar.end_date,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        'Error getting calendar for service from IndexedDB:',
+        error
+      );
+      // Fallback to sync method
+      return this.getCalendarForService(serviceId);
+    }
+  }
+
+  /**
+   * Get calendar exceptions for a service ID (async)
+   */
+  async getCalendarDatesForServiceAsync(serviceId: string) {
+    try {
+      const calendarDatesData = await this.gtfsDatabase.queryRows(
+        'calendar_dates',
+        { service_id: serviceId }
+      );
+      if (!calendarDatesData || !Array.isArray(calendarDatesData)) {
+        return [];
+      }
+
+      return calendarDatesData.map((calDate) => ({
+        serviceId: calDate.service_id,
+        date: calDate.date,
+        exceptionType: parseInt(calDate.exception_type),
+      }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        'Error getting calendar dates for service from IndexedDB:',
+        error
+      );
+      // Fallback to sync method
+      return this.getCalendarDatesForService(serviceId);
+    }
+  }
+
+  /**
+   * Enrich stop times with stop information (async)
+   */
+  async enrichStopTimesWithStopsAsync(stopTimes: Record<string, unknown>[]) {
+    try {
+      const enrichedStopTimes = await Promise.all(
+        stopTimes.map(async (stopTime: Record<string, unknown>) => {
+          const stop = await this.getStopByIdAsync(stopTime.stopId);
+          return {
+            ...stopTime,
+            stop: stop,
+          };
+        })
+      );
+      return enrichedStopTimes;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        'Error enriching stop times with stops from IndexedDB:',
+        error
+      );
+      // Fallback to sync method
+      return this.enrichStopTimesWithStops(stopTimes);
+    }
+  }
+
+  /**
+   * Get statistics for the GTFS feed (async)
+   */
+  async getStatisticsAsync() {
+    try {
+      const [agencies, routesData, tripsData, stopsData, stopTimesData] =
+        await Promise.all([
+          this.getAgenciesAsync(),
+          this.gtfsDatabase.getAllRows('routes'),
+          this.gtfsDatabase.getAllRows('trips'),
+          this.gtfsDatabase.getAllRows('stops'),
+          this.gtfsDatabase.getAllRows('stop_times'),
+        ]);
+
+      return {
+        agencies: agencies.length,
+        routes: routesData.length,
+        trips: tripsData.length,
+        stops: stopsData.length,
+        stopTimes: stopTimesData.length,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting statistics from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getStatistics();
+    }
+  }
+
+  /**
+   * Get unique service IDs for a specific route (async)
+   */
+  async getServicesForRouteAsync(routeId: string) {
+    try {
+      const trips = await this.getTripsForRouteAsync(routeId);
+      const serviceIds = [...new Set(trips.map((trip) => trip.serviceId))];
+
+      const services = await Promise.all(
+        serviceIds.map(async (serviceId) => {
+          const calendar = await this.getCalendarForServiceAsync(serviceId);
+          return {
+            serviceId,
+            calendar,
+            tripCount: trips.filter((trip) => trip.serviceId === serviceId)
+              .length,
+          };
+        })
+      );
+
+      return services;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting services for route from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getServicesForRoute(routeId);
+    }
+  }
+
+  /**
+   * Get services for a route grouped by direction (async)
+   */
+  async getServicesForRouteByDirectionAsync(routeId: string) {
+    try {
+      const trips = await this.getTripsForRouteAsync(routeId);
+
+      // Group services by direction_id
+      const directionGroups = new Map();
+
+      trips.forEach((trip) => {
+        const directionId = trip.directionId || '0'; // Default to 0 if not specified
+        const key = `${trip.serviceId}_${directionId}`;
+
+        if (!directionGroups.has(key)) {
+          directionGroups.set(key, {
+            serviceId: trip.serviceId,
+            directionId: directionId,
+            trips: [],
+          });
+        }
+
+        directionGroups.get(key).trips.push(trip);
+      });
+
+      // Convert to array and add additional service information
+      const services = await Promise.all(
+        Array.from(directionGroups.values()).map(async (group) => {
+          const calendar = await this.getCalendarForServiceAsync(
+            group.serviceId
+          );
+          return {
+            serviceId: group.serviceId,
+            directionId: group.directionId,
+            calendar,
+            tripCount: group.trips.length,
+            directionName: this.getDirectionName(
+              group.directionId,
+              group.trips
+            ),
+          };
+        })
+      );
+
+      return services;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        'Error getting services for route by direction from IndexedDB:',
+        error
+      );
+      // Fallback to sync method
+      return this.getServicesForRouteByDirection(routeId);
+    }
+  }
+
+  /**
+   * Get route by ID (async)
+   */
+  async getRouteByIdAsync(routeId: string) {
+    try {
+      const routesData = await this.gtfsDatabase.queryRows('routes', {
+        route_id: routeId,
+      });
+      if (
+        !routesData ||
+        !Array.isArray(routesData) ||
+        routesData.length === 0
+      ) {
+        return null;
+      }
+
+      const route = routesData[0];
+      return {
+        id: route.route_id,
+        agencyId: route.agency_id,
+        shortName: route.route_short_name,
+        longName: route.route_long_name,
+        desc: route.route_desc,
+        type: route.route_type,
+        url: route.route_url,
+        color: route.route_color,
+        textColor: route.route_text_color,
+        sortOrder: route.route_sort_order,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting route by ID from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getRouteById(routeId);
+    }
+  }
+
+  /**
+   * Get trip by ID (async)
+   */
+  async getTripByIdAsync(tripId: string) {
+    try {
+      const tripsData = await this.gtfsDatabase.queryRows('trips', {
+        trip_id: tripId,
+      });
+      if (!tripsData || !Array.isArray(tripsData) || tripsData.length === 0) {
+        return null;
+      }
+
+      const trip = tripsData[0];
+      return {
+        id: trip.trip_id,
+        routeId: trip.route_id,
+        serviceId: trip.service_id,
+        headsign: trip.trip_headsign,
+        shortName: trip.trip_short_name,
+        directionId: trip.direction_id,
+        blockId: trip.block_id,
+        shapeId: trip.shape_id,
+        wheelchairAccessible: trip.wheelchair_accessible,
+        bikesAllowed: trip.bikes_allowed,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting trip by ID from IndexedDB:', error);
+      // Fallback to sync method
+      return this.getTripById(tripId);
+    }
+  }
+
+  /**
+   * Check if GTFS data is available (async)
+   */
+  async hasDataAsync() {
+    try {
+      const stats = await this.getStatisticsAsync();
+      return (
+        stats.agencies > 0 ||
+        stats.routes > 0 ||
+        stats.trips > 0 ||
+        stats.stops > 0
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error checking data availability from IndexedDB:', error);
+      // Fallback to sync method
+      return this.hasData();
+    }
+  }
+
+  /**
+   * Search stops by name/ID using IndexedDB (async)
+   */
+  async searchStopsAsync(query: string) {
+    try {
+      if (!query || query.trim().length < 2) {
+        return [];
+      }
+
+      const stops = await this.gtfsDatabase.getAllRows('stops');
+      const lowerQuery = query.toLowerCase();
+
+      return stops
+        .filter((stop) => {
+          const stopName = (stop.stop_name || '').toLowerCase();
+          const stopId = (stop.stop_id || '').toLowerCase();
+          const stopCode = (stop.stop_code || '').toLowerCase();
+
+          return (
+            stopName.includes(lowerQuery) ||
+            stopId.includes(lowerQuery) ||
+            stopCode.includes(lowerQuery)
+          );
+        })
+        .map((stop) => ({
+          id: stop.stop_id,
+          name: stop.stop_name || stop.stop_id,
+          code: stop.stop_code,
+          lat: parseFloat(stop.stop_lat),
+          lon: parseFloat(stop.stop_lon),
+          desc: stop.stop_desc,
+        }))
+        .slice(0, 10); // Limit to 10 results
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error searching stops from IndexedDB:', error);
+      // Fallback to sync method from gtfsParser
+      return this.gtfsParser.searchStops(query);
+    }
+  }
+
+  /**
+   * Search routes by name/ID using IndexedDB (async)
+   */
+  async searchRoutesAsync(query: string) {
+    try {
+      if (!query || query.trim().length < 2) {
+        return [];
+      }
+
+      const routes = await this.gtfsDatabase.getAllRows('routes');
+      const lowerQuery = query.toLowerCase();
+
+      return routes
+        .filter((route) => {
+          const routeName = (route.route_long_name || '').toLowerCase();
+          const routeShortName = (route.route_short_name || '').toLowerCase();
+          const routeId = (route.route_id || '').toLowerCase();
+
+          return (
+            routeName.includes(lowerQuery) ||
+            routeShortName.includes(lowerQuery) ||
+            routeId.includes(lowerQuery)
+          );
+        })
+        .map((route) => ({
+          id: route.route_id,
+          shortName: route.route_short_name,
+          longName: route.route_long_name,
+          type: route.route_type,
+          color: route.route_color,
+          textColor: route.route_text_color,
+          agencyId: route.agency_id,
+        }))
+        .slice(0, 10); // Limit to 10 results
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error searching routes from IndexedDB:', error);
+      // Fallback to sync method from gtfsParser
+      return this.gtfsParser.searchRoutes(query);
+    }
+  }
+
+  /**
+   * Combined search for stops and routes (async)
+   */
+  async searchAllAsync(query: string) {
+    try {
+      if (!query || query.trim().length < 2) {
+        return { stops: [], routes: [] };
+      }
+
+      const [stops, routes] = await Promise.all([
+        this.searchStopsAsync(query),
+        this.searchRoutesAsync(query),
+      ]);
+
+      return { stops, routes };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error performing combined search from IndexedDB:', error);
+      // Fallback to sync method from gtfsParser
+      return this.gtfsParser.searchAll(query);
+    }
   }
 }

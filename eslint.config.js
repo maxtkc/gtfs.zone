@@ -1,8 +1,13 @@
 import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import prettierConfig from 'eslint-config-prettier';
 
-export default [
+export default tseslint.config(
   js.configs.recommended,
+  ...tseslint.configs.recommended,
+  prettierConfig,
   {
+    files: ['src/**/*.{js,ts,jsx,tsx}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -31,17 +36,16 @@ export default [
       }
     },
     rules: {
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off', // Turn off base rule
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': 'warn',
       'prefer-const': 'error',
       'no-var': 'error',
       'eqeqeq': ['error', 'always'],
-      'curly': ['error', 'all'],
-      'brace-style': ['error', '1tbs'],
-      'indent': ['error', 2],
-      'quotes': ['error', 'single'],
-      'semi': ['error', 'always']
-    },
+      'curly': ['error', 'all']
+    }
+  },
+  {
     ignores: [
       'dist/',
       'node_modules/',
@@ -49,4 +53,4 @@ export default [
       'bundle.js'
     ]
   }
-];
+);

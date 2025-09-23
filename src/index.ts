@@ -62,16 +62,24 @@ export class GTFSEditor {
     this.fieldDescriptions = FieldDescriptionsDisplay.integrate();
     this.themeController = new ThemeController();
 
-    this.init();
+    this.init().catch((error) => {
+      console.error('Failed to initialize GTFSEditor:', error);
+      notifications.showError(
+        'Failed to initialize application. Please refresh the page and try again.'
+      );
+    });
   }
 
-  private init(): void {
+  private async init(): Promise<void> {
     try {
       // Initialize notification system
       notifications.initialize();
 
+      // Initialize GTFSParser database
+      await this.gtfsParser.initialize();
+
       // Initialize empty GTFS feed
-      this.gtfsParser.initializeEmpty();
+      await this.gtfsParser.initializeEmpty();
 
       // Initialize all modules
       this.mapController.initialize(this.gtfsParser);
@@ -81,7 +89,7 @@ export class GTFSEditor {
       this.scheduleController.setUIController(this.uiController);
 
       // Note: InfoDisplay is not used in the new UI structure
-      (this.uiController as any).initialize(
+      this.uiController.initialize(
         this.gtfsParser,
         this.editor,
         this.mapController,
@@ -133,7 +141,7 @@ export class GTFSEditor {
     }
   }
 
-  public validateAndUpdateInfo(): any {
+  public validateAndUpdateInfo(): void {
     // Run validation
     const validationResults = this.validator.validateFeed();
 

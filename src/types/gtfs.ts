@@ -495,7 +495,7 @@ export const GTFS_RELATIONSHIPS = [
 
 // Validation context interface for foreign key checking
 export interface GTFSValidationContext {
-  [filename: string]: Map<string, any>;
+  [filename: string]: Map<string, unknown>;
 }
 
 // Foreign key validation utilities
@@ -666,7 +666,7 @@ export const StopsSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -747,7 +747,7 @@ export const RoutesSchema = z
         'Identifies a group of routes. Multiple rows in routes.txt may have the same network_id.Conditionally Forbidden:- Forbidden if the route_networks.txt file exists.- Optional otherwise.'
       ),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -812,7 +812,7 @@ export const TripsSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -920,7 +920,7 @@ export const StopTimesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -995,7 +995,7 @@ export const CalendarDatesSchema = z
         'Indicates whether service is available on the date specified in the date field. Valid options are: 1 - Service has been added for the specified date.2 - Service has been removed for the specified date.Example: Suppose a route has one set of trips available on holidays and another set of trips available on all other days. One service_id could correspond to the regular service schedule and another service_id could correspond to the holiday schedule. For a particular holiday, the calendar_dates.txt file could be used to add the holiday to the holiday service_id and to remove the holiday from the regular service_id schedule.'
       ),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1034,7 +1034,7 @@ export const FareAttributesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1070,7 +1070,7 @@ export const FareRulesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1099,7 +1099,7 @@ export const TimeframesSchema = z
       .union([z.string(), z.string()])
       .describe('Identifies a set of dates that a timeframe is in effect.'),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1179,7 +1179,7 @@ export const FareProductsSchema = z
       .string()
       .describe('The currency of the cost of the fare product.'),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1236,7 +1236,7 @@ export const FareLegRulesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1267,7 +1267,7 @@ export const FareLegJoinRulesSchema = z
         'Matches a post-transfer leg that starts at the specified stop (location_type=0 or empty) or station (location_type=1).Conditionally Required: - Required if from_stop_id is defined. - Optional otherwise.'
       ),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1318,7 +1318,7 @@ export const FareTransferRulesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1352,7 +1352,7 @@ export const StopAreasSchema = z
         'Identifies a stop. If a station (i.e. a stop with stops.location_type=1) is defined in this field, it is assumed that all of its platforms (i.e. all stops with stops.location_type=0 that have this station defined as stops.parent_station) are part of the same area. This behavior can be overridden by assigning platforms to other areas.'
       ),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1384,7 +1384,7 @@ export const RouteNetworksSchema = z
       ),
     routeId: z.string().describe('Identifies a route.'),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1456,7 +1456,7 @@ export const FrequenciesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1511,7 +1511,7 @@ export const TransfersSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1592,7 +1592,7 @@ export const PathwaysSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1644,7 +1644,7 @@ export const LocationGroupStopsSchema = z
       .string()
       .describe('Identifies a stop belonging to the location group.'),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1732,7 +1732,7 @@ export const BookingRulesSchema = z
       )
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -1898,7 +1898,7 @@ export const AttributionsSchema = z
       .describe('Phone number of the organization.')
       .optional(),
   })
-  .superRefine((data, ctx) => {
+  .superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   });
@@ -2248,14 +2248,20 @@ export function getFieldDescription(
   fieldName: string
 ): string | undefined {
   const schema = GTFSSchemas[filename as keyof typeof GTFSSchemas];
-  if (!schema) return undefined;
+  if (!schema) {
+    return undefined;
+  }
 
   // Get the shape of the schema
-  const shape = (schema as any).shape;
-  if (!shape || !shape[fieldName]) return undefined;
+  const shape = (schema as Record<string, unknown>).shape;
+  if (!shape || !shape[fieldName]) {
+    return undefined;
+  }
 
   // Extract description from the field schema
-  return shape[fieldName]?.description;
+  return (shape[fieldName] as Record<string, unknown>)?.description as
+    | string
+    | undefined;
 }
 
 export function getFileSchema(filename: string): z.ZodSchema | undefined {
@@ -2266,14 +2272,16 @@ export function getAllFieldDescriptions(
   filename: string
 ): Record<string, string> {
   const schema = GTFSSchemas[filename as keyof typeof GTFSSchemas];
-  if (!schema) return {};
+  if (!schema) {
+    return {};
+  }
 
-  const shape = (schema as any).shape;
+  const shape = (schema as Record<string, unknown>).shape;
   const descriptions: Record<string, string> = {};
 
   for (const [fieldName, fieldSchema] of Object.entries(shape || {})) {
-    const desc = (fieldSchema as any)?.description;
-    if (desc) {
+    const desc = (fieldSchema as Record<string, unknown>)?.description;
+    if (desc && typeof desc === 'string') {
       descriptions[fieldName] = desc;
     }
   }
