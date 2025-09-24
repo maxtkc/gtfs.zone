@@ -493,7 +493,7 @@ export class UIController {
     this.breadcrumbTrail = [];
   }
 
-  showObjectDetails(objectType, objectData, relatedObjects = []) {
+  showObjectDetails(objectType, objectData, relatedObjects = [], skipBreadcrumbUpdate = false) {
     const listView = document.getElementById('objects-list-view');
     const detailsView = document.getElementById('object-details-view');
     if (listView && detailsView) {
@@ -558,8 +558,10 @@ export class UIController {
         objectNameEl.textContent = objectName;
       }
 
-      // Update breadcrumb trail
-      this.updateBreadcrumbTrail(objectType, objectName, objectData);
+      // Update breadcrumb trail (unless already set deterministically)
+      if (!skipBreadcrumbUpdate) {
+        this.updateBreadcrumbTrail(objectType, objectName, objectData);
+      }
 
       // Populate properties
       this.populateObjectProperties(objectData);
@@ -567,6 +569,62 @@ export class UIController {
       // Populate related objects
       this.populateRelatedObjects(relatedObjects);
     }
+  }
+
+  setBreadcrumb(fullPath) {
+    // Set breadcrumb trail deterministically with full path
+    // fullPath should be an array like ['Home', 'Agency Name', 'Route Name']
+    this.breadcrumbTrail = [];
+
+    // Skip 'Home' since it's always present and handled separately
+    const pathWithoutHome = fullPath.slice(1);
+
+    pathWithoutHome.forEach((name, index) => {
+      let type, id;
+
+      // Determine object type based on position and content
+      if (index === 0) {
+        // First item after Home is usually Agency
+        type = 'Agency';
+        id = name; // For agencies, name often is the ID
+      } else if (index === 1) {
+        // Second item is usually Route
+        type = 'Route';
+        id = name; // For routes, we'll use the name as ID for now
+      } else if (index === 2) {
+        // Third item could be Stop or Trip
+        type = 'Stop'; // Default to Stop
+        id = name;
+      } else {
+        // Fallback for additional levels
+        type = 'Object';
+        id = name;
+      }
+
+      this.breadcrumbTrail.push({
+        type,
+        name,
+        id
+      });
+    });
+
+    this.renderBreadcrumbs();
+  }
+
+  setBreadcrumbWithIds(homePath, items) {
+    // Set breadcrumb trail with proper IDs for navigation
+    this.breadcrumbTrail = [];
+
+    // Add items with proper type and ID
+    items.forEach((item) => {
+      this.breadcrumbTrail.push({
+        type: item.type,
+        name: item.name,
+        id: item.id
+      });
+    });
+
+    this.renderBreadcrumbs();
   }
 
   updateBreadcrumbTrail(objectType, objectName, objectData) {
@@ -667,8 +725,8 @@ export class UIController {
       // Use the objects navigation to navigate to this agency
       this.objectsNavigation.navigateToAgency(item.id);
     } else if (item.type === 'Route' && this.objectsNavigation) {
-      // Use the objects navigation to navigate to this route
-      this.objectsNavigation.navigateToRoute(item.id);
+      // Use the objects navigation to navigate to this route from breadcrumb
+      this.objectsNavigation.navigateToRoute(item.id, true);
     } else if (item.type === 'Schedule') {
       // For schedule items, navigate back to the route view
       const routeItem = this.breadcrumbTrail.find(
@@ -680,8 +738,8 @@ export class UIController {
           (breadcrumbItem) => breadcrumbItem.type === 'Route'
         );
         this.breadcrumbTrail = this.breadcrumbTrail.slice(0, routeIndex + 1);
-        // Navigate directly to the route
-        this.objectsNavigation.navigateToRoute(routeItem.id);
+        // Navigate directly to the route from breadcrumb
+        this.objectsNavigation.navigateToRoute(routeItem.id, true);
         return;
       }
     }
@@ -886,39 +944,263 @@ export class UIController {
 
     relatedObjects.forEach((obj) => {
       const itemEl = document.createElement('div');
-      itemEl.className =
-        'flex items-center justify-between p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300';
 
-      const nameEl = document.createElement('span');
-      nameEl.className = 'text-sm';
-      nameEl.textContent = obj.name;
+      // Check if this is an agency with routes or a route with trips/services
+      if (obj.type === 'Agency' && obj.relatedObjects && obj.relatedObjects.length > 0) {
+        // Create collapsible agency section
+        itemEl.className = 'bg-base-200 rounded mb-2';
+        // Agency header
+        const headerEl = document.createElement('div');
+        headerEl.className = 'flex items-center gap-2 p-3 cursor-pointer hover:bg-base-300 rounded';
 
-      const typeEl = document.createElement('span');
-      typeEl.className = 'text-xs opacity-60';
-      typeEl.textContent = obj.type;
+        // Agency icon
+        const iconEl = document.createElement('div');
+        iconEl.className = 'text-lg flex-shrink-0';
+        iconEl.textContent = '🏢';
 
-      itemEl.appendChild(nameEl);
-      itemEl.appendChild(typeEl);
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-sm font-medium flex-1';
+        nameEl.textContent = obj.name;
 
-      itemEl.addEventListener('click', () => {
-        if (obj.scheduleAction && obj.routeId && obj.data?.serviceId) {
-          // Open schedule view for this service with direction filtering
-          if (this.scheduleController) {
-            this.scheduleController.showScheduleForRoute(
-              obj.routeId,
-              obj.data.serviceId,
-              obj.directionId || obj.data.directionId
-            );
+        const chevronEl = document.createElement('span');
+        chevronEl.className = 'text-xs opacity-60';
+        chevronEl.textContent = '▼';
+
+        headerEl.appendChild(iconEl);
+        headerEl.appendChild(nameEl);
+        headerEl.appendChild(chevronEl);
+
+        // Routes container (initially hidden)
+        const routesEl = document.createElement('div');
+        routesEl.className = 'px-3 pb-2 space-y-1 hidden';
+
+        // Add routes with their services
+        obj.relatedObjects.forEach((route) => {
+          const routeEl = document.createElement('div');
+          routeEl.className = 'bg-base-100 rounded mb-1';
+
+          // Route header
+          const routeHeaderEl = document.createElement('div');
+          routeHeaderEl.className = 'flex items-center gap-2 p-2 cursor-pointer hover:bg-base-300 rounded';
+
+          // Route color indicator
+          const colorEl = document.createElement('div');
+          colorEl.className = 'w-2 h-2 rounded-full flex-shrink-0';
+          colorEl.style.backgroundColor = route.routeColor || '#2563eb';
+
+          const routeNameEl = document.createElement('span');
+          routeNameEl.className = 'text-xs font-medium flex-1';
+          routeNameEl.textContent = route.name;
+
+          const routeChevronEl = document.createElement('span');
+          routeChevronEl.className = 'text-xs opacity-60';
+          routeChevronEl.textContent = '▼';
+
+          routeHeaderEl.appendChild(colorEl);
+          routeHeaderEl.appendChild(routeNameEl);
+          routeHeaderEl.appendChild(routeChevronEl);
+
+          // Services container (initially hidden)
+          const servicesEl = document.createElement('div');
+          servicesEl.className = 'px-2 pb-1 space-y-1 hidden';
+
+          // Add services if route has them
+          if (route.relatedObjects && route.relatedObjects.length > 0) {
+            route.relatedObjects.forEach((service) => {
+              const serviceEl = document.createElement('div');
+              serviceEl.className = 'flex items-center gap-2 p-1 bg-base-200 rounded text-xs cursor-pointer hover:bg-base-300';
+
+              const serviceNameEl = document.createElement('span');
+              serviceNameEl.className = 'font-mono text-xs';
+              serviceNameEl.textContent = service.name;
+
+              serviceEl.appendChild(serviceNameEl);
+
+              // Make service clickable
+              serviceEl.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (service.scheduleAction && service.routeId && service.data?.serviceId) {
+                  if (this.scheduleController) {
+                    await this.scheduleController.showScheduleForRoute(
+                      service.routeId,
+                      service.data.serviceId,
+                      service.directionId || service.data.directionId
+                    );
+                  }
+                }
+              });
+
+              servicesEl.appendChild(serviceEl);
+            });
           }
-        } else if (obj.routeAction && obj.routeId) {
-          // Navigate to route view to show services
-          if (this.objectsNavigation) {
-            this.objectsNavigation.navigateToRoute(obj.routeId);
+
+          // Route toggle functionality
+          let isRouteExpanded = false;
+          routeHeaderEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isRouteExpanded = !isRouteExpanded;
+            if (isRouteExpanded) {
+              servicesEl.classList.remove('hidden');
+              routeChevronEl.textContent = '▲';
+            } else {
+              servicesEl.classList.add('hidden');
+              routeChevronEl.textContent = '▼';
+            }
+          });
+
+          // Route double-click action
+          routeHeaderEl.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            if (route.routeAction && this.objectsNavigation) {
+              this.objectsNavigation.navigateToRoute(route.data.id || route.data.route_id);
+            }
+          });
+
+          routeEl.appendChild(routeHeaderEl);
+          routeEl.appendChild(servicesEl);
+          routesEl.appendChild(routeEl);
+        });
+
+        // Agency toggle functionality
+        let isExpanded = false;
+        headerEl.addEventListener('click', () => {
+          isExpanded = !isExpanded;
+          if (isExpanded) {
+            routesEl.classList.remove('hidden');
+            chevronEl.textContent = '▲';
+          } else {
+            routesEl.classList.add('hidden');
+            chevronEl.textContent = '▼';
           }
-        } else {
-          this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
-        }
-      });
+        });
+
+        // Agency double-click action
+        headerEl.addEventListener('dblclick', () => {
+          if (obj.agencyAction && this.objectsNavigation) {
+            const agencyId = obj.data.id || obj.data.agency_id;
+            if (agencyId) {
+              this.objectsNavigation.navigateToAgency(agencyId);
+            }
+          }
+        });
+
+        itemEl.appendChild(headerEl);
+        itemEl.appendChild(routesEl);
+      } else if (obj.type === 'Route' && obj.relatedObjects && obj.relatedObjects.length > 0) {
+        // Create collapsible route section
+        itemEl.className = 'bg-base-200 rounded mb-2';
+
+        // Route header with color indicator
+        const headerEl = document.createElement('div');
+        headerEl.className = 'flex items-center gap-2 p-3 cursor-pointer hover:bg-base-300 rounded';
+
+        // Route color indicator
+        const colorEl = document.createElement('div');
+        colorEl.className = 'w-3 h-3 rounded-full flex-shrink-0';
+        colorEl.style.backgroundColor = obj.routeColor || '#2563eb';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-sm font-medium flex-1';
+        nameEl.textContent = obj.name;
+
+        const chevronEl = document.createElement('span');
+        chevronEl.className = 'text-xs opacity-60';
+        chevronEl.textContent = '▼';
+
+        headerEl.appendChild(colorEl);
+        headerEl.appendChild(nameEl);
+        headerEl.appendChild(chevronEl);
+
+        // Trips container (initially hidden)
+        const tripsEl = document.createElement('div');
+        tripsEl.className = 'px-3 pb-2 space-y-1 hidden';
+
+        // Add trips
+        obj.relatedObjects.forEach((trip) => {
+          const tripEl = document.createElement('div');
+          tripEl.className = 'flex items-center gap-2 p-2 bg-base-100 rounded text-xs cursor-pointer hover:bg-base-300';
+
+          const tripNameEl = document.createElement('span');
+          tripNameEl.className = 'font-mono';
+          tripNameEl.textContent = trip.name;
+
+          tripEl.appendChild(tripNameEl);
+
+          // Make trip clickable
+          tripEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (trip.tripAction && this.objectsNavigation) {
+              this.objectsNavigation.navigateToTrip(trip.data.trip_id || trip.data.id);
+            }
+          });
+
+          tripsEl.appendChild(tripEl);
+        });
+
+        // Toggle functionality
+        let isExpanded = false;
+        headerEl.addEventListener('click', () => {
+          isExpanded = !isExpanded;
+          if (isExpanded) {
+            tripsEl.classList.remove('hidden');
+            chevronEl.textContent = '▲';
+          } else {
+            tripsEl.classList.add('hidden');
+            chevronEl.textContent = '▼';
+          }
+        });
+
+        // Route click action
+        headerEl.addEventListener('dblclick', () => {
+          if (obj.routeAction && this.objectsNavigation) {
+            this.objectsNavigation.navigateToRoute(obj.data.route_id || obj.data.id);
+          }
+        });
+
+        itemEl.appendChild(headerEl);
+        itemEl.appendChild(tripsEl);
+
+      } else {
+        // Standard object display
+        itemEl.className = 'flex items-center justify-between p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-sm';
+        nameEl.textContent = obj.name;
+
+        const typeEl = document.createElement('span');
+        typeEl.className = 'text-xs opacity-60';
+        typeEl.textContent = obj.type;
+
+        itemEl.appendChild(nameEl);
+        itemEl.appendChild(typeEl);
+
+        itemEl.addEventListener('click', async () => {
+          if (obj.scheduleAction && obj.routeId && obj.data?.serviceId) {
+            // Open schedule view for this service with direction filtering
+            if (this.scheduleController) {
+              await this.scheduleController.showScheduleForRoute(
+                obj.routeId,
+                obj.data.serviceId,
+                obj.directionId || obj.data.directionId
+              );
+            }
+          } else if (obj.agencyAction && this.objectsNavigation) {
+            // Navigate to agency view to show routes
+            const agencyId = obj.data.id || obj.data.agency_id;
+            if (agencyId) {
+              this.objectsNavigation.navigateToAgency(agencyId);
+            }
+          } else if (obj.routeAction && obj.routeId) {
+            // Navigate to route view to show services
+            if (this.objectsNavigation) {
+              this.objectsNavigation.navigateToRoute(obj.routeId);
+            }
+          } else {
+            this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
+          }
+        });
+      }
 
       container.appendChild(itemEl);
     });

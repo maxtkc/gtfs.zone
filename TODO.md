@@ -45,6 +45,7 @@ This will show everything at a high level.
 #### Browser state
 
 - This is less important
+- Revamp breadcrumbs?
 
 #### GTFS State ✅ COMPLETED
 
@@ -59,7 +60,6 @@ This will show everything at a high level.
 
 ### Misc
 
-- Fix the lint issue
 - Add dropdowns for enum fields
 - Fix the tooltips, zod isn't working correctly
 - Remove the junk gtfs feed and start properly empty

@@ -1,13 +1,22 @@
-import { Map, Popup, LngLatBounds } from 'maplibre-gl';
+import { Map as MapLibreMap, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// import stringHash from 'string-hash';
 
 export class MapController {
-  private map: Map | null;
+  private map: MapLibreMap | null;
   private mapElementId: string;
   private gtfsParser: {
     getFileDataSync: (filename: string) => Record<string, unknown>[];
+    getRoutesForStop: (stopId: string) => Record<string, unknown>[];
+    getWheelchairText: (code: string) => string;
+    getRouteTypeText: (typeCode: string) => string;
   } | null;
   private resizeTimeout: NodeJS.Timeout | null;
+  private shapeToRouteMapping: Map<string, string[]> = new Map();
+  private focusedRouteId: string | null = null;
+  private focusedStopId: string | null = null;
+  private onRouteSelectCallback: ((routeId: string) => void) | null = null;
+  private onStopSelectCallback: ((stopId: string) => void) | null = null;
 
   constructor(mapElementId = 'map') {
     this.map = null;
@@ -21,8 +30,8 @@ export class MapController {
   }) {
     this.gtfsParser = gtfsParser;
 
-    // Initialize MapLibre GL JS map
-    this.map = new Map({
+    // Initialize MapLibre GL JS map (keeping original approach)
+    this.map = new MapLibreMap({
       container: this.mapElementId,
       style: {
         version: 8,
@@ -54,7 +63,7 @@ export class MapController {
   }
 
   updateMap() {
-    if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt')) {
+    if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt') || !this.map) {
       return;
     }
 
@@ -67,35 +76,39 @@ export class MapController {
     // Clear existing sources and layers
     this.clearMapLayers();
 
+    // Build shape to route mapping for enhanced rendering
+    this.buildShapeToRouteMapping();
+
+    // Add enhanced routes with proper layering
+    this.addEnhancedRoutesToMap();
+
     // Add enhanced stops to map
     this.addStopsToMap();
-
-    // Add routes visualization (without shapes)
-    this.addRoutesToMap();
-
-    // Add shapes if available (this will overlay on routes)
-    if (this.gtfsParser.getFileDataSync('shapes.txt')) {
-      this.addShapesToMap();
-    }
   }
 
   clearMapLayers() {
-    // Remove existing layers and sources
+    // Remove existing layers and sources with new layering structure
     const layersToRemove = [
-      'stops',
-      'routes',
-      'shapes',
+      'routes-background',
+      'routes-focused',
+      'routes-clickarea',
+      'stops-background',
+      'stops-focused',
+      'stops-clickarea',
       'stops-highlight',
       'routes-highlight',
       'trip-highlight',
+      // Legacy layers
+      'stops',
+      'routes',
+      'shapes'
     ];
     const sourcesToRemove = [
-      'stops',
       'routes',
-      'shapes',
+      'stops',
       'stops-highlight',
       'routes-highlight',
-      'trip-highlight',
+      'trip-highlight'
     ];
 
     layersToRemove.forEach((layerId) => {
@@ -140,6 +153,13 @@ export class MapController {
         // Get routes serving this stop
         const routesAtStop = this.gtfsParser.getRoutesForStop(stop.stop_id);
 
+        // Determine primary route color for stroke (use first route's color)
+        let primaryRouteColor = '#2563eb'; // Default blue
+        if (routesAtStop.length > 0) {
+          const primaryRoute = routesAtStop[0];
+          primaryRouteColor = this.getRouteColor(primaryRoute.route_id as string, primaryRoute.route_color as string);
+        }
+
         return {
           type: 'Feature',
           geometry: {
@@ -157,37 +177,54 @@ export class MapController {
             routes_list: routesAtStop
               .map((r) => r.route_short_name || r.route_id)
               .join(', '),
+            primary_route_color: primaryRouteColor,
           },
         };
       }),
     };
 
-    // Add source
+    // Add source with feature IDs for state management
+    const stopsGeoJSONWithIds = {
+      ...stopsGeoJSON,
+      features: stopsGeoJSON.features.map(feature => ({
+        ...feature,
+        id: feature.properties.stop_id // Add ID for feature state
+      }))
+    };
+
     this.map.addSource('stops', {
       type: 'geojson',
-      data: stopsGeoJSON,
+      data: stopsGeoJSONWithIds,
     });
 
-    // Add layer
+    // Add background stops layer (all stops, normal size)
     this.map.addLayer({
-      id: 'stops',
+      id: 'stops-background',
       type: 'circle',
       source: 'stops',
       paint: {
         'circle-radius': [
           'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          0, // Hide when focused
+          // Normal sizes based on location type
           ['==', ['get', 'location_type'], '1'],
-          12, // Station
+          10, // Station
           ['==', ['get', 'location_type'], '2'],
-          6, // Entrance/Exit
+          5, // Entrance/Exit
           ['==', ['get', 'location_type'], '3'],
-          6, // Generic node
+          5, // Generic node
           ['==', ['get', 'location_type'], '4'],
-          8, // Boarding area
-          8, // Default stop
+          7, // Boarding area
+          7, // Default stop
         ],
-        'circle-color': [
+        'circle-color': '#ffffff', // White fill for all stops
+        'circle-stroke-color': [
           'case',
+          // Use route color if available, otherwise fall back to location type colors
+          ['>', ['get', 'routes_count'], 0],
+          ['get', 'primary_route_color'],
+          // Fallback colors for stops without routes
           ['==', ['get', 'location_type'], '1'],
           '#dc2626', // Station - red
           ['==', ['get', 'location_type'], '2'],
@@ -198,60 +235,119 @@ export class MapController {
           '#7c3aed', // Boarding - purple
           '#2563eb', // Default - blue
         ],
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
-        'circle-opacity': 1,
-        'circle-stroke-opacity': 1,
+        'circle-stroke-width': 2.5,
+        'circle-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          0, // Hide when focused
+          1  // Normal opacity
+        ],
+        'circle-stroke-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          0, // Hide when focused
+          1  // Normal opacity
+        ],
       },
     });
 
-    // Add hover cursor
-    this.map.on('mouseenter', 'stops', () => {
-      this.map.getCanvas().style.cursor = 'pointer';
+    // Add focused stops layer (selected stops, larger size)
+    this.map.addLayer({
+      id: 'stops-focused',
+      type: 'circle',
+      source: 'stops',
+      paint: {
+        'circle-radius': [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          // Focused sizes (larger) - nested case for location type
+          [
+            'case',
+            ['==', ['get', 'location_type'], '1'],
+            14, // Station - larger
+            ['==', ['get', 'location_type'], '2'],
+            8, // Entrance/Exit - larger
+            ['==', ['get', 'location_type'], '3'],
+            8, // Generic node - larger
+            ['==', ['get', 'location_type'], '4'],
+            10, // Boarding area - larger
+            10 // Default stop - larger
+          ],
+          0 // Hide when not focused
+        ],
+        'circle-color': '#ffffff', // White fill
+        'circle-stroke-color': [
+          'case',
+          ['>', ['get', 'routes_count'], 0],
+          ['get', 'primary_route_color'],
+          // Fallback colors
+          ['==', ['get', 'location_type'], '1'],
+          '#dc2626',
+          ['==', ['get', 'location_type'], '2'],
+          '#16a34a',
+          ['==', ['get', 'location_type'], '3'],
+          '#ca8a04',
+          ['==', ['get', 'location_type'], '4'],
+          '#7c3aed',
+          '#2563eb',
+        ],
+        'circle-stroke-width': [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          3.5, // Thicker stroke when focused
+          0    // Hide when not focused
+        ],
+        'circle-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          1, // Show when focused
+          0  // Hide when not focused
+        ],
+        'circle-stroke-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'focused'], false],
+          1, // Show when focused
+          0  // Hide when not focused
+        ],
+      },
     });
 
-    this.map.on('mouseleave', 'stops', () => {
-      this.map.getCanvas().style.cursor = '';
+    // Add invisible larger click areas for stops
+    this.map.addLayer({
+      id: 'stops-clickarea',
+      type: 'circle',
+      source: 'stops',
+      paint: {
+        'circle-radius': 15, // Larger click area (3x the visual size)
+        'circle-color': 'transparent',
+        'circle-opacity': 0,
+      },
     });
 
-    // Add click handler for stops
-    this.map.on('click', 'stops', (e) => {
-      const properties = e.features[0].properties;
-      const coordinates = e.lngLat;
+    // Add hover cursor for stop layers including click area
+    ['stops-background', 'stops-focused', 'stops-clickarea'].forEach(layerId => {
+      this.map.on('mouseenter', layerId, () => {
+        this.map.getCanvas().style.cursor = 'pointer';
+      });
 
-      // Determine stop type text and color
-      const stopTypeMap = {
-        0: { text: 'Stop', color: '#2563eb' },
-        1: { text: 'Station', color: '#dc2626' },
-        2: { text: 'Entrance/Exit', color: '#16a34a' },
-        3: { text: 'Node', color: '#ca8a04' },
-        4: { text: 'Boarding Area', color: '#7c3aed' },
-      };
+      this.map.on('mouseleave', layerId, () => {
+        this.map.getCanvas().style.cursor = '';
+      });
 
-      const stopTypeInfo =
-        stopTypeMap[properties.location_type] || stopTypeMap['0'];
+      // Add click handler for stops
+      this.map.on('click', layerId, (e) => {
+        const properties = e.features[0].properties;
+        const stopId = properties.stop_id;
 
-      const routesList =
-        properties.routes_count > 0
-          ? `<br><strong>Routes:</strong> ${properties.routes_list}`
-          : '';
 
-      const wheelchairInfo = properties.wheelchair_boarding
-        ? `<br><strong>Wheelchair:</strong> ${this.gtfsParser.getWheelchairText(properties.wheelchair_boarding)}`
-        : '';
+        // Focus this stop
+        this.focusStop(stopId);
 
-      const popupContent = `
-        <div style="min-width: 200px;">
-          <strong>${properties.stop_name}</strong><br>
-          <span style="color: ${stopTypeInfo.color}; font-weight: bold;">${stopTypeInfo.text}</span><br>
-          <strong>ID:</strong> ${properties.stop_id}<br>
-          ${properties.stop_code ? `<strong>Code:</strong> ${properties.stop_code}<br>` : ''}
-          ${properties.stop_desc ? `<strong>Description:</strong> ${properties.stop_desc}<br>` : ''}
-          <strong>Location:</strong> ${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}${routesList}${wheelchairInfo}
-        </div>
-      `;
-
-      new Popup().setLngLat(coordinates).setHTML(popupContent).addTo(this.map);
+        // Call callback if available
+        if (this.onStopSelectCallback) {
+          this.onStopSelectCallback(stopId);
+        }
+      });
     });
 
     // Fit map to show all stops
@@ -271,94 +367,89 @@ export class MapController {
     }
   }
 
-  addRoutesToMap() {
-    const routes = this.gtfsParser.getFileDataSync('routes.txt');
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
-
-    if (!routes || !trips || !stopTimes || !stops) {
-      return;
+  // Deterministic color generation for routes
+  private getRouteColor(routeId: string, gtfsRouteColor?: string): string {
+    // Use GTFS route_color if available and valid
+    if (gtfsRouteColor && gtfsRouteColor.length === 6 && /^[0-9A-Fa-f]+$/.test(gtfsRouteColor)) {
+      return `#${gtfsRouteColor}`;
     }
 
-    // Create a stops lookup for coordinates
-    const stopsLookup = {};
-    stops.forEach((stop) => {
-      if (stop.stop_lat && stop.stop_lon) {
-        stopsLookup[stop.stop_id] = {
-          lat: parseFloat(stop.stop_lat),
-          lon: parseFloat(stop.stop_lon),
-          name: stop.stop_name,
-        };
-      }
-    });
+    // Generate deterministic color from route ID (simple hash alternative)
+    // const hash = stringHash(routeId);
+    let hash = 0;
+    for (let i = 0; i < routeId.length; i++) {
+      const char = routeId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 70%, 50%)`;
+  }
 
-    // Group trips by route
-    const tripsByRoute = {};
-    trips.forEach((trip) => {
-      if (!tripsByRoute[trip.route_id]) {
-        tripsByRoute[trip.route_id] = [];
-      }
-      tripsByRoute[trip.route_id].push(trip);
-    });
+  // Build mapping from shape_id to route_id(s)
+  private buildShapeToRouteMapping(): void {
+    this.shapeToRouteMapping.clear();
 
-    // Route colors
-    const routeColors = [
-      '#ef4444',
-      '#3b82f6',
-      '#10b981',
-      '#f59e0b',
-      '#8b5cf6',
-      '#ec4899',
-      '#06b6d4',
-      '#84cc16',
-    ];
+    const trips = this.gtfsParser.getFileDataSync('trips.txt');
+    if (!trips) return;
 
-    // Create GeoJSON for routes
-    const routesGeoJSON = {
-      type: 'FeatureCollection',
-      features: [],
-    };
+    trips.forEach(trip => {
+      if (trip.shape_id && trip.route_id) {
+        const shapeId = trip.shape_id as string;
+        const routeId = trip.route_id as string;
 
-    routes.forEach((route, index) => {
-      const routeTrips = tripsByRoute[route.route_id] || [];
-      if (routeTrips.length === 0) {
-        return;
-      }
-
-      // Get stops for this route from one of its trips
-      const firstTrip = routeTrips[0];
-      const tripStopTimes = stopTimes
-        .filter((st) => st.trip_id === firstTrip.trip_id)
-        .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
-
-      if (tripStopTimes.length < 2) {
-        return;
-      }
-
-      // Create route path from stops
-      const routePath = [];
-      tripStopTimes.forEach((st) => {
-        const stopCoords = stopsLookup[st.stop_id];
-        if (stopCoords) {
-          routePath.push([stopCoords.lon, stopCoords.lat]); // [lng, lat] for MapLibre
+        if (!this.shapeToRouteMapping.has(shapeId)) {
+          this.shapeToRouteMapping.set(shapeId, []);
         }
-      });
+        const routeIds = this.shapeToRouteMapping.get(shapeId)!;
+        if (!routeIds.includes(routeId)) {
+          routeIds.push(routeId);
+        }
+      }
+    });
+  }
 
-      if (routePath.length >= 2) {
-        const routeColor = routeColors[index % routeColors.length];
-        const routeTypeText = this.gtfsParser.getRouteTypeText(
-          route.route_type
-        );
+  // Enhanced route rendering with focus states and proper layering
+  private addEnhancedRoutesToMap(): void {
+    const routes = this.gtfsParser.getFileDataSync('routes.txt');
+    const trips = this.gtfsParser.getFileDataSync('trips.txt');
+    const shapes = this.gtfsParser.getFileDataSync('shapes.txt');
 
-        routesGeoJSON.features.push({
+    if (!routes || !trips) return;
+
+    // Create route features using shapes when available, fallback to stop connections
+    const routeFeatures = [];
+
+    routes.forEach(route => {
+      const routeId = route.route_id as string;
+      const routeColor = this.getRouteColor(routeId, route.route_color as string);
+
+      // Find trips for this route
+      const routeTrips = trips.filter(trip => trip.route_id === routeId);
+      if (routeTrips.length === 0) return;
+
+      // Try to use shapes first
+      let geometry = null;
+      const tripWithShape = routeTrips.find(trip => trip.shape_id);
+
+      if (tripWithShape && shapes) {
+        geometry = this.createRouteGeometryFromShape(tripWithShape.shape_id as string, shapes);
+      }
+
+      // Fallback to stop connections if no shape available
+      if (!geometry) {
+        geometry = this.createRouteGeometryFromStops(routeTrips[0].trip_id as string);
+      }
+
+      if (geometry) {
+        const routeTypeText = this.gtfsParser.getRouteTypeText(route.route_type as string);
+
+        routeFeatures.push({
           type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: routePath,
-          },
+          id: routeId, // Add ID for feature state
+          geometry,
           properties: {
-            route_id: route.route_id,
+            route_id: routeId,
             route_short_name: route.route_short_name || '',
             route_long_name: route.route_long_name || '',
             route_desc: route.route_desc || '',
@@ -366,29 +457,43 @@ export class MapController {
             route_type_text: routeTypeText,
             agency_id: route.agency_id || 'Default',
             color: routeColor,
-            stops_count: tripStopTimes.length,
-            is_bus: route.route_type === '3',
-          },
+            has_shapes: !!tripWithShape?.shape_id
+          }
         });
       }
     });
 
-    if (routesGeoJSON.features.length > 0) {
+    if (routeFeatures.length > 0) {
+      const routesGeoJSON = {
+        type: 'FeatureCollection',
+        features: routeFeatures
+      };
+
       // Add source
       this.map.addSource('routes', {
         type: 'geojson',
         data: routesGeoJSON,
       });
 
-      // Add layer
+      // Add background route layer (all routes, thin, muted)
       this.map.addLayer({
-        id: 'routes',
+        id: 'routes-background',
         type: 'line',
         source: 'routes',
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': 4,
-          'line-opacity': 0.7,
+          'line-width': [
+            'case',
+            ['boolean', ['feature-state', 'focused'], false],
+            0, // Hide when focused (focused layer will show instead)
+            3  // Normal width
+          ],
+          'line-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'focused'], false],
+            0, // Hide when focused
+            0.7 // Normal opacity
+          ],
         },
         layout: {
           'line-cap': 'round',
@@ -396,103 +501,25 @@ export class MapController {
         },
       });
 
-      // Add hover cursor for routes
-      this.map.on('mouseenter', 'routes', () => {
-        this.map.getCanvas().style.cursor = 'pointer';
-      });
-
-      this.map.on('mouseleave', 'routes', () => {
-        this.map.getCanvas().style.cursor = '';
-      });
-
-      // Add click handler for routes
-      this.map.on('click', 'routes', (e) => {
-        const properties = e.features[0].properties;
-        const coordinates = e.lngLat;
-
-        const popupContent = `
-          <div style="min-width: 200px;">
-            <strong>${properties.route_short_name || properties.route_long_name || properties.route_id}</strong><br>
-            <span style="color: ${properties.color}; font-weight: bold;">${properties.route_type_text}</span><br>
-            ${properties.route_long_name && properties.route_short_name ? `<strong>Long name:</strong> ${properties.route_long_name}<br>` : ''}
-            ${properties.route_desc ? `<strong>Description:</strong> ${properties.route_desc}<br>` : ''}
-            <strong>Stops:</strong> ${properties.stops_count}<br>
-            <strong>Agency:</strong> ${properties.agency_id}
-          </div>
-        `;
-
-        new Popup()
-          .setLngLat(coordinates)
-          .setHTML(popupContent)
-          .addTo(this.map);
-      });
-    }
-  }
-
-  addShapesToMap() {
-    const shapes = this.gtfsParser.getFileDataSync('shapes.txt');
-    if (!shapes) {
-      return;
-    }
-
-    const shapeGroups = {};
-
-    // Group points by shape_id
-    shapes.forEach((point) => {
-      if (!shapeGroups[point.shape_id]) {
-        shapeGroups[point.shape_id] = [];
-      }
-      shapeGroups[point.shape_id].push({
-        lat: parseFloat(point.shape_pt_lat),
-        lon: parseFloat(point.shape_pt_lon),
-        sequence: parseInt(point.shape_pt_sequence) || 0,
-      });
-    });
-
-    // Create GeoJSON for shapes
-    const shapesGeoJSON = {
-      type: 'FeatureCollection',
-      features: [],
-    };
-
-    // Draw polylines for each shape
-    Object.keys(shapeGroups).forEach((shapeId) => {
-      const points = shapeGroups[shapeId]
-        .filter((p) => !isNaN(p.lat) && !isNaN(p.lon))
-        .sort((a, b) => a.sequence - b.sequence)
-        .map((p) => [p.lon, p.lat]); // [lng, lat] for MapLibre
-
-      if (points.length > 1) {
-        shapesGeoJSON.features.push({
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: points,
-          },
-          properties: {
-            shape_id: shapeId,
-            points_count: points.length,
-          },
-        });
-      }
-    });
-
-    if (shapesGeoJSON.features.length > 0) {
-      // Add source
-      this.map.addSource('shapes', {
-        type: 'geojson',
-        data: shapesGeoJSON,
-      });
-
-      // Add layer
+      // Add focused route layer (selected routes, thick, opaque)
       this.map.addLayer({
-        id: 'shapes',
+        id: 'routes-focused',
         type: 'line',
-        source: 'shapes',
+        source: 'routes',
         paint: {
-          'line-color': '#3388ff',
-          'line-width': 3,
-          'line-opacity': 0.7,
+          'line-color': ['get', 'color'],
+          'line-width': [
+            'case',
+            ['boolean', ['feature-state', 'focused'], false],
+            6, // Focused width
+            0  // Hide when not focused
+          ],
+          'line-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'focused'], false],
+            1, // Focused opacity
+            0  // Hide when not focused
+          ],
         },
         layout: {
           'line-cap': 'round',
@@ -500,34 +527,109 @@ export class MapController {
         },
       });
 
-      // Add hover cursor for shapes
-      this.map.on('mouseenter', 'shapes', () => {
-        this.map.getCanvas().style.cursor = 'pointer';
+      // Add invisible wider click areas for routes
+      this.map.addLayer({
+        id: 'routes-clickarea',
+        type: 'line',
+        source: 'routes',
+        paint: {
+          'line-color': 'transparent',
+          'line-width': 15, // Much wider click area
+          'line-opacity': 0,
+        },
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
       });
 
-      this.map.on('mouseleave', 'shapes', () => {
-        this.map.getCanvas().style.cursor = '';
-      });
+      // Add hover states for all layers including click area
+      ['routes-background', 'routes-focused', 'routes-clickarea'].forEach(layerId => {
+        this.map.on('mouseenter', layerId, () => {
+          this.map.getCanvas().style.cursor = 'pointer';
+        });
 
-      // Add click handler for shapes
-      this.map.on('click', 'shapes', (e) => {
-        const properties = e.features[0].properties;
-        const coordinates = e.lngLat;
+        this.map.on('mouseleave', layerId, () => {
+          this.map.getCanvas().style.cursor = '';
+        });
 
-        const popupContent = `
-          <div style="min-width: 200px;">
-            <strong>Shape ID:</strong> ${properties.shape_id}<br>
-            <strong>Points:</strong> ${properties.points_count}
-          </div>
-        `;
+        // Add click handler for routes
+        this.map.on('click', layerId, (e) => {
+          const properties = e.features[0].properties;
+          const routeId = properties.route_id;
 
-        new Popup()
-          .setLngLat(coordinates)
-          .setHTML(popupContent)
-          .addTo(this.map);
+
+          // Focus this route
+          this.focusRoute(routeId);
+
+          // Call callback if available
+          if (this.onRouteSelectCallback) {
+            this.onRouteSelectCallback(routeId);
+          }
+        });
       });
     }
   }
+
+  // Create route geometry from shapes.txt
+  private createRouteGeometryFromShape(shapeId: string, shapes: Record<string, unknown>[]): any {
+    const shapePoints = shapes
+      .filter(point => point.shape_id === shapeId)
+      .map(point => ({
+        lat: parseFloat(point.shape_pt_lat as string),
+        lon: parseFloat(point.shape_pt_lon as string),
+        sequence: parseInt(point.shape_pt_sequence as string) || 0,
+      }))
+      .filter(p => !isNaN(p.lat) && !isNaN(p.lon))
+      .sort((a, b) => a.sequence - b.sequence);
+
+    if (shapePoints.length < 2) return null;
+
+    return {
+      type: 'LineString',
+      coordinates: shapePoints.map(p => [p.lon, p.lat])
+    };
+  }
+
+  // Create route geometry from stop connections (fallback)
+  private createRouteGeometryFromStops(tripId: string): any {
+    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
+    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+
+    if (!stopTimes || !stops) return null;
+
+    // Create stops lookup
+    const stopsLookup = {};
+    stops.forEach((stop) => {
+      if (stop.stop_lat && stop.stop_lon) {
+        stopsLookup[stop.stop_id] = {
+          lat: parseFloat(stop.stop_lat),
+          lon: parseFloat(stop.stop_lon),
+        };
+      }
+    });
+
+    // Get stops for this trip
+    const tripStopTimes = stopTimes
+      .filter((st) => st.trip_id === tripId)
+      .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
+
+    const routePath = [];
+    tripStopTimes.forEach((st) => {
+      const stopCoords = stopsLookup[st.stop_id];
+      if (stopCoords) {
+        routePath.push([stopCoords.lon, stopCoords.lat]);
+      }
+    });
+
+    if (routePath.length < 2) return null;
+
+    return {
+      type: 'LineString',
+      coordinates: routePath
+    };
+  }
+
 
   highlightFileData(fileName) {
     // Add visual emphasis for the selected file's data on map
@@ -777,15 +879,14 @@ export class MapController {
               ? '#e74c3c'
               : color;
 
-          const popupContent = `
-            <strong>${properties.stop_name}</strong><br>
-            <span style="color: ${stopTypeColor};">${stopTypeText}</span>
-          `;
+          const stopData = {
+            stop_name: properties.stop_name,
+            stop_type_text: stopTypeText,
+            stop_type_color: stopTypeColor,
+            is_first: properties.is_first,
+            is_last: properties.is_last
+          };
 
-          new Popup()
-            .setLngLat(coordinates)
-            .setHTML(popupContent)
-            .addTo(this.map);
         });
       }
 
@@ -857,17 +958,6 @@ export class MapController {
       },
     });
 
-    // Show popup immediately
-    const popupContent = `
-      <div style="min-width: 200px;">
-        <strong>${stop.stop_name || 'Unnamed Stop'}</strong><br>
-        <strong>ID:</strong> ${stop.stop_id}<br>
-        ${stop.stop_code ? `<strong>Code:</strong> ${stop.stop_code}<br>` : ''}
-        <strong>Location:</strong> ${lat.toFixed(6)}, ${lon.toFixed(6)}
-      </div>
-    `;
-
-    new Popup().setLngLat([lon, lat]).setHTML(popupContent).addTo(this.map);
 
     // Center map on stop
     this.map.setCenter([lon, lat]);
@@ -983,4 +1073,148 @@ export class MapController {
       this.resizeTimeout = null;
     }, 350);
   }
+
+  // New focus state methods for Phase 2
+  focusRoute(routeId: string) {
+    // Clear previous route focus
+    if (this.focusedRouteId) {
+      this.map.setFeatureState(
+        { source: 'routes', id: this.focusedRouteId },
+        { focused: false }
+      );
+    }
+
+    // Set new route focus
+    this.focusedRouteId = routeId;
+    this.map.setFeatureState(
+      { source: 'routes', id: routeId },
+      { focused: true }
+    );
+
+    // Focus stops that serve this route
+    this.focusStopsForRoute(routeId);
+
+    // Zoom to route
+    this.zoomToRoute(routeId);
+  }
+
+  focusStop(stopId: string) {
+    // Clear previous stop focus
+    if (this.focusedStopId) {
+      this.map.setFeatureState(
+        { source: 'stops', id: this.focusedStopId },
+        { focused: false }
+      );
+    }
+
+    // Set new stop focus
+    this.focusedStopId = stopId;
+    this.map.setFeatureState(
+      { source: 'stops', id: stopId },
+      { focused: true }
+    );
+
+    // Zoom to stop
+    this.zoomToStop(stopId);
+  }
+
+  clearFocus() {
+    // Clear route focus
+    if (this.focusedRouteId) {
+      this.map.setFeatureState(
+        { source: 'routes', id: this.focusedRouteId },
+        { focused: false }
+      );
+      this.focusedRouteId = null;
+    }
+
+    // Clear stop focus
+    if (this.focusedStopId) {
+      this.map.setFeatureState(
+        { source: 'stops', id: this.focusedStopId },
+        { focused: false }
+      );
+      this.focusedStopId = null;
+    }
+
+    // Clear any focused stops for routes
+    this.clearFocusedStopsForRoute();
+  }
+
+  private focusStopsForRoute(routeId: string) {
+    // First clear any existing focused stops
+    this.clearFocusedStopsForRoute();
+
+    // Get stops for this route
+    const trips = this.gtfsParser.getFileDataSync('trips.txt');
+    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
+
+    if (!trips || !stopTimes) return;
+
+    const routeTrips = trips.filter(trip => trip.route_id === routeId);
+    const routeStopIds = new Set();
+
+    routeTrips.forEach(trip => {
+      const tripStopTimes = stopTimes.filter(st => st.trip_id === trip.trip_id);
+      tripStopTimes.forEach(st => routeStopIds.add(st.stop_id));
+    });
+
+    // Focus all stops for this route
+    routeStopIds.forEach(stopId => {
+      this.map.setFeatureState(
+        { source: 'stops', id: stopId },
+        { focused: true }
+      );
+    });
+  }
+
+  private clearFocusedStopsForRoute() {
+    // Get all stops and clear their focus state
+    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+    if (!stops) return;
+
+    stops.forEach(stop => {
+      this.map.setFeatureState(
+        { source: 'stops', id: stop.stop_id },
+        { focused: false }
+      );
+    });
+  }
+
+  private zoomToRoute(routeId: string) {
+    const routes = this.gtfsParser.getFileDataSync('routes.txt');
+    if (!routes) return;
+
+    const route = routes.find(r => r.route_id === routeId);
+    if (!route) return;
+
+    // Use existing fitToRoutes method
+    this.fitToRoutes([routeId]);
+  }
+
+  private zoomToStop(stopId: string) {
+    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+    if (!stops) return;
+
+    const stop = stops.find(s => s.stop_id === stopId);
+    if (!stop || !stop.stop_lat || !stop.stop_lon) return;
+
+    const lat = parseFloat(stop.stop_lat);
+    const lon = parseFloat(stop.stop_lon);
+
+    this.map.setCenter([lon, lat]);
+    if (this.map.getZoom() < 15) {
+      this.map.setZoom(15);
+    }
+  }
+
+  // Callback setters for UI integration
+  setRouteSelectCallback(callback: (routeId: string) => void) {
+    this.onRouteSelectCallback = callback;
+  }
+
+  setStopSelectCallback(callback: (stopId: string) => void) {
+    this.onStopSelectCallback = callback;
+  }
+
 }

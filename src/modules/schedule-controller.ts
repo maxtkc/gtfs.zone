@@ -42,11 +42,11 @@ export class ScheduleController {
   /**
    * Entry point - show schedule for a specific route and service
    */
-  showScheduleForRoute(
+  async showScheduleForRoute(
     routeId: string,
     serviceId: string,
     directionId?: string
-  ): void {
+  ): Promise<void> {
     try {
       const timetableData = this.generateTimetableData(
         routeId,
@@ -55,27 +55,37 @@ export class ScheduleController {
       );
       this.renderTimetable(timetableData);
 
-      // Update UI controller breadcrumb trail to include schedule
+      // Establish proper breadcrumb hierarchy: Home -> Agency -> Route -> Service
       if (this.uiController) {
         const route = timetableData.route;
         const service = timetableData.service;
         const directionName = timetableData.directionName;
-        let scheduleItemName = service.serviceId;
-        if (directionName) {
-          scheduleItemName += ` - ${directionName}`;
-        }
-        scheduleItemName += ' Schedule';
 
-        // Add schedule item to existing breadcrumb trail instead of replacing it
-        this.uiController.updateBreadcrumbTrail('Schedule', scheduleItemName, {
-          routeId: routeId,
-          serviceId: serviceId,
-          directionId: directionId,
-          route: route,
-          service: service,
-          directionName: directionName,
-          isSchedule: true, // Flag to indicate this is a schedule view
-        });
+        // Get route and agency information to build proper hierarchy
+        const routeData = await this.relationships.getRouteByIdAsync(routeId);
+        if (routeData) {
+          const agencyId = routeData.agencyId || routeData.agency_id || 'default';
+          const agency = await this.relationships.getAgencyByIdAsync(agencyId);
+
+          if (agency) {
+            // Build complete breadcrumb hierarchy
+            const agencyName = agency.name || agency.agency_name || agency.agency_id || 'Unknown Agency';
+            const routeName = routeData.shortName || routeData.longName || routeData.route_short_name || routeData.route_long_name || routeId;
+
+            let serviceName = service.serviceId;
+            if (directionName) {
+              serviceName += ` - ${directionName}`;
+            }
+            serviceName += ' Schedule';
+
+            // Set complete breadcrumb hierarchy instead of appending
+            this.uiController.setBreadcrumbWithIds(['Home'], [
+              { type: 'Agency', name: agencyName, id: agencyId },
+              { type: 'Route', name: routeName, id: routeId },
+              { type: 'Service', name: serviceName, id: serviceId }
+            ]);
+          }
+        }
       }
     } catch (error) {
       console.error('Error showing schedule:', error);

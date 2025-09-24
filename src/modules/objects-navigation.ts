@@ -36,6 +36,14 @@ export class ObjectsNavigation {
   private mapController: {
     highlightTrip: (tripId: string) => void;
     highlightStop: (stopId: string) => void;
+    clearHighlights: () => void;
+    highlightRoute: (routeId: string) => void;
+    fitToRoutes: (routeIds: string[]) => void;
+    focusRoute: (routeId: string) => void;
+    focusStop: (stopId: string) => void;
+    clearFocus: () => void;
+    setRouteSelectCallback: (callback: (routeId: string) => void) => void;
+    setStopSelectCallback: (callback: (stopId: string) => void) => void;
   };
   public uiController: {
     showFileInEditor: (filename: string, rowId?: string) => void;
@@ -80,6 +88,14 @@ export class ObjectsNavigation {
     mapController: {
       highlightTrip: (tripId: string) => void;
       highlightStop: (stopId: string) => void;
+      clearHighlights: () => void;
+      highlightRoute: (routeId: string) => void;
+      fitToRoutes: (routeIds: string[]) => void;
+      focusRoute: (routeId: string) => void;
+      focusStop: (stopId: string) => void;
+      clearFocus: () => void;
+      setRouteSelectCallback: (callback: (routeId: string) => void) => void;
+      setStopSelectCallback: (callback: (stopId: string) => void) => void;
     }
   ) {
     this.relationships = gtfsRelationships;
@@ -94,7 +110,38 @@ export class ObjectsNavigation {
       return;
     }
 
+    // Set up bidirectional communication with map
+    this.setupMapCallbacks();
+
     this.render();
+  }
+
+  setupMapCallbacks(): void {
+    // When route is clicked on map, navigate to it in Objects tab
+    this.mapController.setRouteSelectCallback((routeId: string) => {
+      // Switch to Objects tab
+      const objectsTabRadio = document.getElementById('objects-tab-radio') as HTMLInputElement;
+      if (objectsTabRadio) {
+        objectsTabRadio.checked = true;
+        objectsTabRadio.dispatchEvent(new Event('change'));
+      }
+
+      // Navigate to the route
+      this.navigateToRoute(routeId);
+    });
+
+    // When stop is clicked on map, navigate to it in Objects tab
+    this.mapController.setStopSelectCallback((stopId: string) => {
+      // Switch to Objects tab
+      const objectsTabRadio = document.getElementById('objects-tab-radio') as HTMLInputElement;
+      if (objectsTabRadio) {
+        objectsTabRadio.checked = true;
+        objectsTabRadio.dispatchEvent(new Event('change'));
+      }
+
+      // Navigate to the stop with proper breadcrumb hierarchy
+      this.navigateToStop(stopId);
+    });
   }
 
   async render(): Promise<void> {
@@ -622,9 +669,14 @@ export class ObjectsNavigation {
         routeId: route.id,
       }));
 
-      // Show agency details in the object details view
+      // Show agency details in the object details view with clean breadcrumb
       if (this.uiController) {
-        this.uiController.showObjectDetails('Agency', agency, relatedObjects);
+        // Set clean breadcrumb: Home → Agency
+        const agencyName = agency.name || agency.agency_name || agency.agency_id || 'Unknown Agency';
+        this.uiController.setBreadcrumb(['Home', agencyName]);
+
+        // Show agency details (breadcrumb already set)
+        this.uiController.showObjectDetails('Agency', agency, relatedObjects, true);
       }
 
       // Highlight agency routes on map
@@ -632,10 +684,14 @@ export class ObjectsNavigation {
     }
   }
 
-  async navigateToRoute(routeId) {
+  async navigateToRoute(routeId, fromBreadcrumb = false) {
     const route = await this.relationships.getRouteByIdAsync(routeId);
 
     if (route) {
+      // First, navigate to the agency that owns this route to establish proper breadcrumb hierarchy
+      const agencyId = route.agencyId || route.agency_id || 'default';
+      const agency = await this.relationships.getAgencyByIdAsync(agencyId);
+
       // Get services for this route grouped by direction
       const services =
         await this.relationships.getServicesForRouteByDirectionAsync(routeId);
@@ -652,13 +708,120 @@ export class ObjectsNavigation {
         };
       });
 
-      // Show route details in the object details view
-      if (this.uiController) {
-        this.uiController.showObjectDetails('Route', route, relatedObjects);
+      // Handle breadcrumb setting based on navigation context
+      if (this.uiController && agency) {
+        const agencyName = agency.name || agency.agency_name || agency.agency_id || 'Unknown Agency';
+        const agencyId = agency.id || agency.agency_id || agency.name || 'Unknown Agency';
+        const routeName = route.shortName || route.longName || route.id || 'Unknown Route';
+        const routeId = route.id || route.route_id || route.shortName || route.longName || 'Unknown Route';
+
+        if (fromBreadcrumb) {
+          // If navigating from breadcrumb, preserve existing breadcrumb structure up to the route
+          // The UI controller's navigateToBreadcrumb already truncated the trail appropriately
+          // We just need to render the existing breadcrumbs
+          this.uiController.renderBreadcrumbs();
+        } else {
+          // Fresh navigation - set complete breadcrumb hierarchy: Home → Agency → Route
+          this.uiController.setBreadcrumbWithIds(['Home'], [
+            { type: 'Agency', name: agencyName, id: agencyId },
+            { type: 'Route', name: routeName, id: routeId }
+          ]);
+        }
+
+        // Show route details (skipBreadcrumbUpdate only if we've handled breadcrumbs above)
+        this.uiController.showObjectDetails('Route', route, relatedObjects, fromBreadcrumb);
       }
 
       // Highlight route on map
       this.highlightRouteOnMap(routeId);
+    }
+  }
+
+  async navigateToStop(stopId) {
+    const stop = await this.relationships.getStopByIdAsync(stopId);
+
+    if (stop) {
+      // Get routes that serve this stop to establish hierarchy
+      const routesAtStop = await this.relationships.getRoutesForStopAsync(stopId);
+
+      // Get all trips for this stop
+      const allTripsAtStop = await this.relationships.getTripsForStopAsync(stopId);
+
+      // Create enhanced related objects showing clickable agencies, routes, and services
+      const relatedObjects = [];
+
+      // Group routes by agency
+      const routesByAgency = new Map();
+
+      for (const route of routesAtStop) {
+        const agencyId = route.agencyId || route.agency_id || 'default';
+
+        if (!routesByAgency.has(agencyId)) {
+          routesByAgency.set(agencyId, []);
+        }
+        routesByAgency.get(agencyId).push(route);
+      }
+
+      // Create agency sections with clickable routes and services
+      for (const [agencyId, agencyRoutes] of routesByAgency) {
+        const agency = await this.relationships.getAgencyByIdAsync(agencyId);
+        const agencyName = agency?.name || agency?.agency_name || agency?.agency_id || 'Unknown Agency';
+
+        const routeObjects = [];
+
+        for (const route of agencyRoutes) {
+          const routeId = route.id || route.route_id;
+
+          // Get services for this route to show instead of trips
+          const servicesForRoute = await this.relationships.getServicesForRouteByDirectionAsync(routeId);
+
+          // Create clickable service objects
+          const serviceObjects = servicesForRoute.map((service) => ({
+            name: this.formatServiceNameWithDirection(service),
+            type: 'Service',
+            data: service,
+            relatedObjects: [],
+            scheduleAction: true, // Flag to indicate this should open schedule view
+            routeId: routeId,
+            directionId: service.directionId,
+          }));
+
+          // Create route object with nested services
+          const routeName = route.shortName || route.longName || route.route_short_name || route.route_long_name || routeId;
+          const routeColor = route.route_color ? `#${route.route_color}` : '#2563eb';
+
+          routeObjects.push({
+            name: `${routeName} (${serviceObjects.length} services)`,
+            type: 'Route',
+            data: route,
+            relatedObjects: serviceObjects,
+            routeAction: true,
+            routeColor: routeColor,
+          });
+        }
+
+        // Create clickable agency section
+        relatedObjects.push({
+          name: `${agencyName} (${routeObjects.length} routes)`,
+          type: 'Agency',
+          data: agency,
+          relatedObjects: routeObjects,
+          agencyAction: true, // Make agency clickable
+        });
+      }
+
+      if (this.uiController) {
+        // Stops are not associated with any specific agency since they can serve multiple agencies
+        // Set simple breadcrumb: Home → Stop
+        const stopName = stop.stop_name || stop.name || stop.stop_id || 'Unknown Stop';
+        this.uiController.setBreadcrumb(['Home', stopName]);
+
+        // Show stop details (breadcrumb already set)
+        this.uiController.showObjectDetails('Stop', stop, relatedObjects, true);
+      }
+
+      // Highlight stop on map
+      this.mapController.focusStop(stopId);
     }
   }
 
@@ -686,28 +849,6 @@ export class ObjectsNavigation {
     }
   }
 
-  async navigateToStop(stopId) {
-    const stop = await this.relationships.getStopByIdAsync(stopId);
-
-    if (stop) {
-      // Get trips for this stop to show as related objects
-      const trips = await this.relationships.getTripsForStopAsync(stopId);
-      const relatedObjects = trips.map((trip) => ({
-        name: trip.id,
-        type: 'Trip',
-        data: trip,
-        relatedObjects: [],
-      }));
-
-      // Show stop details in the object details view
-      if (this.uiController) {
-        this.uiController.showObjectDetails('Stop', stop, relatedObjects);
-      }
-
-      // Highlight stop on map
-      this.highlightStopOnMap(stopId);
-    }
-  }
 
   // Map highlighting methods
   highlightAgencyOnMap(agencyId) {
@@ -717,12 +858,9 @@ export class ObjectsNavigation {
   }
 
   highlightRouteOnMap(routeId) {
-    if (this.mapController && this.mapController.highlightRoute) {
-      this.mapController.clearHighlights();
-      this.mapController.highlightRoute(routeId);
-
-      // Fit map to this route
-      this.mapController.fitToRoutes([routeId]);
+    if (this.mapController && this.mapController.focusRoute) {
+      // Use new focus method instead of old highlight method
+      this.mapController.focusRoute(routeId);
     }
   }
 

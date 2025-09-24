@@ -431,7 +431,7 @@ export class GTFSRelationships {
    */
   async getAgenciesAsync() {
     try {
-      const agencyData = await this.gtfsDatabase.getAllRows('agencies');
+      const agencyData = await this.gtfsDatabase.getAllRows('agency');
       if (!agencyData || !Array.isArray(agencyData)) {
         return [];
       }
@@ -1036,6 +1036,66 @@ export class GTFSRelationships {
       console.error('Error performing combined search from IndexedDB:', error);
       // Fallback to sync method from gtfsParser
       return this.gtfsParser.searchAll(query);
+    }
+  }
+
+  /**
+   * Get agency by ID (async)
+   */
+  async getAgencyByIdAsync(agencyId: string) {
+    try {
+      const agencyData = await this.gtfsDatabase.queryRows('agency', {
+        agency_id: agencyId,
+      });
+      if (!agencyData || !Array.isArray(agencyData) || agencyData.length === 0) {
+        return null;
+      }
+
+      const agency = agencyData[0];
+      return {
+        id: agency.agency_id,
+        name: agency.agency_name || `Agency ${agency.agency_id}`,
+        url: agency.agency_url,
+        timezone: agency.agency_timezone,
+        lang: agency.agency_lang,
+        phone: agency.agency_phone,
+        fare_url: agency.agency_fare_url,
+        email: agency.agency_email,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting agency by ID from IndexedDB:', error);
+      // Fallback to sync method
+      const agencies = this.getAgencies();
+      return agencies.find(agency => agency.id === agencyId) || null;
+    }
+  }
+
+  /**
+   * Get all routes that serve a specific stop (async)
+   */
+  async getRoutesForStopAsync(stopId: string) {
+    try {
+      // First get all trips that serve this stop
+      const trips = await this.getTripsForStopAsync(stopId);
+
+      // Get unique route IDs from those trips
+      const routeIds = [...new Set(trips.map(trip => trip.routeId))];
+
+      // Get route details for each route ID
+      const routes = await Promise.all(
+        routeIds.map(routeId => this.getRouteByIdAsync(routeId))
+      );
+
+      // Filter out null routes and return
+      return routes.filter(route => route !== null);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting routes for stop from IndexedDB:', error);
+      // Fallback implementation using sync methods
+      const trips = this.getTripsForStop(stopId);
+      const routeIds = [...new Set(trips.map(trip => trip.routeId))];
+      return routeIds.map(routeId => this.getRouteById(routeId)).filter(route => route !== null);
     }
   }
 }
