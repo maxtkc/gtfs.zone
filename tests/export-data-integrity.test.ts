@@ -122,7 +122,7 @@ test.describe('Export Data Integrity Tests', () => {
 
           // Check each file in the export
           for (const [tableName, originalRecords] of Object.entries(testData)) {
-            const fileName = \`\${tableName}.txt\`;
+            const fileName = `${tableName}.txt`;
 
             if (zipContent.files[fileName]) {
               const csvContent = await zipContent.files[fileName].async('text');
@@ -289,7 +289,7 @@ test.describe('Export Data Integrity Tests', () => {
           const zip = new JSZip();
           const zipContent = await zip.loadAsync(exportBlob);
 
-          const expectedFiles = Object.keys(multiTableData).map(name => \`\${name}.txt\`);
+          const expectedFiles = Object.keys(multiTableData).map(name => `${name}.txt`);
           const actualFiles = Object.keys(zipContent.files);
 
           // Check file count and names
@@ -349,9 +349,9 @@ test.describe('Export Data Integrity Tests', () => {
       const largeDataset = [];
       for (let i = 0; i < 5000; i++) {
         largeDataset.push({
-          stop_id: \`LARGE_STOP_\${i}\`,
-          stop_name: \`Large Dataset Stop \${i}\`,
-          stop_desc: \`This is a test stop for large dataset export testing. Stop number \${i} in the sequence.\`,
+          stop_id: `LARGE_STOP_${i}`,
+          stop_name: `Large Dataset Stop ${i}`,
+          stop_desc: `This is a test stop for large dataset export testing. Stop number ${i} in the sequence.`,
           stop_lat: (45.5 + (Math.random() - 0.5) * 0.1).toFixed(6),
           stop_lon: (-122.6 + (Math.random() - 0.5) * 0.1).toFixed(6),
           location_type: '0',

@@ -94,8 +94,8 @@ test.describe('GTFSDatabase Unit Tests', () => {
     test('should handle bulk insert operations efficiently', async () => {
       // Create large dataset
       const largeDataset = Array.from({ length: 5000 }, (_, i) => ({
-        stop_id: \`STOP_\${i}\`,
-        stop_name: \`Stop \${i}\`,
+        stop_id: `STOP_${i}`,
+        stop_name: `Stop ${i}`,
         stop_lat: (45.5 + Math.random() * 0.1).toString(),
         stop_lon: (-122.6 + Math.random() * 0.1).toString()
       }));
@@ -169,8 +169,8 @@ test.describe('GTFSDatabase Unit Tests', () => {
         try {
           // Create oversized data that might trigger quota limits
           const oversizedData = Array.from({ length: 100000 }, (_, i) => ({
-            stop_id: \`LARGE_STOP_\${i}\`,
-            stop_name: \`Very Long Stop Name \${i} \`.repeat(100), // Make it large
+            stop_id: `LARGE_STOP_${i}`,
+            stop_name: `Very Long Stop Name ${i} `.repeat(100), // Make it large
             stop_desc: 'Lorem ipsum '.repeat(500), // Very long description
             stop_lat: (45.5 + Math.random() * 0.1).toString(),
             stop_lon: (-122.6 + Math.random() * 0.1).toString()
@@ -229,9 +229,9 @@ test.describe('GTFSDatabase Unit Tests', () => {
         // Perform 100 rapid insert operations
         for (let i = 0; i < 100; i++) {
           operations.push(db.insertRows('agencies', [{
-            agency_id: \`RAPID_\${i}\`,
-            agency_name: \`Rapid Agency \${i}\`,
-            agency_url: \`https://rapid\${i}.example.com\`
+            agency_id: `RAPID_${i}`,
+            agency_name: `Rapid Agency ${i}`,
+            agency_url: `https://rapid${i}.example.com`
           }]));
         }
 
@@ -253,10 +253,10 @@ test.describe('GTFSDatabase Unit Tests', () => {
       // Insert a large dataset first
       await page.evaluate(async (db) => {
         const largeRoutes = Array.from({ length: 1000 }, (_, i) => ({
-          route_id: \`PERF_ROUTE_\${i}\`,
-          agency_id: i % 10 === 0 ? 'TARGET_AGENCY' : \`OTHER_AGENCY_\${i % 5}\`,
-          route_short_name: \`\${i}\`,
-          route_long_name: \`Performance Route \${i}\`,
+          route_id: `PERF_ROUTE_${i}`,
+          agency_id: i % 10 === 0 ? 'TARGET_AGENCY' : `OTHER_AGENCY_${i % 5}`,
+          route_short_name: `${i}`,
+          route_long_name: `Performance Route ${i}`,
           route_type: '3'
         }));
 
@@ -291,7 +291,7 @@ test.describe('GTFSDatabase Unit Tests', () => {
 
         // Update the same row multiple times rapidly
         const updatePromises = Array.from({ length: 10 }, (_, i) =>
-          db.updateRow('agencies', firstRow.id, { agency_name: \`Updated Name \${i}\` })
+          db.updateRow('agencies', firstRow.id, { agency_name: `Updated Name ${i}` })
         );
 
         await Promise.all(updatePromises);

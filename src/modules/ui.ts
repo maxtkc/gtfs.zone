@@ -6,6 +6,7 @@ import {
   createTooltip,
   getSchemaFieldName,
 } from '../utils/zod-tooltip-helper.js';
+import { navigateToTimetable } from './navigation-actions.js';
 
 export class UIController {
   constructor() {
@@ -15,7 +16,6 @@ export class UIController {
     this.objectsNavigation = null;
     this.scheduleController = null;
     this.validateCallback = null;
-    this.breadcrumbTrail = []; // Track navigation path for breadcrumbs
   }
 
   initialize(
@@ -490,10 +490,14 @@ export class UIController {
       detailsView.classList.add('hidden');
     }
     // Clear breadcrumb trail when returning to objects list
-    this.breadcrumbTrail = [];
   }
 
-  showObjectDetails(objectType, objectData, relatedObjects = [], skipBreadcrumbUpdate = false) {
+  showObjectDetails(
+    objectType,
+    objectData,
+    relatedObjects = [],
+    _skipBreadcrumbUpdate = false
+  ) {
     const listView = document.getElementById('objects-list-view');
     const detailsView = document.getElementById('object-details-view');
     if (listView && detailsView) {
@@ -558,190 +562,11 @@ export class UIController {
         objectNameEl.textContent = objectName;
       }
 
-      // Update breadcrumb trail (unless already set deterministically)
-      if (!skipBreadcrumbUpdate) {
-        this.updateBreadcrumbTrail(objectType, objectName, objectData);
-      }
-
       // Populate properties
       this.populateObjectProperties(objectData);
 
       // Populate related objects
       this.populateRelatedObjects(relatedObjects);
-    }
-  }
-
-  setBreadcrumb(fullPath) {
-    // Set breadcrumb trail deterministically with full path
-    // fullPath should be an array like ['Home', 'Agency Name', 'Route Name']
-    this.breadcrumbTrail = [];
-
-    // Skip 'Home' since it's always present and handled separately
-    const pathWithoutHome = fullPath.slice(1);
-
-    pathWithoutHome.forEach((name, index) => {
-      let type, id;
-
-      // Determine object type based on position and content
-      if (index === 0) {
-        // First item after Home is usually Agency
-        type = 'Agency';
-        id = name; // For agencies, name often is the ID
-      } else if (index === 1) {
-        // Second item is usually Route
-        type = 'Route';
-        id = name; // For routes, we'll use the name as ID for now
-      } else if (index === 2) {
-        // Third item could be Stop or Trip
-        type = 'Stop'; // Default to Stop
-        id = name;
-      } else {
-        // Fallback for additional levels
-        type = 'Object';
-        id = name;
-      }
-
-      this.breadcrumbTrail.push({
-        type,
-        name,
-        id
-      });
-    });
-
-    this.renderBreadcrumbs();
-  }
-
-  setBreadcrumbWithIds(homePath, items) {
-    // Set breadcrumb trail with proper IDs for navigation
-    this.breadcrumbTrail = [];
-
-    // Add items with proper type and ID
-    items.forEach((item) => {
-      this.breadcrumbTrail.push({
-        type: item.type,
-        name: item.name,
-        id: item.id
-      });
-    });
-
-    this.renderBreadcrumbs();
-  }
-
-  updateBreadcrumbTrail(objectType, objectName, objectData) {
-    // Build breadcrumb trail based on object hierarchy - only store type and ID
-    const objectId =
-      objectData.id ||
-      objectData.agency_id ||
-      objectData.route_id ||
-      objectData.routeId ||
-      objectData.serviceId;
-
-    const breadcrumbItem = {
-      type: objectType,
-      name: objectName,
-      id: objectId,
-    };
-
-    // Check if this item is already in the trail to avoid duplicates
-    const existingIndex = this.breadcrumbTrail.findIndex(
-      (item) => item.type === objectType && item.id === objectId
-    );
-
-    if (existingIndex >= 0) {
-      // If item exists, truncate trail to that point
-      this.breadcrumbTrail = this.breadcrumbTrail.slice(0, existingIndex + 1);
-    } else {
-      // Add new item to trail
-      this.breadcrumbTrail.push(breadcrumbItem);
-    }
-
-    this.renderBreadcrumbs();
-  }
-
-  renderBreadcrumbs() {
-    const breadcrumbList = document.getElementById('breadcrumb-list');
-    if (!breadcrumbList) {
-      return;
-    }
-
-    // Clear existing breadcrumbs
-    breadcrumbList.innerHTML = '';
-
-    // Add Home link with icon
-    const agenciesLi = document.createElement('li');
-    const agenciesLink = document.createElement('a');
-    agenciesLink.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-4 w-4 stroke-current">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-      </svg>
-    `;
-    agenciesLink.href = '#';
-    agenciesLink.id = 'breadcrumb-objects';
-    agenciesLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.showObjectsList();
-    });
-    agenciesLi.appendChild(agenciesLink);
-    breadcrumbList.appendChild(agenciesLi);
-
-    // Add each item in the trail
-    this.breadcrumbTrail.forEach((item, index) => {
-      const isLast = index === this.breadcrumbTrail.length - 1;
-      const li = document.createElement('li');
-
-      if (isLast) {
-        // Last item is not clickable
-        li.textContent = item.name;
-      } else {
-        // Previous items are clickable
-        const a = document.createElement('a');
-        a.textContent = item.name;
-        a.href = '#';
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.navigateToBreadcrumb(index);
-        });
-        li.appendChild(a);
-      }
-
-      breadcrumbList.appendChild(li);
-    });
-  }
-
-  navigateToBreadcrumb(index) {
-    console.log(
-      'navigateToBreadcrumb called with index:',
-      index,
-      'breadcrumbTrail:',
-      this.breadcrumbTrail
-    );
-    // Truncate trail to the clicked item
-    this.breadcrumbTrail = this.breadcrumbTrail.slice(0, index + 1);
-    const item = this.breadcrumbTrail[index];
-    console.log('Navigating to item:', item);
-
-    // Dynamically fetch object data and related objects based on type and ID
-    if (item.type === 'Agency' && this.objectsNavigation) {
-      // Use the objects navigation to navigate to this agency
-      this.objectsNavigation.navigateToAgency(item.id);
-    } else if (item.type === 'Route' && this.objectsNavigation) {
-      // Use the objects navigation to navigate to this route from breadcrumb
-      this.objectsNavigation.navigateToRoute(item.id, true);
-    } else if (item.type === 'Schedule') {
-      // For schedule items, navigate back to the route view
-      const routeItem = this.breadcrumbTrail.find(
-        (breadcrumbItem) => breadcrumbItem.type === 'Route'
-      );
-      if (routeItem && this.objectsNavigation) {
-        // Truncate breadcrumb trail to just include the route
-        const routeIndex = this.breadcrumbTrail.findIndex(
-          (breadcrumbItem) => breadcrumbItem.type === 'Route'
-        );
-        this.breadcrumbTrail = this.breadcrumbTrail.slice(0, routeIndex + 1);
-        // Navigate directly to the route from breadcrumb
-        this.objectsNavigation.navigateToRoute(routeItem.id, true);
-        return;
-      }
     }
   }
 
@@ -946,12 +771,17 @@ export class UIController {
       const itemEl = document.createElement('div');
 
       // Check if this is an agency with routes or a route with trips/services
-      if (obj.type === 'Agency' && obj.relatedObjects && obj.relatedObjects.length > 0) {
+      if (
+        obj.type === 'Agency' &&
+        obj.relatedObjects &&
+        obj.relatedObjects.length > 0
+      ) {
         // Create collapsible agency section
         itemEl.className = 'bg-base-200 rounded mb-2';
         // Agency header
         const headerEl = document.createElement('div');
-        headerEl.className = 'flex items-center gap-2 p-3 cursor-pointer hover:bg-base-300 rounded';
+        headerEl.className =
+          'flex items-center gap-2 p-3 cursor-pointer hover:bg-base-300 rounded';
 
         // Agency icon
         const iconEl = document.createElement('div');
@@ -981,7 +811,8 @@ export class UIController {
 
           // Route header
           const routeHeaderEl = document.createElement('div');
-          routeHeaderEl.className = 'flex items-center gap-2 p-2 cursor-pointer hover:bg-base-300 rounded';
+          routeHeaderEl.className =
+            'flex items-center gap-2 p-2 cursor-pointer hover:bg-base-300 rounded';
 
           // Route color indicator
           const colorEl = document.createElement('div');
@@ -1008,7 +839,8 @@ export class UIController {
           if (route.relatedObjects && route.relatedObjects.length > 0) {
             route.relatedObjects.forEach((service) => {
               const serviceEl = document.createElement('div');
-              serviceEl.className = 'flex items-center gap-2 p-1 bg-base-200 rounded text-xs cursor-pointer hover:bg-base-300';
+              serviceEl.className =
+                'flex items-center gap-2 p-1 bg-base-200 rounded text-xs cursor-pointer hover:bg-base-300';
 
               const serviceNameEl = document.createElement('span');
               serviceNameEl.className = 'font-mono text-xs';
@@ -1019,14 +851,17 @@ export class UIController {
               // Make service clickable
               serviceEl.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (service.scheduleAction && service.routeId && service.data?.serviceId) {
-                  if (this.scheduleController) {
-                    await this.scheduleController.showScheduleForRoute(
-                      service.routeId,
-                      service.data.serviceId,
-                      service.directionId || service.data.directionId
-                    );
-                  }
+                if (
+                  service.scheduleAction &&
+                  service.routeId &&
+                  service.data?.serviceId
+                ) {
+                  // Navigate to timetable view using the new navigation system
+                  navigateToTimetable(
+                    service.routeId,
+                    service.data.serviceId,
+                    service.directionId || service.data.directionId
+                  );
                 }
               });
 
@@ -1052,7 +887,9 @@ export class UIController {
           routeHeaderEl.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             if (route.routeAction && this.objectsNavigation) {
-              this.objectsNavigation.navigateToRoute(route.data.id || route.data.route_id);
+              this.objectsNavigation.navigateToRoute(
+                route.data.id || route.data.route_id
+              );
             }
           });
 
@@ -1086,13 +923,18 @@ export class UIController {
 
         itemEl.appendChild(headerEl);
         itemEl.appendChild(routesEl);
-      } else if (obj.type === 'Route' && obj.relatedObjects && obj.relatedObjects.length > 0) {
+      } else if (
+        obj.type === 'Route' &&
+        obj.relatedObjects &&
+        obj.relatedObjects.length > 0
+      ) {
         // Create collapsible route section
         itemEl.className = 'bg-base-200 rounded mb-2';
 
         // Route header with color indicator
         const headerEl = document.createElement('div');
-        headerEl.className = 'flex items-center gap-2 p-3 cursor-pointer hover:bg-base-300 rounded';
+        headerEl.className =
+          'flex items-center gap-2 p-3 cursor-pointer hover:bg-base-300 rounded';
 
         // Route color indicator
         const colorEl = document.createElement('div');
@@ -1118,7 +960,8 @@ export class UIController {
         // Add trips
         obj.relatedObjects.forEach((trip) => {
           const tripEl = document.createElement('div');
-          tripEl.className = 'flex items-center gap-2 p-2 bg-base-100 rounded text-xs cursor-pointer hover:bg-base-300';
+          tripEl.className =
+            'flex items-center gap-2 p-2 bg-base-100 rounded text-xs cursor-pointer hover:bg-base-300';
 
           const tripNameEl = document.createElement('span');
           tripNameEl.className = 'font-mono';
@@ -1130,7 +973,9 @@ export class UIController {
           tripEl.addEventListener('click', (e) => {
             e.stopPropagation();
             if (trip.tripAction && this.objectsNavigation) {
-              this.objectsNavigation.navigateToTrip(trip.data.trip_id || trip.data.id);
+              this.objectsNavigation.navigateToTrip(
+                trip.data.trip_id || trip.data.id
+              );
             }
           });
 
@@ -1153,16 +998,18 @@ export class UIController {
         // Route click action
         headerEl.addEventListener('dblclick', () => {
           if (obj.routeAction && this.objectsNavigation) {
-            this.objectsNavigation.navigateToRoute(obj.data.route_id || obj.data.id);
+            this.objectsNavigation.navigateToRoute(
+              obj.data.route_id || obj.data.id
+            );
           }
         });
 
         itemEl.appendChild(headerEl);
         itemEl.appendChild(tripsEl);
-
       } else {
         // Standard object display
-        itemEl.className = 'flex items-center justify-between p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300';
+        itemEl.className =
+          'flex items-center justify-between p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300';
 
         const nameEl = document.createElement('span');
         nameEl.className = 'text-sm';
@@ -1177,14 +1024,12 @@ export class UIController {
 
         itemEl.addEventListener('click', async () => {
           if (obj.scheduleAction && obj.routeId && obj.data?.serviceId) {
-            // Open schedule view for this service with direction filtering
-            if (this.scheduleController) {
-              await this.scheduleController.showScheduleForRoute(
-                obj.routeId,
-                obj.data.serviceId,
-                obj.directionId || obj.data.directionId
-              );
-            }
+            // Navigate to timetable view using the new navigation system
+            navigateToTimetable(
+              obj.routeId,
+              obj.data.serviceId,
+              obj.directionId || obj.data.directionId
+            );
           } else if (obj.agencyAction && this.objectsNavigation) {
             // Navigate to agency view to show routes
             const agencyId = obj.data.id || obj.data.agency_id;
@@ -1197,7 +1042,11 @@ export class UIController {
               this.objectsNavigation.navigateToRoute(obj.routeId);
             }
           } else {
-            this.showObjectDetails(obj.type, obj.data, obj.relatedObjects || []);
+            this.showObjectDetails(
+              obj.type,
+              obj.data,
+              obj.relatedObjects || []
+            );
           }
         });
       }

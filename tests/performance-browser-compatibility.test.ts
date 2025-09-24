@@ -35,8 +35,8 @@ test.describe('Performance and Browser Compatibility Tests', () => {
         // Test 2: Data Insertion Performance
         const insertStart = performance.now();
         const testData = Array.from({ length: 1000 }, (_, i) => ({
-          stop_id: \`PERF_STOP_\${i}\`,
-          stop_name: \`Performance Test Stop \${i}\`,
+          stop_id: `PERF_STOP_${i}`,
+          stop_name: `Performance Test Stop ${i}`,
           stop_lat: (45.5 + Math.random() * 0.1).toFixed(6),
           stop_lon: (-122.6 + Math.random() * 0.1).toFixed(6)
         }));
@@ -185,8 +185,8 @@ test.describe('Performance and Browser Compatibility Tests', () => {
         // Try to create a dataset that might exceed quota
         // Create very large records to potentially trigger quota limits
         const oversizedData = Array.from({ length: 10000 }, (_, i) => ({
-          stop_id: \`QUOTA_TEST_\${i}\`,
-          stop_name: \`Quota Test Stop \${i}\`,
+          stop_id: `QUOTA_TEST_${i}`,
+          stop_name: `Quota Test Stop ${i}`,
           stop_desc: 'A'.repeat(10000), // 10KB description per record
           stop_lat: (45.5 + Math.random() * 0.1).toFixed(6),
           stop_lon: (-122.6 + Math.random() * 0.1).toFixed(6),
@@ -260,8 +260,8 @@ test.describe('Performance and Browser Compatibility Tests', () => {
 
             try {
               const data = Array.from({ length: 100 }, (_, j) => ({
-                stop_id: \`STRESS_\${i}_\${j}\`,
-                stop_name: \`Stress Test Stop \${i}-\${j}\`,
+                stop_id: `STRESS_${i}_${j}`,
+                stop_name: `Stress Test Stop ${i}-${j}`,
                 stop_lat: (45.5 + Math.random() * 0.1).toFixed(6),
                 stop_lon: (-122.6 + Math.random() * 0.1).toFixed(6)
               }));
@@ -278,7 +278,7 @@ test.describe('Performance and Browser Compatibility Tests', () => {
 
             } catch (error) {
               results.concurrentOperations.failed++;
-              console.error(\`Stress operation \${i} failed:\`, error);
+              console.error(`Stress operation ${i} failed:`, error);
             }
           };
 
@@ -406,23 +406,23 @@ test.describe('Performance and Browser Compatibility Tests', () => {
       try {
         // Test performance measurement capabilities
         const markName = 'gtfs-test-mark';
-        performance.mark(\`\${markName}-start\`);
+        performance.mark(`${markName}-start`);
 
         const { GTFSDatabase } = await import('/src/modules/gtfs-database.js');
         const database = new GTFSDatabase();
         await database.initialize();
 
         const testData = Array.from({ length: 100 }, (_, i) => ({
-          agency_id: \`METRICS_\${i}\`,
-          agency_name: \`Metrics Test Agency \${i}\`,
-          agency_url: \`https://metrics\${i}.example.com\`,
+          agency_id: `METRICS_${i}`,
+          agency_name: `Metrics Test Agency ${i}`,
+          agency_url: `https://metrics${i}.example.com`,
           agency_timezone: 'UTC'
         }));
 
         await database.insertRows('agencies', testData);
 
-        performance.mark(\`\${markName}-end\`);
-        performance.measure(\`\${markName}-duration\`, \`\${markName}-start\`, \`\${markName}-end\`);
+        performance.mark(`${markName}-end`);
+        performance.measure(`${markName}-duration`, `${markName}-start`, `${markName}-end`);
 
         // Check if performance marks were created
         const marks = performance.getEntriesByType('mark');
@@ -430,7 +430,7 @@ test.describe('Performance and Browser Compatibility Tests', () => {
         results.performanceMarks = marks.length + measures.length;
 
         // Check timing accuracy
-        const measure = measures.find(m => m.name === \`\${markName}-duration\`);
+        const measure = measures.find(m => m.name === `${markName}-duration`);
         results.timingAccuracy = measure && measure.duration > 0;
 
         // Check memory tracking capability

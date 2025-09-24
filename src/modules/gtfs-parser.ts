@@ -755,4 +755,11 @@ export class GTFSParser {
 
     return routes.filter((route) => routeIds.includes(route.route_id));
   }
+
+  /**
+   * Get the GTFS database instance for external use
+   */
+  getDatabase(): GTFSDatabase {
+    return this.gtfsDatabase;
+  }
 }

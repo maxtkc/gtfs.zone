@@ -1,14 +1,6 @@
-- Every file should always exist in the Files
-- We should be able to diff with the most recently uploaded file (maybe we should have a diff-base? Should it be commit based?)
-- Bus/train selector/filters
-- Lets make a plan to revamp the map overlays.
-
-Ideas:
-
-- File based editing is there only for bulk custom edits, mostly shouldn't need to be touched
-
 ### Timetable
 
+- Use Shortest common supersequence to align the trips for a timetable
 - Fix algorithm. We want to take all of the unique trip sequences and use MLCS to order all of the stops
 - Fix scrolling (you should be able to scroll past the properties, or at least hide them, maybe hidden is better because these are not often edited)
 - Editable service properties (this shouldn't be too difficult)
@@ -63,3 +55,5 @@ This will show everything at a high level.
 - Add dropdowns for enum fields
 - Fix the tooltips, zod isn't working correctly
 - Remove the junk gtfs feed and start properly empty
+- Smooth map transitions
+- Remove random map hover

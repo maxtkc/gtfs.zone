@@ -22,7 +22,6 @@ export interface TimetableData {
 export class ScheduleController {
   private relationships: Record<string, unknown>;
   private gtfsParser: Record<string, unknown>;
-  private uiController: Record<string, unknown> | null = null;
 
   constructor(
     gtfsRelationships: Record<string, unknown>,
@@ -33,63 +32,23 @@ export class ScheduleController {
   }
 
   /**
-   * Set UI controller reference for integration
+   * Render schedule HTML for a specific route and service
    */
-  setUIController(uiController: Record<string, unknown>): void {
-    this.uiController = uiController;
-  }
-
-  /**
-   * Entry point - show schedule for a specific route and service
-   */
-  async showScheduleForRoute(
+  async renderSchedule(
     routeId: string,
     serviceId: string,
     directionId?: string
-  ): Promise<void> {
+  ): Promise<string> {
     try {
       const timetableData = this.generateTimetableData(
         routeId,
         serviceId,
         directionId
       );
-      this.renderTimetable(timetableData);
-
-      // Establish proper breadcrumb hierarchy: Home -> Agency -> Route -> Service
-      if (this.uiController) {
-        const route = timetableData.route;
-        const service = timetableData.service;
-        const directionName = timetableData.directionName;
-
-        // Get route and agency information to build proper hierarchy
-        const routeData = await this.relationships.getRouteByIdAsync(routeId);
-        if (routeData) {
-          const agencyId = routeData.agencyId || routeData.agency_id || 'default';
-          const agency = await this.relationships.getAgencyByIdAsync(agencyId);
-
-          if (agency) {
-            // Build complete breadcrumb hierarchy
-            const agencyName = agency.name || agency.agency_name || agency.agency_id || 'Unknown Agency';
-            const routeName = routeData.shortName || routeData.longName || routeData.route_short_name || routeData.route_long_name || routeId;
-
-            let serviceName = service.serviceId;
-            if (directionName) {
-              serviceName += ` - ${directionName}`;
-            }
-            serviceName += ' Schedule';
-
-            // Set complete breadcrumb hierarchy instead of appending
-            this.uiController.setBreadcrumbWithIds(['Home'], [
-              { type: 'Agency', name: agencyName, id: agencyId },
-              { type: 'Route', name: routeName, id: routeId },
-              { type: 'Service', name: serviceName, id: serviceId }
-            ]);
-          }
-        }
-      }
+      return this.renderTimetableHTML(timetableData);
     } catch (error) {
-      console.error('Error showing schedule:', error);
-      this.renderError('Failed to generate schedule view');
+      console.error('Error rendering schedule:', error);
+      return this.renderErrorHTML('Failed to generate schedule view');
     }
   }
 
@@ -242,34 +201,15 @@ export class ScheduleController {
   }
 
   /**
-   * Render timetable HTML structure
+   * Render timetable HTML structure (returns HTML string)
    */
-  private renderTimetable(data: TimetableData): void {
-    const container = document.getElementById('object-details-view');
-    if (!container) {
-      console.error('Object details view container not found');
-      return;
-    }
-
-    const html = `
+  private renderTimetableHTML(data: TimetableData): string {
+    return `
       <div id="schedule-view" class="h-full flex flex-col">
         ${this.renderScheduleHeader(data.route, data.service)}
         ${this.renderTimetableContent(data)}
       </div>
     `;
-
-    container.innerHTML = html;
-    this.attachScheduleEventListeners(data);
-
-    // Show the details view
-    if (this.uiController) {
-      const listView = document.getElementById('objects-list-view');
-      const detailsView = document.getElementById('object-details-view');
-      if (listView && detailsView) {
-        listView.classList.add('hidden');
-        detailsView.classList.remove('hidden');
-      }
-    }
   }
 
   /**
@@ -285,46 +225,8 @@ export class ScheduleController {
 
     const serviceName = service.serviceId;
 
-    // Use UI controller's breadcrumb system if available
-    let breadcrumbHtml = '';
-    if (this.uiController) {
-      // Get the current breadcrumb trail from UI controller
-      breadcrumbHtml = `
-        <div class="p-3 bg-base-200">
-          <div class="breadcrumbs text-sm">
-            <ul id="breadcrumb-list">
-              <!-- Breadcrumbs will be rendered by UI controller -->
-            </ul>
-          </div>
-        </div>
-      `;
-
-      // Re-render breadcrumbs to include schedule item
-      setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
-    } else {
-      // Fallback breadcrumb for when UI controller is not available
-      breadcrumbHtml = `
-        <div class="p-3 bg-base-200">
-          <div class="breadcrumbs text-sm">
-            <ul>
-              <li>
-                <a id="schedule-breadcrumb-agencies">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-4 w-4 stroke-current">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                  </svg>
-                </a>
-              </li>
-              <li><a id="schedule-breadcrumb-route">${routeName}</a></li>
-              <li>${serviceName} Schedule</li>
-            </ul>
-          </div>
-        </div>
-      `;
-    }
-
     return `
       <div class="border-b border-base-300">
-        ${breadcrumbHtml}
         <div class="p-4">
           <h2 class="text-lg font-semibold">
             ${routeName} - ${serviceName}
@@ -624,55 +526,10 @@ export class ScheduleController {
   }
 
   /**
-   * Attach event listeners for schedule interactions
+   * Render error state HTML
    */
-  private attachScheduleEventListeners(data: TimetableData): void {
-    const container = document.getElementById('schedule-view');
-    if (!container) {
-      return;
-    }
-
-    // Breadcrumb navigation is now handled by UI controller
-    // Only add fallback handlers if UI controller is not available
-    if (!this.uiController) {
-      const agenciesBtn = document.getElementById(
-        'schedule-breadcrumb-agencies'
-      );
-      if (agenciesBtn) {
-        agenciesBtn.addEventListener('click', () => {
-          if (this.uiController) {
-            this.uiController.showObjectsList();
-          }
-        });
-      }
-
-      const routeBtn = document.getElementById('schedule-breadcrumb-route');
-      if (routeBtn) {
-        routeBtn.addEventListener('click', () => {
-          if (this.uiController) {
-            this.uiController.showObjectsList();
-            // Navigate back to the route view by calling the objects navigation
-            if (this.uiController.objectsNavigation) {
-              this.uiController.objectsNavigation.navigateToRoute(
-                data.route.route_id
-              );
-            }
-          }
-        });
-      }
-    }
-  }
-
-  /**
-   * Render error state
-   */
-  private renderError(message: string): void {
-    const container = document.getElementById('object-details-view');
-    if (!container) {
-      return;
-    }
-
-    container.innerHTML = `
+  private renderErrorHTML(message: string): string {
+    return `
       <div class="h-full flex flex-col">
         <div class="border-b border-base-300">
           <div class="p-3 bg-base-200">
@@ -691,11 +548,6 @@ export class ScheduleController {
         </div>
       </div>
     `;
-
-    // Re-render breadcrumbs using UI controller
-    if (this.uiController) {
-      setTimeout(() => this.uiController.renderBreadcrumbs(), 0);
-    }
   }
 
   /**

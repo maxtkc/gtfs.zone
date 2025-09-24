@@ -1,6 +1,6 @@
 import { Map as MapLibreMap, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-// import stringHash from 'string-hash';
+import { PageStateManager } from './page-state-manager.js';
 
 export class MapController {
   private map: MapLibreMap | null;
@@ -13,10 +13,9 @@ export class MapController {
   } | null;
   private resizeTimeout: NodeJS.Timeout | null;
   private shapeToRouteMapping: Map<string, string[]> = new Map();
-  private focusedRouteId: string | null = null;
-  private focusedStopId: string | null = null;
   private onRouteSelectCallback: ((routeId: string) => void) | null = null;
   private onStopSelectCallback: ((stopId: string) => void) | null = null;
+  private pageStateManager: PageStateManager | null = null;
 
   constructor(mapElementId = 'map') {
     this.map = null;
@@ -62,8 +61,16 @@ export class MapController {
     }
   }
 
+  setPageStateManager(pageStateManager: PageStateManager) {
+    this.pageStateManager = pageStateManager;
+  }
+
   updateMap() {
-    if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt') || !this.map) {
+    if (
+      !this.gtfsParser ||
+      !this.gtfsParser.getFileDataSync('stops.txt') ||
+      !this.map
+    ) {
       return;
     }
 
@@ -84,16 +91,17 @@ export class MapController {
 
     // Add enhanced stops to map
     this.addStopsToMap();
+
+    // Add unified click handler that prioritizes stops over routes
+    this.addUnifiedClickHandler();
   }
 
   clearMapLayers() {
     // Remove existing layers and sources with new layering structure
     const layersToRemove = [
       'routes-background',
-      'routes-focused',
       'routes-clickarea',
       'stops-background',
-      'stops-focused',
       'stops-clickarea',
       'stops-highlight',
       'routes-highlight',
@@ -101,14 +109,14 @@ export class MapController {
       // Legacy layers
       'stops',
       'routes',
-      'shapes'
+      'shapes',
     ];
     const sourcesToRemove = [
       'routes',
       'stops',
       'stops-highlight',
       'routes-highlight',
-      'trip-highlight'
+      'trip-highlight',
     ];
 
     layersToRemove.forEach((layerId) => {
@@ -157,7 +165,10 @@ export class MapController {
         let primaryRouteColor = '#2563eb'; // Default blue
         if (routesAtStop.length > 0) {
           const primaryRoute = routesAtStop[0];
-          primaryRouteColor = this.getRouteColor(primaryRoute.route_id as string, primaryRoute.route_color as string);
+          primaryRouteColor = this.getRouteColor(
+            primaryRoute.route_id as string,
+            primaryRoute.route_color as string
+          );
         }
 
         return {
@@ -186,10 +197,10 @@ export class MapController {
     // Add source with feature IDs for state management
     const stopsGeoJSONWithIds = {
       ...stopsGeoJSON,
-      features: stopsGeoJSON.features.map(feature => ({
+      features: stopsGeoJSON.features.map((feature) => ({
         ...feature,
-        id: feature.properties.stop_id // Add ID for feature state
-      }))
+        id: feature.properties.stop_id, // Add ID for feature state
+      })),
     };
 
     this.map.addSource('stops', {
@@ -205,9 +216,6 @@ export class MapController {
       paint: {
         'circle-radius': [
           'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          0, // Hide when focused
-          // Normal sizes based on location type
           ['==', ['get', 'location_type'], '1'],
           10, // Station
           ['==', ['get', 'location_type'], '2'],
@@ -236,79 +244,8 @@ export class MapController {
           '#2563eb', // Default - blue
         ],
         'circle-stroke-width': 2.5,
-        'circle-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          0, // Hide when focused
-          1  // Normal opacity
-        ],
-        'circle-stroke-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          0, // Hide when focused
-          1  // Normal opacity
-        ],
-      },
-    });
-
-    // Add focused stops layer (selected stops, larger size)
-    this.map.addLayer({
-      id: 'stops-focused',
-      type: 'circle',
-      source: 'stops',
-      paint: {
-        'circle-radius': [
-          'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          // Focused sizes (larger) - nested case for location type
-          [
-            'case',
-            ['==', ['get', 'location_type'], '1'],
-            14, // Station - larger
-            ['==', ['get', 'location_type'], '2'],
-            8, // Entrance/Exit - larger
-            ['==', ['get', 'location_type'], '3'],
-            8, // Generic node - larger
-            ['==', ['get', 'location_type'], '4'],
-            10, // Boarding area - larger
-            10 // Default stop - larger
-          ],
-          0 // Hide when not focused
-        ],
-        'circle-color': '#ffffff', // White fill
-        'circle-stroke-color': [
-          'case',
-          ['>', ['get', 'routes_count'], 0],
-          ['get', 'primary_route_color'],
-          // Fallback colors
-          ['==', ['get', 'location_type'], '1'],
-          '#dc2626',
-          ['==', ['get', 'location_type'], '2'],
-          '#16a34a',
-          ['==', ['get', 'location_type'], '3'],
-          '#ca8a04',
-          ['==', ['get', 'location_type'], '4'],
-          '#7c3aed',
-          '#2563eb',
-        ],
-        'circle-stroke-width': [
-          'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          3.5, // Thicker stroke when focused
-          0    // Hide when not focused
-        ],
-        'circle-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          1, // Show when focused
-          0  // Hide when not focused
-        ],
-        'circle-stroke-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'focused'], false],
-          1, // Show when focused
-          0  // Hide when not focused
-        ],
+        'circle-opacity': 1,
+        'circle-stroke-opacity': 1,
       },
     });
 
@@ -325,28 +262,13 @@ export class MapController {
     });
 
     // Add hover cursor for stop layers including click area
-    ['stops-background', 'stops-focused', 'stops-clickarea'].forEach(layerId => {
+    ['stops-background', 'stops-clickarea'].forEach((layerId) => {
       this.map.on('mouseenter', layerId, () => {
         this.map.getCanvas().style.cursor = 'pointer';
       });
 
       this.map.on('mouseleave', layerId, () => {
         this.map.getCanvas().style.cursor = '';
-      });
-
-      // Add click handler for stops
-      this.map.on('click', layerId, (e) => {
-        const properties = e.features[0].properties;
-        const stopId = properties.stop_id;
-
-
-        // Focus this stop
-        this.focusStop(stopId);
-
-        // Call callback if available
-        if (this.onStopSelectCallback) {
-          this.onStopSelectCallback(stopId);
-        }
       });
     });
 
@@ -367,19 +289,56 @@ export class MapController {
     }
   }
 
+  private addUnifiedClickHandler() {
+    // Remove any existing click handler to avoid duplicates
+    this.map.off('click');
+
+    // Add single map click handler that queries all features and prioritizes stops
+    this.map.on('click', (e) => {
+      const features = this.map.queryRenderedFeatures(e.point, {
+        layers: ['stops-clickarea', 'routes-clickarea'],
+      });
+
+      if (features.length > 0) {
+        // Prioritize stops over routes
+        const stopFeature = features.find((f) =>
+          f.layer.id.startsWith('stops-')
+        );
+        const routeFeature = features.find((f) =>
+          f.layer.id.startsWith('routes-')
+        );
+
+        if (stopFeature) {
+          // Handle stop click
+          const stopId = stopFeature.properties.stop_id;
+          console.log('clicked on stop', stopId);
+          this.navigateToStop(stopId);
+        } else if (routeFeature) {
+          // Handle route click
+          const routeId = routeFeature.properties.route_id;
+          console.log('clicked on route', routeId);
+          this.navigateToRoute(routeId);
+        }
+      }
+    });
+  }
+
   // Deterministic color generation for routes
   private getRouteColor(routeId: string, gtfsRouteColor?: string): string {
     // Use GTFS route_color if available and valid
-    if (gtfsRouteColor && gtfsRouteColor.length === 6 && /^[0-9A-Fa-f]+$/.test(gtfsRouteColor)) {
+    if (
+      gtfsRouteColor &&
+      gtfsRouteColor.length === 6 &&
+      /^[0-9A-Fa-f]+$/.test(gtfsRouteColor)
+    ) {
       return `#${gtfsRouteColor}`;
     }
 
-    // Generate deterministic color from route ID (simple hash alternative)
-    // const hash = stringHash(routeId);
+    // Generate deterministic color from route ID
     let hash = 0;
     for (let i = 0; i < routeId.length; i++) {
       const char = routeId.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32bit integer
     }
     const hue = Math.abs(hash) % 360;
@@ -391,9 +350,11 @@ export class MapController {
     this.shapeToRouteMapping.clear();
 
     const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    if (!trips) return;
+    if (!trips) {
+      return;
+    }
 
-    trips.forEach(trip => {
+    trips.forEach((trip) => {
       if (trip.shape_id && trip.route_id) {
         const shapeId = trip.shape_id as string;
         const routeId = trip.route_id as string;
@@ -415,34 +376,48 @@ export class MapController {
     const trips = this.gtfsParser.getFileDataSync('trips.txt');
     const shapes = this.gtfsParser.getFileDataSync('shapes.txt');
 
-    if (!routes || !trips) return;
+    if (!routes || !trips) {
+      return;
+    }
 
     // Create route features using shapes when available, fallback to stop connections
     const routeFeatures = [];
 
-    routes.forEach(route => {
+    routes.forEach((route) => {
       const routeId = route.route_id as string;
-      const routeColor = this.getRouteColor(routeId, route.route_color as string);
+      const routeColor = this.getRouteColor(
+        routeId,
+        route.route_color as string
+      );
 
       // Find trips for this route
-      const routeTrips = trips.filter(trip => trip.route_id === routeId);
-      if (routeTrips.length === 0) return;
+      const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+      if (routeTrips.length === 0) {
+        return;
+      }
 
       // Try to use shapes first
       let geometry = null;
-      const tripWithShape = routeTrips.find(trip => trip.shape_id);
+      const tripWithShape = routeTrips.find((trip) => trip.shape_id);
 
       if (tripWithShape && shapes) {
-        geometry = this.createRouteGeometryFromShape(tripWithShape.shape_id as string, shapes);
+        geometry = this.createRouteGeometryFromShape(
+          tripWithShape.shape_id as string,
+          shapes
+        );
       }
 
       // Fallback to stop connections if no shape available
       if (!geometry) {
-        geometry = this.createRouteGeometryFromStops(routeTrips[0].trip_id as string);
+        geometry = this.createRouteGeometryFromStops(
+          routeTrips[0].trip_id as string
+        );
       }
 
       if (geometry) {
-        const routeTypeText = this.gtfsParser.getRouteTypeText(route.route_type as string);
+        const routeTypeText = this.gtfsParser.getRouteTypeText(
+          route.route_type as string
+        );
 
         routeFeatures.push({
           type: 'Feature',
@@ -457,8 +432,8 @@ export class MapController {
             route_type_text: routeTypeText,
             agency_id: route.agency_id || 'Default',
             color: routeColor,
-            has_shapes: !!tripWithShape?.shape_id
-          }
+            has_shapes: !!tripWithShape?.shape_id,
+          },
         });
       }
     });
@@ -466,7 +441,7 @@ export class MapController {
     if (routeFeatures.length > 0) {
       const routesGeoJSON = {
         type: 'FeatureCollection',
-        features: routeFeatures
+        features: routeFeatures,
       };
 
       // Add source
@@ -482,44 +457,8 @@ export class MapController {
         source: 'routes',
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': [
-            'case',
-            ['boolean', ['feature-state', 'focused'], false],
-            0, // Hide when focused (focused layer will show instead)
-            3  // Normal width
-          ],
-          'line-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'focused'], false],
-            0, // Hide when focused
-            0.7 // Normal opacity
-          ],
-        },
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
-      });
-
-      // Add focused route layer (selected routes, thick, opaque)
-      this.map.addLayer({
-        id: 'routes-focused',
-        type: 'line',
-        source: 'routes',
-        paint: {
-          'line-color': ['get', 'color'],
-          'line-width': [
-            'case',
-            ['boolean', ['feature-state', 'focused'], false],
-            6, // Focused width
-            0  // Hide when not focused
-          ],
-          'line-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'focused'], false],
-            1, // Focused opacity
-            0  // Hide when not focused
-          ],
+          'line-width': 3,
+          'line-opacity': 0.7,
         },
         layout: {
           'line-cap': 'round',
@@ -544,7 +483,7 @@ export class MapController {
       });
 
       // Add hover states for all layers including click area
-      ['routes-background', 'routes-focused', 'routes-clickarea'].forEach(layerId => {
+      ['routes-background', 'routes-clickarea'].forEach((layerId) => {
         this.map.on('mouseenter', layerId, () => {
           this.map.getCanvas().style.cursor = 'pointer';
         });
@@ -552,51 +491,45 @@ export class MapController {
         this.map.on('mouseleave', layerId, () => {
           this.map.getCanvas().style.cursor = '';
         });
-
-        // Add click handler for routes
-        this.map.on('click', layerId, (e) => {
-          const properties = e.features[0].properties;
-          const routeId = properties.route_id;
-
-
-          // Focus this route
-          this.focusRoute(routeId);
-
-          // Call callback if available
-          if (this.onRouteSelectCallback) {
-            this.onRouteSelectCallback(routeId);
-          }
-        });
       });
     }
   }
 
   // Create route geometry from shapes.txt
-  private createRouteGeometryFromShape(shapeId: string, shapes: Record<string, unknown>[]): any {
+  private createRouteGeometryFromShape(
+    shapeId: string,
+    shapes: Record<string, unknown>[]
+  ): GeoJSON.LineString | null {
     const shapePoints = shapes
-      .filter(point => point.shape_id === shapeId)
-      .map(point => ({
+      .filter((point) => point.shape_id === shapeId)
+      .map((point) => ({
         lat: parseFloat(point.shape_pt_lat as string),
         lon: parseFloat(point.shape_pt_lon as string),
         sequence: parseInt(point.shape_pt_sequence as string) || 0,
       }))
-      .filter(p => !isNaN(p.lat) && !isNaN(p.lon))
+      .filter((p) => !isNaN(p.lat) && !isNaN(p.lon))
       .sort((a, b) => a.sequence - b.sequence);
 
-    if (shapePoints.length < 2) return null;
+    if (shapePoints.length < 2) {
+      return null;
+    }
 
     return {
       type: 'LineString',
-      coordinates: shapePoints.map(p => [p.lon, p.lat])
+      coordinates: shapePoints.map((p) => [p.lon, p.lat]),
     };
   }
 
   // Create route geometry from stop connections (fallback)
-  private createRouteGeometryFromStops(tripId: string): any {
+  private createRouteGeometryFromStops(
+    tripId: string
+  ): GeoJSON.LineString | null {
     const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
     const stops = this.gtfsParser.getFileDataSync('stops.txt');
 
-    if (!stopTimes || !stops) return null;
+    if (!stopTimes || !stops) {
+      return null;
+    }
 
     // Create stops lookup
     const stopsLookup = {};
@@ -622,14 +555,15 @@ export class MapController {
       }
     });
 
-    if (routePath.length < 2) return null;
+    if (routePath.length < 2) {
+      return null;
+    }
 
     return {
       type: 'LineString',
-      coordinates: routePath
+      coordinates: routePath,
     };
   }
-
 
   highlightFileData(fileName) {
     // Add visual emphasis for the selected file's data on map
@@ -864,30 +798,7 @@ export class MapController {
         });
 
         // Add click handler for trip stops
-        this.map.on('click', 'stops-highlight', (e) => {
-          const properties = e.features[0].properties;
-          const coordinates = e.lngLat;
-
-          const stopTypeText = properties.is_first
-            ? 'First Stop'
-            : properties.is_last
-              ? 'Last Stop'
-              : 'Trip Stop';
-          const stopTypeColor = properties.is_first
-            ? '#27ae60'
-            : properties.is_last
-              ? '#e74c3c'
-              : color;
-
-          const stopData = {
-            stop_name: properties.stop_name,
-            stop_type_text: stopTypeText,
-            stop_type_color: stopTypeColor,
-            is_first: properties.is_first,
-            is_last: properties.is_last
-          };
-
-        });
+        this.map.on('click', 'stops-highlight', (_e) => {});
       }
 
       // Fit map to trip
@@ -957,7 +868,6 @@ export class MapController {
         'circle-stroke-opacity': 1,
       },
     });
-
 
     // Center map on stop
     this.map.setCenter([lon, lat]);
@@ -1074,138 +984,20 @@ export class MapController {
     }, 350);
   }
 
-  // New focus state methods for Phase 2
+  // Stub methods for backward compatibility (no-op implementations)
   focusRoute(routeId: string) {
-    // Clear previous route focus
-    if (this.focusedRouteId) {
-      this.map.setFeatureState(
-        { source: 'routes', id: this.focusedRouteId },
-        { focused: false }
-      );
-    }
-
-    // Set new route focus
-    this.focusedRouteId = routeId;
-    this.map.setFeatureState(
-      { source: 'routes', id: routeId },
-      { focused: true }
-    );
-
-    // Focus stops that serve this route
-    this.focusStopsForRoute(routeId);
-
-    // Zoom to route
-    this.zoomToRoute(routeId);
+    // No-op: Focus system removed, but keeping method for interface compatibility
+    console.log('focusRoute called (no-op):', routeId);
   }
 
   focusStop(stopId: string) {
-    // Clear previous stop focus
-    if (this.focusedStopId) {
-      this.map.setFeatureState(
-        { source: 'stops', id: this.focusedStopId },
-        { focused: false }
-      );
-    }
-
-    // Set new stop focus
-    this.focusedStopId = stopId;
-    this.map.setFeatureState(
-      { source: 'stops', id: stopId },
-      { focused: true }
-    );
-
-    // Zoom to stop
-    this.zoomToStop(stopId);
+    // No-op: Focus system removed, but keeping method for interface compatibility
+    console.log('focusStop called (no-op):', stopId);
   }
 
   clearFocus() {
-    // Clear route focus
-    if (this.focusedRouteId) {
-      this.map.setFeatureState(
-        { source: 'routes', id: this.focusedRouteId },
-        { focused: false }
-      );
-      this.focusedRouteId = null;
-    }
-
-    // Clear stop focus
-    if (this.focusedStopId) {
-      this.map.setFeatureState(
-        { source: 'stops', id: this.focusedStopId },
-        { focused: false }
-      );
-      this.focusedStopId = null;
-    }
-
-    // Clear any focused stops for routes
-    this.clearFocusedStopsForRoute();
-  }
-
-  private focusStopsForRoute(routeId: string) {
-    // First clear any existing focused stops
-    this.clearFocusedStopsForRoute();
-
-    // Get stops for this route
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
-
-    if (!trips || !stopTimes) return;
-
-    const routeTrips = trips.filter(trip => trip.route_id === routeId);
-    const routeStopIds = new Set();
-
-    routeTrips.forEach(trip => {
-      const tripStopTimes = stopTimes.filter(st => st.trip_id === trip.trip_id);
-      tripStopTimes.forEach(st => routeStopIds.add(st.stop_id));
-    });
-
-    // Focus all stops for this route
-    routeStopIds.forEach(stopId => {
-      this.map.setFeatureState(
-        { source: 'stops', id: stopId },
-        { focused: true }
-      );
-    });
-  }
-
-  private clearFocusedStopsForRoute() {
-    // Get all stops and clear their focus state
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
-    if (!stops) return;
-
-    stops.forEach(stop => {
-      this.map.setFeatureState(
-        { source: 'stops', id: stop.stop_id },
-        { focused: false }
-      );
-    });
-  }
-
-  private zoomToRoute(routeId: string) {
-    const routes = this.gtfsParser.getFileDataSync('routes.txt');
-    if (!routes) return;
-
-    const route = routes.find(r => r.route_id === routeId);
-    if (!route) return;
-
-    // Use existing fitToRoutes method
-    this.fitToRoutes([routeId]);
-  }
-
-  private zoomToStop(stopId: string) {
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
-    if (!stops) return;
-
-    const stop = stops.find(s => s.stop_id === stopId);
-    if (!stop || !stop.stop_lat || !stop.stop_lon) return;
-
-    const lat = parseFloat(stop.stop_lat);
-    const lon = parseFloat(stop.stop_lon);
-
-    this.map.setCenter([lon, lat]);
-    if (this.map.getZoom() < 15) {
-      this.map.setZoom(15);
-    }
+    // No-op: Focus system removed, but keeping method for interface compatibility
+    console.log('clearFocus called (no-op)');
   }
 
   // Callback setters for UI integration
@@ -1217,4 +1009,24 @@ export class MapController {
     this.onStopSelectCallback = callback;
   }
 
+  // State-based navigation methods (preferred approach)
+  private async navigateToRoute(routeId: string) {
+    if (this.pageStateManager) {
+      await this.pageStateManager.setPageState({ type: 'route', routeId });
+    }
+    // Keep legacy callback for backward compatibility
+    if (this.onRouteSelectCallback) {
+      this.onRouteSelectCallback(routeId);
+    }
+  }
+
+  private async navigateToStop(stopId: string) {
+    if (this.pageStateManager) {
+      await this.pageStateManager.setPageState({ type: 'stop', stopId });
+    }
+    // Keep legacy callback for backward compatibility
+    if (this.onStopSelectCallback) {
+      this.onStopSelectCallback(stopId);
+    }
+  }
 }

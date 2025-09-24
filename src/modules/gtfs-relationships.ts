@@ -33,7 +33,9 @@ export class GTFSRelationships {
     }
     return agencyData.map((agency) => ({
       id: agency.agency_id,
+      agency_id: agency.agency_id,
       name: agency.agency_name || `Agency ${agency.agency_id}`,
+      agency_name: agency.agency_name || `Agency ${agency.agency_id}`,
       url: agency.agency_url,
       timezone: agency.agency_timezone,
       lang: agency.agency_lang,
@@ -56,15 +58,25 @@ export class GTFSRelationships {
       .filter((route) => route.agency_id === agencyId)
       .map((route) => ({
         id: route.route_id,
+        route_id: route.route_id,
         agencyId: route.agency_id,
+        agency_id: route.agency_id,
         shortName: route.route_short_name,
+        route_short_name: route.route_short_name,
         longName: route.route_long_name,
+        route_long_name: route.route_long_name,
         desc: route.route_desc,
+        route_desc: route.route_desc,
         type: route.route_type,
+        route_type: route.route_type,
         url: route.route_url,
+        route_url: route.route_url,
         color: route.route_color,
+        route_color: route.route_color,
         textColor: route.route_text_color,
+        route_text_color: route.route_text_color,
         sortOrder: route.route_sort_order,
+        route_sort_order: route.route_sort_order,
       }));
   }
 
@@ -81,11 +93,17 @@ export class GTFSRelationships {
       .filter((trip) => trip.route_id === routeId)
       .map((trip) => ({
         id: trip.trip_id,
+        trip_id: trip.trip_id,
         routeId: trip.route_id,
+        route_id: trip.route_id,
         serviceId: trip.service_id,
+        service_id: trip.service_id,
         headsign: trip.trip_headsign,
+        trip_headsign: trip.trip_headsign,
         shortName: trip.trip_short_name,
+        trip_short_name: trip.trip_short_name,
         directionId: trip.direction_id,
+        direction_id: trip.direction_id,
         blockId: trip.block_id,
         shapeId: trip.shape_id,
         wheelchairAccessible: trip.wheelchair_accessible,
@@ -437,7 +455,9 @@ export class GTFSRelationships {
       }
       return agencyData.map((agency) => ({
         id: agency.agency_id,
+        agency_id: agency.agency_id,
         name: agency.agency_name || `Agency ${agency.agency_id}`,
+        agency_name: agency.agency_name || `Agency ${agency.agency_id}`,
         url: agency.agency_url,
         timezone: agency.agency_timezone,
         lang: agency.agency_lang,
@@ -467,15 +487,25 @@ export class GTFSRelationships {
 
       return routesData.map((route) => ({
         id: route.route_id,
+        route_id: route.route_id,
         agencyId: route.agency_id,
+        agency_id: route.agency_id,
         shortName: route.route_short_name,
+        route_short_name: route.route_short_name,
         longName: route.route_long_name,
+        route_long_name: route.route_long_name,
         desc: route.route_desc,
+        route_desc: route.route_desc,
         type: route.route_type,
+        route_type: route.route_type,
         url: route.route_url,
+        route_url: route.route_url,
         color: route.route_color,
+        route_color: route.route_color,
         textColor: route.route_text_color,
+        route_text_color: route.route_text_color,
         sortOrder: route.route_sort_order,
+        route_sort_order: route.route_sort_order,
       }));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -499,11 +529,17 @@ export class GTFSRelationships {
 
       return tripsData.map((trip) => ({
         id: trip.trip_id,
+        trip_id: trip.trip_id,
         routeId: trip.route_id,
+        route_id: trip.route_id,
         serviceId: trip.service_id,
+        service_id: trip.service_id,
         headsign: trip.trip_headsign,
+        trip_headsign: trip.trip_headsign,
         shortName: trip.trip_short_name,
+        trip_short_name: trip.trip_short_name,
         directionId: trip.direction_id,
+        direction_id: trip.direction_id,
         blockId: trip.block_id,
         shapeId: trip.shape_id,
         wheelchairAccessible: trip.wheelchair_accessible,
@@ -1047,7 +1083,11 @@ export class GTFSRelationships {
       const agencyData = await this.gtfsDatabase.queryRows('agency', {
         agency_id: agencyId,
       });
-      if (!agencyData || !Array.isArray(agencyData) || agencyData.length === 0) {
+      if (
+        !agencyData ||
+        !Array.isArray(agencyData) ||
+        agencyData.length === 0
+      ) {
         return null;
       }
 
@@ -1067,7 +1107,7 @@ export class GTFSRelationships {
       console.error('Error getting agency by ID from IndexedDB:', error);
       // Fallback to sync method
       const agencies = this.getAgencies();
-      return agencies.find(agency => agency.id === agencyId) || null;
+      return agencies.find((agency) => agency.id === agencyId) || null;
     }
   }
 
@@ -1080,22 +1120,24 @@ export class GTFSRelationships {
       const trips = await this.getTripsForStopAsync(stopId);
 
       // Get unique route IDs from those trips
-      const routeIds = [...new Set(trips.map(trip => trip.routeId))];
+      const routeIds = [...new Set(trips.map((trip) => trip.routeId))];
 
       // Get route details for each route ID
       const routes = await Promise.all(
-        routeIds.map(routeId => this.getRouteByIdAsync(routeId))
+        routeIds.map((routeId) => this.getRouteByIdAsync(routeId))
       );
 
       // Filter out null routes and return
-      return routes.filter(route => route !== null);
+      return routes.filter((route) => route !== null);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error getting routes for stop from IndexedDB:', error);
       // Fallback implementation using sync methods
       const trips = this.getTripsForStop(stopId);
-      const routeIds = [...new Set(trips.map(trip => trip.routeId))];
-      return routeIds.map(routeId => this.getRouteById(routeId)).filter(route => route !== null);
+      const routeIds = [...new Set(trips.map((trip) => trip.routeId))];
+      return routeIds
+        .map((routeId) => this.getRouteById(routeId))
+        .filter((route) => route !== null);
     }
   }
 }
