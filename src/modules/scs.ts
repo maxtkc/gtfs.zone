@@ -14,6 +14,8 @@ export type Sequence<T> = T[];
 export function shortestCommonSupersequence<T>(
   sequences: Sequence<T>[]
 ): Sequence<T> {
+  console.log('SCS Input');
+  console.log(sequences);
   if (sequences.length === 0) {
     return [];
   }
@@ -31,7 +33,10 @@ export function shortestCommonSupersequence<T>(
   }
 
   // Use dynamic programming to find exact SCS
-  return computeExactSCS(nonEmptySequences);
+  const ret = computeExactSCS(nonEmptySequences);
+  console.log('SCS Result');
+  console.log(ret);
+  return ret;
 }
 
 /**

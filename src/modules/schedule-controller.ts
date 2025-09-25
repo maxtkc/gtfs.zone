@@ -4,6 +4,8 @@
  * Accessed via Objects tab → Route → Service ID
  */
 
+import { shortestCommonSupersequence } from './scs';
+
 export interface AlignedTrip {
   tripId: string;
   headsign: string;
@@ -158,42 +160,49 @@ export class ScheduleController {
   }
 
   /**
-   * Get stops sorted by most common sequence position
+   * Get stops sorted using SCS (Shortest Common Supersequence) algorithm
    */
   private getSortedStops(
     stopIds: string[],
     trips: Record<string, unknown>[]
   ): Record<string, unknown>[] {
-    const stopSequences = new Map<string, number[]>();
-
-    // Collect all sequence positions for each stop
-    for (const trip of trips) {
-      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
-      stopTimes.forEach((st: Record<string, unknown>) => {
-        if (stopIds.includes(st.stopId)) {
-          if (!stopSequences.has(st.stopId)) {
-            stopSequences.set(st.stopId, []);
-          }
-          stopSequences.get(st.stopId)!.push(st.stopSequence);
-        }
+    if (trips.length === 0) {
+      return stopIds.map((stopId) => {
+        return (
+          this.relationships.getStopById(stopId) || { id: stopId, name: stopId }
+        );
       });
     }
 
-    // Calculate average sequence for each stop
-    const stopAverages = new Map<string, number>();
-    stopSequences.forEach((sequences, stopId) => {
-      const avg =
-        sequences.reduce((sum, seq) => sum + seq, 0) / sequences.length;
-      stopAverages.set(stopId, avg);
-    });
+    // Build stop sequences for each trip
+    const tripSequences: string[][] = [];
+    const uniqueSequences = new Set<string>();
 
-    // Sort stops by average sequence
-    const sortedStopIds = Array.from(stopIds).sort((a, b) => {
-      return (stopAverages.get(a) || 0) - (stopAverages.get(b) || 0);
-    });
+    for (const trip of trips) {
+      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
+      const tripStops = stopTimes
+        .filter((st: Record<string, unknown>) => stopIds.includes(st.stopId))
+        .sort(
+          (a: Record<string, unknown>, b: Record<string, unknown>) =>
+            a.stopSequence - b.stopSequence
+        )
+        .map((st: Record<string, unknown>) => st.stopId);
 
-    // Get stop details
-    return sortedStopIds.map((stopId) => {
+      if (tripStops.length > 0) {
+        // Only add unique sequences to avoid duplicate processing
+        const sequenceKey = tripStops.join(',');
+        if (!uniqueSequences.has(sequenceKey)) {
+          uniqueSequences.add(sequenceKey);
+          tripSequences.push(tripStops);
+        }
+      }
+    }
+
+    // Use SCS algorithm to find the optimal stop ordering
+    const optimalSequence = shortestCommonSupersequence(tripSequences);
+
+    // Get stop details in SCS order
+    return optimalSequence.map((stopId) => {
       return (
         this.relationships.getStopById(stopId) || { id: stopId, name: stopId }
       );
