@@ -349,8 +349,9 @@ export class PageContentRenderer {
     const route = await this.dependencies.relationships.getRouteAsync(routeId);
     const trips =
       await this.dependencies.relationships.getTripsForRouteAsync(routeId);
-    console.log(route);
-    console.log(trips);
+    console.log('Route data:', route);
+    console.log('Trips count:', trips.length);
+    console.log('First few trips:', trips.slice(0, 3));
 
     // Update map to highlight this route
     this.dependencies.mapController.highlightRoute(routeId);
@@ -367,6 +368,12 @@ export class PageContentRenderer {
         return groups;
       },
       {}
+    );
+
+    console.log('Service groups:', serviceGroups);
+    console.log(
+      'Service groups keys length:',
+      Object.keys(serviceGroups).length
     );
 
     const routeData = route as Record<string, unknown> | null;

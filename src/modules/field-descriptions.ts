@@ -4,6 +4,7 @@
  */
 
 import { GTFSMetadata } from '../utils/gtfs-metadata';
+import { getFieldDescription } from '../types/gtfs.js';
 
 export class FieldDescriptionsDisplay {
   private currentFile: string | null = null;
@@ -164,7 +165,7 @@ export class FieldDescriptionsDisplay {
     filename: string
   ): void {
     // Add hover tooltip for field descriptions
-    const description = GTFSMetadata.getFieldDescription(filename, fieldName);
+    const description = getFieldDescription(filename, fieldName);
 
     if (description) {
       element.title = `${fieldName}: ${description.substring(0, 200)}${description.length > 200 ? '...' : ''}`;

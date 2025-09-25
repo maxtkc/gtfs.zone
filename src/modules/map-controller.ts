@@ -1,13 +1,14 @@
 import { Map as MapLibreMap, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageStateManager } from './page-state-manager.js';
+import { GTFSDatabaseRecord } from './gtfs-database.js';
 
 export class MapController {
   private map: MapLibreMap | null;
   private mapElementId: string;
   private gtfsParser: {
-    getFileDataSync: (filename: string) => Record<string, unknown>[];
-    getRoutesForStop: (stopId: string) => Record<string, unknown>[];
+    getFileDataSync: (filename: string) => GTFSDatabaseRecord[];
+    getRoutesForStop: (stopId: string) => GTFSDatabaseRecord[];
     getWheelchairText: (code: string) => string;
     getRouteTypeText: (typeCode: string) => string;
   } | null;
@@ -25,7 +26,7 @@ export class MapController {
   }
 
   initialize(gtfsParser: {
-    getFileDataSync: (filename: string) => Record<string, unknown>[];
+    getFileDataSync: (filename: string) => GTFSDatabaseRecord[];
   }) {
     this.gtfsParser = gtfsParser;
 
@@ -347,9 +348,9 @@ export class MapController {
 
   // Diagnostic method to analyze shape usage patterns
   private analyzeShapeUsage(
-    routes: Record<string, unknown>[],
-    trips: Record<string, unknown>[],
-    shapes: Record<string, unknown>[] | null
+    routes: GTFSDatabaseRecord[],
+    trips: GTFSDatabaseRecord[],
+    shapes: GTFSDatabaseRecord[] | null
   ): void {
     console.group('🔍 Shape Usage Analysis');
 
@@ -655,7 +656,7 @@ export class MapController {
   // Create route geometry from shapes.txt
   private createRouteGeometryFromShape(
     shapeId: string,
-    shapes: Record<string, unknown>[]
+    shapes: GTFSDatabaseRecord[]
   ): GeoJSON.LineString | null {
     const shapePoints = shapes
       .filter((point) => point.shape_id === shapeId)

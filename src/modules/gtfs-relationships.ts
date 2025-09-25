@@ -4,14 +4,17 @@
  * Agency → Routes → Trips → Stop Times → Stops
  */
 
-import { GTFSDatabase, GTFSRecord } from './gtfs-database.js';
+import { GTFSDatabase, GTFSDatabaseRecord } from './gtfs-database.js';
 
 interface GTFSParserInterface {
-  getFileDataSync: (filename: string) => GTFSRecord[];
+  getFileDataSync: (filename: string) => GTFSDatabaseRecord[];
   gtfsDatabase: GTFSDatabase;
-  searchStops: (query: string) => GTFSRecord[];
-  searchRoutes: (query: string) => GTFSRecord[];
-  searchAll: (query: string) => { stops: GTFSRecord[]; routes: GTFSRecord[] };
+  searchStops: (query: string) => GTFSDatabaseRecord[];
+  searchRoutes: (query: string) => GTFSDatabaseRecord[];
+  searchAll: (query: string) => {
+    stops: GTFSDatabaseRecord[];
+    routes: GTFSDatabaseRecord[];
+  };
 }
 
 export class GTFSRelationships {

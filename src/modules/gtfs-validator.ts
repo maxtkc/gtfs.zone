@@ -1,4 +1,4 @@
-import { GTFSRecord } from './gtfs-database.js';
+import { GTFSDatabaseRecord } from './gtfs-database.js';
 
 interface ValidationMessage {
   level: 'error' | 'warning' | 'info';
@@ -21,12 +21,12 @@ interface ValidationResults {
 }
 
 interface GTFSParserInterface {
-  getFileDataSync(fileName: string): GTFSRecord[] | null;
+  getFileDataSync(fileName: string): GTFSDatabaseRecord[] | null;
   getAllFileNames(): string[];
   gtfsData: {
     [fileName: string]: {
       content: string;
-      data: GTFSRecord[];
+      data: GTFSDatabaseRecord[];
       errors: unknown[];
     };
   };
@@ -138,7 +138,7 @@ export class GTFSValidator {
 
     const agencyIds = new Set();
 
-    agencies.forEach((agency: GTFSRecord, index: number) => {
+    agencies.forEach((agency: GTFSDatabaseRecord, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -215,10 +215,10 @@ export class GTFSValidator {
 
     const routeIds = new Set();
     const agencyIds = new Set(
-      (agencies || []).map((a: GTFSRecord) => a.agency_id)
+      (agencies || []).map((a: GTFSDatabaseRecord) => a.agency_id)
     );
 
-    routes.forEach((route: GTFSRecord, index: number) => {
+    routes.forEach((route: GTFSDatabaseRecord, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -307,7 +307,7 @@ export class GTFSValidator {
 
     const stopIds = new Set();
 
-    stops.forEach((stop: GTFSRecord, index: number) => {
+    stops.forEach((stop: GTFSDatabaseRecord, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -409,9 +409,11 @@ export class GTFSValidator {
     }
 
     const tripIds = new Set();
-    const routeIds = new Set((routes || []).map((r: GTFSRecord) => r.route_id));
+    const routeIds = new Set(
+      (routes || []).map((r: GTFSDatabaseRecord) => r.route_id)
+    );
 
-    trips.forEach((trip: GTFSRecord, index: number) => {
+    trips.forEach((trip: GTFSDatabaseRecord, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -477,10 +479,14 @@ export class GTFSValidator {
       return;
     }
 
-    const tripIds = new Set((trips || []).map((t: GTFSRecord) => t.trip_id));
-    const stopIds = new Set((stops || []).map((s: GTFSRecord) => s.stop_id));
+    const tripIds = new Set(
+      (trips || []).map((t: GTFSDatabaseRecord) => t.trip_id)
+    );
+    const stopIds = new Set(
+      (stops || []).map((s: GTFSDatabaseRecord) => s.stop_id)
+    );
 
-    stopTimes.forEach((stopTime: GTFSRecord, index: number) => {
+    stopTimes.forEach((stopTime: GTFSDatabaseRecord, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -563,7 +569,7 @@ export class GTFSValidator {
     const calendarDates = this.gtfsParser.getFileDataSync('calendar_dates.txt');
 
     if (calendar) {
-      calendar.forEach((service: GTFSRecord, index: number) => {
+      calendar.forEach((service: GTFSDatabaseRecord, index: number) => {
         const rowNum = index + 1;
 
         if (!service.service_id || service.service_id.trim() === '') {
@@ -597,7 +603,7 @@ export class GTFSValidator {
     }
 
     if (calendarDates) {
-      calendarDates.forEach((exception: GTFSRecord, index: number) => {
+      calendarDates.forEach((exception: GTFSDatabaseRecord, index: number) => {
         const rowNum = index + 1;
 
         if (!exception.service_id || exception.service_id.trim() === '') {
@@ -639,7 +645,7 @@ export class GTFSValidator {
       return;
     }
 
-    shapes.forEach((shape: GTFSRecord, index: number) => {
+    shapes.forEach((shape: GTFSDatabaseRecord, index: number) => {
       const rowNum = index + 1;
 
       if (!shape.shape_id || shape.shape_id.trim() === '') {
@@ -716,9 +722,9 @@ export class GTFSValidator {
     const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
 
     if (trips && stopTimes) {
-      const tripIds = new Set(trips.map((t: GTFSRecord) => t.trip_id));
+      const tripIds = new Set(trips.map((t: GTFSDatabaseRecord) => t.trip_id));
       const tripsWithStopTimes = new Set(
-        stopTimes.map((st: GTFSRecord) => st.trip_id)
+        stopTimes.map((st: GTFSDatabaseRecord) => st.trip_id)
       );
 
       // Check for trips without stop times
