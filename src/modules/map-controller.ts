@@ -345,7 +345,75 @@ export class MapController {
     return `hsl(${hue}, 70%, 50%)`;
   }
 
-  // Build mapping from shape_id to route_id(s)
+  // Diagnostic method to analyze shape usage patterns
+  private analyzeShapeUsage(
+    routes: Record<string, unknown>[],
+    trips: Record<string, unknown>[],
+    shapes: Record<string, unknown>[] | null
+  ): void {
+    console.group('🔍 Shape Usage Analysis');
+
+    const totalShapes = shapes
+      ? new Set(shapes.map((s) => s.shape_id)).size
+      : 0;
+    console.log(`📊 Total unique shapes in shapes.txt: ${totalShapes}`);
+
+    const routeShapeStats = new Map();
+
+    routes.forEach((route) => {
+      const routeId = route.route_id as string;
+      const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+      const tripsWithShapes = routeTrips.filter((trip) => trip.shape_id);
+      const uniqueShapes = new Set(
+        tripsWithShapes.map((trip) => trip.shape_id)
+      );
+
+      routeShapeStats.set(routeId, {
+        totalTrips: routeTrips.length,
+        tripsWithShapes: tripsWithShapes.length,
+        uniqueShapes: uniqueShapes.size,
+        shapeIds: Array.from(uniqueShapes),
+        routeName: route.route_short_name || route.route_long_name || routeId,
+      });
+
+      if (uniqueShapes.size > 1) {
+        console.warn(
+          `⚠️  Route ${routeId} (${route.route_short_name || route.route_long_name}) has ${uniqueShapes.size} different shapes:`,
+          Array.from(uniqueShapes)
+        );
+      }
+    });
+
+    const routesWithMultipleShapes = Array.from(
+      routeShapeStats.values()
+    ).filter((stats) => stats.uniqueShapes > 1);
+    const totalUsedShapes = new Set();
+    routeShapeStats.forEach((stats) => {
+      stats.shapeIds.forEach((id) => totalUsedShapes.add(id));
+    });
+
+    console.log(
+      `🎯 Routes with multiple shapes: ${routesWithMultipleShapes.length}/${routes.length}`
+    );
+    console.log(`📈 Total shapes referenced by trips: ${totalUsedShapes.size}`);
+    console.log(`❌ Unused shapes: ${totalShapes - totalUsedShapes.size}`);
+
+    if (routesWithMultipleShapes.length > 0) {
+      console.table(
+        routesWithMultipleShapes.map((stats) => ({
+          Route: stats.routeName,
+          'Total Trips': stats.totalTrips,
+          'Trips w/ Shapes': stats.tripsWithShapes,
+          'Unique Shapes': stats.uniqueShapes,
+          'Shape IDs': stats.shapeIds.join(', '),
+        }))
+      );
+    }
+
+    console.groupEnd();
+  }
+
+  // Build enhanced mapping from shape_id to route_id(s) with metadata
   private buildShapeToRouteMapping(): void {
     this.shapeToRouteMapping.clear();
 
@@ -354,11 +422,28 @@ export class MapController {
       return;
     }
 
+    // Enhanced mapping that tracks usage statistics
+    const shapeUsage = new Map();
+
     trips.forEach((trip) => {
       if (trip.shape_id && trip.route_id) {
         const shapeId = trip.shape_id as string;
         const routeId = trip.route_id as string;
 
+        // Initialize shape tracking
+        if (!shapeUsage.has(shapeId)) {
+          shapeUsage.set(shapeId, {
+            routes: new Set(),
+            tripCount: 0,
+            routeIds: [],
+          });
+        }
+
+        const usage = shapeUsage.get(shapeId);
+        usage.routes.add(routeId);
+        usage.tripCount++;
+
+        // Maintain backward compatibility with existing mapping
         if (!this.shapeToRouteMapping.has(shapeId)) {
           this.shapeToRouteMapping.set(shapeId, []);
         }
@@ -368,6 +453,15 @@ export class MapController {
         }
       }
     });
+
+    // Convert enhanced mapping back to simple array format
+    shapeUsage.forEach((usage, shapeId) => {
+      this.shapeToRouteMapping.set(shapeId, Array.from(usage.routes));
+    });
+
+    console.log(
+      `🔗 Shape-to-Route mapping updated: ${this.shapeToRouteMapping.size} shapes mapped to routes`
+    );
   }
 
   // Enhanced route rendering with focus states and proper layering
@@ -380,7 +474,10 @@ export class MapController {
       return;
     }
 
-    // Create route features using shapes when available, fallback to stop connections
+    // Diagnostic logging for shape analysis
+    this.analyzeShapeUsage(routes, trips, shapes);
+
+    // Create route features using all unique shapes per route
     const routeFeatures = [];
 
     routes.forEach((route) => {
@@ -396,45 +493,85 @@ export class MapController {
         return;
       }
 
-      // Try to use shapes first
-      let geometry = null;
-      const tripWithShape = routeTrips.find((trip) => trip.shape_id);
+      // Collect ALL unique shapes for this route
+      const tripsWithShapes = routeTrips.filter((trip) => trip.shape_id);
+      const uniqueShapes = new Set(
+        tripsWithShapes.map((trip) => trip.shape_id as string)
+      );
 
-      if (tripWithShape && shapes) {
-        geometry = this.createRouteGeometryFromShape(
-          tripWithShape.shape_id as string,
-          shapes
-        );
+      let hasValidGeometry = false;
+
+      // Create features for each unique shape
+      if (uniqueShapes.size > 0 && shapes) {
+        Array.from(uniqueShapes).forEach((shapeId, index) => {
+          const geometry = this.createRouteGeometryFromShape(shapeId, shapes);
+
+          if (geometry) {
+            hasValidGeometry = true;
+            const routeTypeText = this.gtfsParser.getRouteTypeText(
+              route.route_type as string
+            );
+
+            // For multiple shapes, add a suffix to the ID to make each unique
+            const featureId =
+              uniqueShapes.size > 1 ? `${routeId}_shape_${index}` : routeId;
+
+            routeFeatures.push({
+              type: 'Feature',
+              id: featureId,
+              geometry,
+              properties: {
+                route_id: routeId,
+                shape_id: shapeId,
+                shape_index: index,
+                total_shapes: uniqueShapes.size,
+                route_short_name: route.route_short_name || '',
+                route_long_name: route.route_long_name || '',
+                route_desc: route.route_desc || '',
+                route_type: route.route_type || '',
+                route_type_text: routeTypeText,
+                agency_id: route.agency_id || 'Default',
+                color: routeColor,
+                has_shapes: true,
+                is_multiple_shapes: uniqueShapes.size > 1,
+              },
+            });
+          }
+        });
       }
 
-      // Fallback to stop connections if no shape available
-      if (!geometry) {
-        geometry = this.createRouteGeometryFromStops(
+      // Fallback to stop connections only if no shapes worked
+      if (!hasValidGeometry) {
+        const geometry = this.createRouteGeometryFromStops(
           routeTrips[0].trip_id as string
         );
-      }
 
-      if (geometry) {
-        const routeTypeText = this.gtfsParser.getRouteTypeText(
-          route.route_type as string
-        );
+        if (geometry) {
+          const routeTypeText = this.gtfsParser.getRouteTypeText(
+            route.route_type as string
+          );
 
-        routeFeatures.push({
-          type: 'Feature',
-          id: routeId, // Add ID for feature state
-          geometry,
-          properties: {
-            route_id: routeId,
-            route_short_name: route.route_short_name || '',
-            route_long_name: route.route_long_name || '',
-            route_desc: route.route_desc || '',
-            route_type: route.route_type || '',
-            route_type_text: routeTypeText,
-            agency_id: route.agency_id || 'Default',
-            color: routeColor,
-            has_shapes: !!tripWithShape?.shape_id,
-          },
-        });
+          routeFeatures.push({
+            type: 'Feature',
+            id: routeId,
+            geometry,
+            properties: {
+              route_id: routeId,
+              shape_id: null,
+              shape_index: 0,
+              total_shapes: 0,
+              route_short_name: route.route_short_name || '',
+              route_long_name: route.route_long_name || '',
+              route_desc: route.route_desc || '',
+              route_type: route.route_type || '',
+              route_type_text: routeTypeText,
+              agency_id: route.agency_id || 'Default',
+              color: routeColor,
+              has_shapes: false,
+              is_multiple_shapes: false,
+            },
+          });
+        }
       }
     });
 
@@ -450,15 +587,35 @@ export class MapController {
         data: routesGeoJSON,
       });
 
-      // Add background route layer (all routes, thin, muted)
+      // Add background route layer with visual differentiation for multiple shapes
       this.map.addLayer({
         id: 'routes-background',
         type: 'line',
         source: 'routes',
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': 3,
-          'line-opacity': 0.7,
+          'line-width': [
+            'case',
+            ['get', 'is_multiple_shapes'],
+            [
+              'case',
+              ['==', ['get', 'shape_index'], 0],
+              3.5, // Primary shape slightly thicker
+              2.5, // Secondary shapes slightly thinner
+            ],
+            3, // Single shape default
+          ],
+          'line-opacity': [
+            'case',
+            ['get', 'is_multiple_shapes'],
+            [
+              'case',
+              ['==', ['get', 'shape_index'], 0],
+              0.8, // Primary shape more visible
+              0.6, // Secondary shapes more subtle
+            ],
+            0.7, // Single shape default
+          ],
         },
         layout: {
           'line-cap': 'round',
@@ -511,6 +668,9 @@ export class MapController {
       .sort((a, b) => a.sequence - b.sequence);
 
     if (shapePoints.length < 2) {
+      console.warn(
+        `⚠️  Shape ${shapeId} has insufficient points (${shapePoints.length}), skipping`
+      );
       return null;
     }
 

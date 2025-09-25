@@ -2,7 +2,7 @@
  * Database Fallback Manager
  * Handles IndexedDB support detection, error recovery, and graceful fallbacks
  */
-import { GTFSRecord, ProjectMetadata } from './gtfs-database.js';
+import { GTFSDatabaseRecord, ProjectMetadata } from './gtfs-database.js';
 import { loadingStateManager } from './loading-state-manager.js';
 
 export interface BrowserCapabilities {
@@ -19,7 +19,7 @@ export interface BrowserCapabilities {
 
 export class DatabaseFallbackManager {
   private capabilities: BrowserCapabilities | null = null;
-  private fallbackData: { [tableName: string]: GTFSRecord[] } = {};
+  private fallbackData: { [tableName: string]: GTFSDatabaseRecord[] } = {};
   private isUsingFallback: boolean = false;
   private warningShown: boolean = false;
 
@@ -314,14 +314,14 @@ export class DatabaseFallbackManager {
   /**
    * Store data in fallback storage
    */
-  setFallbackData(tableName: string, data: GTFSRecord[]): void {
+  setFallbackData(tableName: string, data: GTFSDatabaseRecord[]): void {
     this.fallbackData[tableName] = data;
   }
 
   /**
    * Get data from fallback storage
    */
-  getFallbackData(tableName: string): GTFSRecord[] {
+  getFallbackData(tableName: string): GTFSDatabaseRecord[] {
     return this.fallbackData[tableName] || [];
   }
 
@@ -591,13 +591,19 @@ class FallbackDatabase {
     this.manager.clearFallbackData();
   }
 
-  async insertRows(tableName: string, rows: GTFSRecord[]): Promise<void> {
+  async insertRows(
+    tableName: string,
+    rows: GTFSDatabaseRecord[]
+  ): Promise<void> {
     const existingData = this.manager.getFallbackData(tableName);
     const newData = [...existingData, ...rows];
     this.manager.setFallbackData(tableName, newData);
   }
 
-  async getRow(tableName: string, id: number): Promise<GTFSRecord | undefined> {
+  async getRow(
+    tableName: string,
+    id: number
+  ): Promise<GTFSDatabaseRecord | undefined> {
     const data = this.manager.getFallbackData(tableName);
     return data.find((row) => row.id === id);
   }
@@ -605,7 +611,7 @@ class FallbackDatabase {
   async updateRow(
     tableName: string,
     id: number,
-    data: Partial<GTFSRecord>
+    data: Partial<GTFSDatabaseRecord>
   ): Promise<void> {
     const tableData = this.manager.getFallbackData(tableName);
     const index = tableData.findIndex((row) => row.id === id);
@@ -615,14 +621,14 @@ class FallbackDatabase {
     }
   }
 
-  async getAllRows(tableName: string): Promise<GTFSRecord[]> {
+  async getAllRows(tableName: string): Promise<GTFSDatabaseRecord[]> {
     return this.manager.getFallbackData(tableName);
   }
 
   async queryRows(
     tableName: string,
     filter?: { [key: string]: string | number | boolean }
-  ): Promise<GTFSRecord[]> {
+  ): Promise<GTFSDatabaseRecord[]> {
     const data = this.manager.getFallbackData(tableName);
     if (!filter) {
       return data;
@@ -683,7 +689,7 @@ class FallbackDatabase {
 
   async bulkUpdateRows(
     tableName: string,
-    updates: Array<{ id: number; data: Partial<GTFSRecord> }>
+    updates: Array<{ id: number; data: Partial<GTFSDatabaseRecord> }>
   ): Promise<void> {
     for (const update of updates) {
       await this.updateRow(tableName, update.id, update.data);
@@ -693,8 +699,8 @@ class FallbackDatabase {
   async searchAllTables(
     searchTerm: string,
     limit: number = 100
-  ): Promise<{ [tableName: string]: GTFSRecord[] }> {
-    const results: { [tableName: string]: GTFSRecord[] } = {};
+  ): Promise<{ [tableName: string]: GTFSDatabaseRecord[] }> {
+    const results: { [tableName: string]: GTFSDatabaseRecord[] } = {};
     const searchLower = searchTerm.toLowerCase();
 
     const searchTables = ['agencies', 'routes', 'stops', 'trips'];

@@ -1,9 +1,10 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { GTFS_FILES } from './gtfs-parser.js';
+import { GTFS_FILES } from '../types/gtfs.js';
 import { databaseFallbackManager } from './database-fallback-manager.js';
 
 // TypeScript interfaces for GTFS database schema
-export interface GTFSRecord {
+// Keep flexible interface for database operations with dynamic tables
+export interface GTFSDatabaseRecord {
   id?: number; // Auto-increment primary key
   [key: string]: string | number | boolean | undefined; // Dynamic fields based on CSV columns
 }
@@ -21,59 +22,59 @@ export interface GTFSDBSchema extends DBSchema {
   // GTFS file tables (dynamic based on uploaded files)
   agencies: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   routes: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   stops: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   trips: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   stop_times: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   calendar: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   calendar_dates: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   shapes: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   frequencies: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   transfers: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   feed_info: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   fare_attributes: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   fare_rules: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   locations: {
     key: number;
-    value: GTFSRecord;
+    value: GTFSDatabaseRecord;
   };
   // Project metadata table
   project: {
@@ -86,8 +87,8 @@ export class GTFSDatabase {
   private db: IDBPDatabase<GTFSDBSchema> | null = null;
   private fallbackDB: {
     initialize(): Promise<void>;
-    insertRows(tableName: string, rows: GTFSRecord[]): Promise<void>;
-    getAllRows(tableName: string): Promise<GTFSRecord[]>;
+    insertRows(tableName: string, rows: GTFSDatabaseRecord[]): Promise<void>;
+    getAllRows(tableName: string): Promise<GTFSDatabaseRecord[]>;
     getDatabaseStats(): Promise<{
       tables: Record<string, number>;
       size: number;
@@ -123,7 +124,7 @@ export class GTFSDatabase {
       this.db = await openDB<GTFSDBSchema>(this.dbName, this.dbVersion, {
         upgrade: (db) => {
           // Create tables for all possible GTFS files
-          const allFiles = [...GTFS_FILES.required, ...GTFS_FILES.optional];
+          const allFiles = GTFS_FILES.map((file) => file.filename);
 
           allFiles.forEach((fileName) => {
             const tableName = this.getTableName(fileName);
@@ -384,7 +385,10 @@ export class GTFSDatabase {
   /**
    * Bulk insert CSV rows as records with optimized batching
    */
-  async insertRows(tableName: string, rows: GTFSRecord[]): Promise<void> {
+  async insertRows(
+    tableName: string,
+    rows: GTFSDatabaseRecord[]
+  ): Promise<void> {
     if (this.isUsingFallback) {
       return await this.fallbackDB.insertRows(tableName, rows);
     }
@@ -422,7 +426,7 @@ export class GTFSDatabase {
    */
   private async insertBatch(
     tableName: string,
-    rows: GTFSRecord[]
+    rows: GTFSDatabaseRecord[]
   ): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -441,7 +445,10 @@ export class GTFSDatabase {
   /**
    * Retrieve single record by ID
    */
-  async getRow(tableName: string, id: number): Promise<GTFSRecord | undefined> {
+  async getRow(
+    tableName: string,
+    id: number
+  ): Promise<GTFSDatabaseRecord | undefined> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -461,7 +468,7 @@ export class GTFSDatabase {
   async updateRow(
     tableName: string,
     id: number,
-    data: Partial<GTFSRecord>
+    data: Partial<GTFSDatabaseRecord>
   ): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -487,7 +494,7 @@ export class GTFSDatabase {
   /**
    * Get all records from table (for export)
    */
-  async getAllRows(tableName: string): Promise<GTFSRecord[]> {
+  async getAllRows(tableName: string): Promise<GTFSDatabaseRecord[]> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -507,7 +514,7 @@ export class GTFSDatabase {
   async queryRows(
     tableName: string,
     filter?: { [key: string]: string | number | boolean }
-  ): Promise<GTFSRecord[]> {
+  ): Promise<GTFSDatabaseRecord[]> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -628,7 +635,7 @@ export class GTFSDatabase {
    */
   async bulkUpdateRows(
     tableName: string,
-    updates: Array<{ id: number; data: Partial<GTFSRecord> }>
+    updates: Array<{ id: number; data: Partial<GTFSDatabaseRecord> }>
   ): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -658,7 +665,7 @@ export class GTFSDatabase {
    */
   private async updateBatch(
     tableName: string,
-    updates: Array<{ id: number; data: Partial<GTFSRecord> }>
+    updates: Array<{ id: number; data: Partial<GTFSDatabaseRecord> }>
   ): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -728,7 +735,7 @@ export class GTFSDatabase {
       console.log('Starting database compaction...');
 
       // Get all data from current database
-      const backup: { [tableName: string]: GTFSRecord[] } = {};
+      const backup: { [tableName: string]: GTFSDatabaseRecord[] } = {};
       for (const tableName of this.db.objectStoreNames) {
         backup[tableName] = await this.getAllRows(tableName);
       }
@@ -770,12 +777,12 @@ export class GTFSDatabase {
   async searchAllTables(
     searchTerm: string,
     limit: number = 100
-  ): Promise<{ [tableName: string]: GTFSRecord[] }> {
+  ): Promise<{ [tableName: string]: GTFSDatabaseRecord[] }> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
 
-    const results: { [tableName: string]: GTFSRecord[] } = {};
+    const results: { [tableName: string]: GTFSDatabaseRecord[] } = {};
     const searchLower = searchTerm.toLowerCase();
 
     try {

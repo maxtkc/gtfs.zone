@@ -4,6 +4,10 @@ import { EditorState } from '@codemirror/state';
 import { placeholder } from '@codemirror/view';
 import { StreamLanguage } from '@codemirror/language';
 import Clusterize from 'clusterize.js';
+import {
+  getGTFSFieldDescription,
+  createTooltip,
+} from '../utils/zod-tooltip-helper.js';
 
 // Types for CodeMirror streaming
 interface StreamParser {
@@ -392,7 +396,18 @@ export class Editor {
         <table class="clusterize-table" id="table">
           <thead>
             <tr>
-              ${this.headers.map((header) => `<th>${this.escapeHtml(header)}</th>`).join('')}
+              ${this.headers
+                .map((header) => {
+                  const description = getGTFSFieldDescription(
+                    this.currentFile || '',
+                    header
+                  );
+                  const headerText = this.escapeHtml(header);
+                  return description
+                    ? `<th>${createTooltip(headerText, description)}</th>`
+                    : `<th>${headerText}</th>`;
+                })
+                .join('')}
             </tr>
           </thead>
           <tbody class="clusterize-content" id="contentArea">

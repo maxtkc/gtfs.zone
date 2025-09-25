@@ -57,3 +57,4 @@ This will show everything at a high level.
 - Remove the junk gtfs feed and start properly empty
 - Smooth map transitions
 - Remove random map hover
+- Draw stops with the proper route colors

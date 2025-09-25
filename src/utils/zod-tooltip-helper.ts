@@ -7,6 +7,11 @@ import {
   RoutesSchema,
   CalendarSchema,
   CalendarDatesSchema,
+  StopsSchema,
+  TripsSchema,
+  StopTimesSchema,
+  ShapesSchema,
+  FeedInfoSchema,
 } from '../types/gtfs.js';
 
 /**
@@ -17,44 +22,32 @@ function getFieldDescription(
   fieldName: string
 ): string {
   try {
-    console.log(
-      'getFieldDescription called with:',
-      fieldName,
-      'schema:',
-      schema
-    );
-
     if (!schema) {
-      console.log('Schema is null/undefined');
       return '';
     }
 
+    // Access the schema shape - try multiple ways to be compatible
     const shape = schema._def?.shape || schema.shape;
-    console.log('Schema shape:', shape);
 
     if (!shape) {
-      console.log('No shape found in schema');
       return '';
     }
 
     if (!shape[fieldName]) {
-      console.log(
-        `Field ${fieldName} not found in shape. Available fields:`,
-        Object.keys(shape)
-      );
       return '';
     }
 
     const field = shape[fieldName];
-    console.log(`Field ${fieldName}:`, field);
-    console.log(`Field ${fieldName}._def:`, field._def);
 
-    const description = field._def?.description || '';
-    console.log(`Description for ${fieldName}:`, description);
+    // Try multiple ways to access the description based on Zod's structure
+    const description =
+      field.description || // Direct access
+      field._def?.description || // Internal _def access
+      '';
 
     return description;
   } catch (e) {
-    console.log('Error in getFieldDescription:', e);
+    console.error('Error in getFieldDescription:', e);
     return '';
   }
 }
@@ -63,40 +56,7 @@ function getFieldDescription(
  * Get agency field descriptions
  */
 export function getAgencyFieldDescription(fieldName: string): string {
-  console.log('getAgencyFieldDescription called with:', fieldName);
-  console.log('AgencySchema:', AgencySchema);
-  console.log('typeof AgencySchema:', typeof AgencySchema);
-
-  // Temporary hardcoded tooltips for testing
-  const testTooltips: Record<string, string> = {
-    agencyId:
-      'Identifies a transit brand which is often synonymous with a transit agency. Note that in some cases, such as when a single agency operates multiple separate services, agencies and brands are distinct.',
-    agencyName: 'Full name of the transit agency.',
-    agencyUrl: 'URL of the transit agency.',
-    agencyTimezone:
-      'Timezone where the transit agency is located. If multiple agencies are specified in the dataset, each must have the same agency_timezone.',
-    agencyLang:
-      'Primary language used by this transit agency. Should be provided to help GTFS consumers choose capitalization rules and other language-specific settings for the dataset.',
-    agencyPhone: 'A voice telephone number for the specified agency.',
-    agencyFareUrl:
-      'URL of a web page that contains the details of the fares and also could allow purchase of tickets for that agency online.',
-    agencyEmail:
-      "Email address actively monitored by the agency's customer service department.",
-  };
-
-  const testResult = testTooltips[fieldName] || '';
-  console.log('Using test tooltip for', fieldName, ':', testResult);
-
-  if (AgencySchema) {
-    console.log('AgencySchema._def:', AgencySchema._def);
-    console.log('AgencySchema.shape:', AgencySchema.shape);
-  }
-
-  const result = getFieldDescription(AgencySchema, fieldName);
-  console.log('getFieldDescription result:', result);
-
-  // Return test tooltip for now to verify tooltip display works
-  return testResult;
+  return getFieldDescription(AgencySchema, fieldName);
 }
 
 /**
@@ -118,6 +78,72 @@ export function getCalendarFieldDescription(fieldName: string): string {
  */
 export function getCalendarDatesFieldDescription(fieldName: string): string {
   return getFieldDescription(CalendarDatesSchema, fieldName);
+}
+
+/**
+ * Get stops field descriptions
+ */
+export function getStopsFieldDescription(fieldName: string): string {
+  return getFieldDescription(StopsSchema, fieldName);
+}
+
+/**
+ * Get trips field descriptions
+ */
+export function getTripsFieldDescription(fieldName: string): string {
+  return getFieldDescription(TripsSchema, fieldName);
+}
+
+/**
+ * Get stop times field descriptions
+ */
+export function getStopTimesFieldDescription(fieldName: string): string {
+  return getFieldDescription(StopTimesSchema, fieldName);
+}
+
+/**
+ * Get shapes field descriptions
+ */
+export function getShapesFieldDescription(fieldName: string): string {
+  return getFieldDescription(ShapesSchema, fieldName);
+}
+
+/**
+ * Get feed info field descriptions
+ */
+export function getFeedInfoFieldDescription(fieldName: string): string {
+  return getFieldDescription(FeedInfoSchema, fieldName);
+}
+
+/**
+ * Get field description for any GTFS file type
+ * @param filename - The GTFS filename (e.g., 'agency.txt', 'routes.txt')
+ * @param fieldName - The field name to get description for
+ * @returns Field description string
+ */
+export function getGTFSFieldDescription(
+  filename: string,
+  fieldName: string
+): string {
+  // Map filenames to schema getter functions
+  const schemaMap: Record<string, (fieldName: string) => string> = {
+    'agency.txt': getAgencyFieldDescription,
+    'routes.txt': getRouteFieldDescription,
+    'calendar.txt': getCalendarFieldDescription,
+    'calendar_dates.txt': getCalendarDatesFieldDescription,
+    'stops.txt': getStopsFieldDescription,
+    'trips.txt': getTripsFieldDescription,
+    'stop_times.txt': getStopTimesFieldDescription,
+    'shapes.txt': getShapesFieldDescription,
+    'feed_info.txt': getFeedInfoFieldDescription,
+  };
+
+  const schemaGetter = schemaMap[filename];
+  if (schemaGetter) {
+    return schemaGetter(getSchemaFieldName(fieldName));
+  }
+
+  return '';
 }
 
 /**

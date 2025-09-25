@@ -1,33 +1,12 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
-import { GTFSDatabase, GTFSRecord } from './gtfs-database.js';
+import { GTFSDatabase, GTFSDatabaseRecord } from './gtfs-database.js';
+import { GTFS_FILES, GTFSFilePresence } from '../types/gtfs.js';
 import { loadingStateManager } from './loading-state-manager.js';
-
-// GTFS file definitions
-export const GTFS_FILES = {
-  required: [
-    'agency.txt',
-    'routes.txt',
-    'trips.txt',
-    'stops.txt',
-    'stop_times.txt',
-    'calendar.txt',
-    'calendar_dates.txt',
-  ],
-  optional: [
-    'shapes.txt',
-    'frequencies.txt',
-    'transfers.txt',
-    'feed_info.txt',
-    'fare_attributes.txt',
-    'fare_rules.txt',
-    'locations.geojson',
-  ],
-};
 
 interface GTFSFileData {
   content: string;
-  data: GTFSRecord[];
+  data: GTFSDatabaseRecord[];
   errors: Papa.ParseError[];
 }
 
@@ -227,7 +206,7 @@ export class GTFSParser {
         const headers = Object.keys(data[0]);
         const csvContent = [
           headers.join(','),
-          ...data.map((row: GTFSRecord) =>
+          ...data.map((row: GTFSDatabaseRecord) =>
             headers.map((header) => row[header] || '').join(',')
           ),
         ].join('\n');
@@ -240,7 +219,7 @@ export class GTFSParser {
 
         // Store in IndexedDB
         const tableName = this.getTableName(fileName);
-        const rows = data as GTFSRecord[];
+        const rows = data as GTFSDatabaseRecord[];
         await this.gtfsDatabase.insertRows(tableName, rows);
       }
     }
@@ -322,7 +301,7 @@ export class GTFSParser {
 
           // Store in IndexedDB
           const tableName = this.getTableName(fileName);
-          const rows = parsed.data as GTFSRecord[];
+          const rows = parsed.data as GTFSDatabaseRecord[];
           if (rows.length > 0) {
             loadingStateManager.updateProgress(
               operation,
@@ -343,7 +322,7 @@ export class GTFSParser {
           const tableName = this.getTableName(fileName);
           const geoJsonData = JSON.parse(fileContent);
           await this.gtfsDatabase.insertRows(tableName, [
-            geoJsonData as GTFSRecord,
+            geoJsonData as GTFSDatabaseRecord,
           ]);
         }
       }
@@ -421,7 +400,7 @@ export class GTFSParser {
         await this.gtfsDatabase.clearTable(tableName);
 
         // Insert new rows
-        const rows = parsed.data as GTFSRecord[];
+        const rows = parsed.data as GTFSDatabaseRecord[];
         if (rows.length > 0) {
           await this.gtfsDatabase.insertRows(tableName, rows);
         }
@@ -435,7 +414,7 @@ export class GTFSParser {
 
         const geoJsonData = JSON.parse(content);
         await this.gtfsDatabase.insertRows(tableName, [
-          geoJsonData as GTFSRecord,
+          geoJsonData as GTFSDatabaseRecord,
         ]);
       }
     }
@@ -445,7 +424,7 @@ export class GTFSParser {
     return this.gtfsData[fileName]?.content || '';
   }
 
-  async getFileData(fileName: string): Promise<GTFSRecord[] | null> {
+  async getFileData(fileName: string): Promise<GTFSDatabaseRecord[] | null> {
     // Try to get from IndexedDB first
     try {
       const tableName = this.getTableName(fileName);
@@ -466,7 +445,7 @@ export class GTFSParser {
   }
 
   // Synchronous version for backward compatibility (will use memory data)
-  getFileDataSync(fileName: string): GTFSRecord[] | null {
+  getFileDataSync(fileName: string): GTFSDatabaseRecord[] | null {
     return this.gtfsData[fileName]?.data || null;
   }
 
@@ -480,12 +459,20 @@ export class GTFSParser {
     other: string[];
   } {
     const allFiles = this.getAllFileNames();
+    const requiredFiles = GTFS_FILES.filter(
+      (f) => f.presence === GTFSFilePresence.Required
+    ).map((f) => f.filename);
+    const optionalFiles = GTFS_FILES.filter(
+      (f) =>
+        f.presence === GTFSFilePresence.Optional ||
+        f.presence === GTFSFilePresence.ConditionallyRequired
+    ).map((f) => f.filename);
+
     return {
-      required: allFiles.filter((f) => GTFS_FILES.required.includes(f)),
-      optional: allFiles.filter((f) => GTFS_FILES.optional.includes(f)),
+      required: allFiles.filter((f) => requiredFiles.includes(f)),
+      optional: allFiles.filter((f) => optionalFiles.includes(f)),
       other: allFiles.filter(
-        (f) =>
-          !GTFS_FILES.required.includes(f) && !GTFS_FILES.optional.includes(f)
+        (f) => !requiredFiles.includes(f) && !optionalFiles.includes(f)
       ),
     };
   }

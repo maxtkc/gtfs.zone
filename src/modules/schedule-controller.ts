@@ -5,6 +5,13 @@
  */
 
 import { shortestCommonSupersequence } from './scs';
+import {
+  Routes,
+  Stops,
+  Calendar,
+  CalendarDates,
+  Trips,
+} from '../types/gtfs.js';
 
 export interface AlignedTrip {
   tripId: string;
@@ -13,9 +20,9 @@ export interface AlignedTrip {
 }
 
 export interface TimetableData {
-  route: Record<string, unknown>;
-  service: Record<string, unknown>;
-  stops: Record<string, unknown>[];
+  route: Routes;
+  service: Calendar | CalendarDates;
+  stops: Stops[];
   trips: AlignedTrip[];
   directionId?: string;
   directionName?: string;
@@ -133,7 +140,7 @@ export class ScheduleController {
   /**
    * Core alignment algorithm - align trips by stops, allowing gaps
    */
-  private alignTrips(trips: Record<string, unknown>[]): AlignedTrip[] {
+  private alignTrips(trips: Trips[]): AlignedTrip[] {
     const alignedTrips: AlignedTrip[] = [];
 
     for (const trip of trips) {
@@ -162,10 +169,7 @@ export class ScheduleController {
   /**
    * Get stops sorted using SCS (Shortest Common Supersequence) algorithm
    */
-  private getSortedStops(
-    stopIds: string[],
-    trips: Record<string, unknown>[]
-  ): Record<string, unknown>[] {
+  private getSortedStops(stopIds: string[], trips: Trips[]): Stops[] {
     if (trips.length === 0) {
       return stopIds.map((stopId) => {
         return (
@@ -225,8 +229,8 @@ export class ScheduleController {
    * Render schedule header
    */
   private renderScheduleHeader(
-    route: Record<string, unknown>,
-    service: Record<string, unknown>
+    route: Routes,
+    service: Calendar | CalendarDates
   ): string {
     const routeName = route.route_short_name
       ? `${route.route_short_name}${route.route_long_name ? ' - ' + route.route_long_name : ''}`
@@ -252,7 +256,7 @@ export class ScheduleController {
   /**
    * Render service properties section
    */
-  private renderServiceProperties(service: Record<string, unknown>): string {
+  private renderServiceProperties(service: Calendar | CalendarDates): string {
     if (!service || typeof service !== 'object') {
       return '';
     }
@@ -380,7 +384,7 @@ export class ScheduleController {
   /**
    * Get routes that use a specific service
    */
-  private getRoutesUsingService(serviceId: string): Record<string, unknown>[] {
+  private getRoutesUsingService(serviceId: string): Routes[] {
     const allRoutes = this.gtfsParser.getFileDataSync('routes.txt') || [];
     const allTrips = this.gtfsParser.getFileDataSync('trips.txt') || [];
 
@@ -476,10 +480,7 @@ export class ScheduleController {
   /**
    * Render timetable body with stop rows
    */
-  private renderTimetableBody(
-    stops: Record<string, unknown>[],
-    trips: AlignedTrip[]
-  ): string {
+  private renderTimetableBody(stops: Stops[], trips: AlignedTrip[]): string {
     const rows = stops
       .map((stop) => {
         const rowClass = '';
@@ -562,10 +563,7 @@ export class ScheduleController {
   /**
    * Get a human-readable direction name
    */
-  private getDirectionName(
-    directionId: string,
-    _trips: Record<string, unknown>[]
-  ): string {
+  private getDirectionName(directionId: string, _trips: Trips[]): string {
     // Use standard direction names
     switch (directionId) {
       case '0':
