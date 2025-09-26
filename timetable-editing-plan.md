@@ -68,17 +68,14 @@ This plan outlines the step-by-step implementation of editable timetables in GTF
   - [x] Add keyboard navigation between time cells
   - [x] Handle invalid time input with user feedback
 
-- [ ] **2.2: Arrival/Departure Time Support**
-  - [ ] Support separate arrival and departure times for stops
-  - [ ] Implement UI for displaying both arrival/departure columns
-  - [ ] Add validation for arrival <= departure time constraints
-  - [ ] Handle cases where only arrival or departure is specified
+- [x] **2.2: Arrival/Departure Time Support** ✅ **COMPLETED**
+  - [x] Support separate arrival and departure times for stops
+  - [x] Implement UI for displaying both arrival/departure columns
+  - [x] Add validation for arrival <= departure time constraints
+  - [x] Handle cases where only arrival or departure is specified
 
-- [ ] **2.3: Time Calculation Logic**
-  - [ ] Implement automatic time progression validation
-  - [ ] Add arrival/departure time consistency checks
-  - [ ] Handle overnight trips (times > 24:00:00)
-  - [ ] Validate stop sequence timing logic
+- [x] **2.3: Moved to Phase 8** ✅ **MOVED**
+  - This step has been moved to Phase 8.1 for better logical flow
 
 ## Phase 3: Service Properties Management
 - [ ] **3.1: Service Display Enhancement**
@@ -94,11 +91,64 @@ This plan outlines the step-by-step implementation of editable timetables in GTF
   - [ ] Validate service date ranges
 
 ## Phase 4: Route Navigation and Cross-References
-- [ ] **4.1: Direction-Based Timetable Pages**
-  - [ ] Create separate timetable pages for each route direction
-  - [ ] Implement direction filtering in timetable rendering
-  - [ ] Add direction navigation controls to timetable header
-  - [ ] Handle routes with multiple direction patterns
+- [x] **4.1: Direction-Based Timetable Pages** ✅ **COMPLETED**
+  - [x] Create separate timetable pages for each route direction
+  - [x] Implement direction filtering in timetable rendering
+  - [x] Add direction navigation controls to timetable header
+  - [x] Handle routes with multiple direction patterns
+
+  **4.1 Implementation Details:**
+
+  **Best DaisyUI Component Choice: Tabs with Radio Controls**
+  - Use `tabs tabs-lift` for clean, modern appearance with lift effect
+  - Radio button control provides proper state management
+  - Content area below tabs will contain the timetable
+  - Supports keyboard navigation and accessibility
+
+  **HTML Structure:**
+  ```html
+  <div class="tabs tabs-lift w-full">
+    <label class="tab">
+      <input type="radio" name="direction-tabs" value="0" checked />
+      <svg class="size-4 me-2"><!-- direction arrow icon --></svg>
+      Inbound
+    </label>
+    <div class="tab-content bg-base-100 border-base-300 p-6">
+      <!-- Timetable content for direction 0 -->
+    </div>
+
+    <label class="tab">
+      <input type="radio" name="direction-tabs" value="1" />
+      <svg class="size-4 me-2"><!-- direction arrow icon --></svg>
+      Outbound
+    </label>
+    <div class="tab-content bg-base-100 border-base-300 p-6">
+      <!-- Timetable content for direction 1 -->
+    </div>
+  </div>
+  ```
+
+  **Alternative Options Considered:**
+  - `tabs tabs-boxed`: Good for distinct separation but less modern
+  - `select` dropdown: Compact but less discoverable for primary navigation
+  - `tabs tabs-border`: Similar to lift but borders may conflict with timetable styling
+
+  **Implementation Tasks:**
+  - [x] Add direction detection logic to ScheduleController
+  - [x] Create tab navigation HTML in timetable header
+  - [x] Add direction icons (arrows pointing in/out)
+  - [x] Filter trips by direction_id in timetable data generation
+  - [x] Handle routes without explicit direction_id values
+  - [x] Add URL parameter support for direction selection
+  - [x] Implement smooth transitions between direction views
+
+  **✅ Implementation Results:**
+  - Successfully implemented direction-based timetable pages using DaisyUI tabs-boxed component
+  - Direction switching works seamlessly with proper URL state management
+  - Icons and trip counts displayed correctly for each direction
+  - Timetable content updates dynamically when switching between directions
+  - Both explicit direction_id values and default handling work as expected
+  - Integration with existing navigation system completed
 
 - [ ] **4.2: Related Routes Display**
   - [ ] Identify other routes using the same service
@@ -165,6 +215,10 @@ This plan outlines the step-by-step implementation of editable timetables in GTF
 
 ## Phase 8: Validation and Data Integrity
 - [ ] **8.1: Real-time Validation**
+  - [ ] Implement automatic time progression validation (moved from 2.3)
+  - [ ] Add arrival/departure time consistency checks (moved from 2.3)
+  - [ ] Handle overnight trips (times > 24:00:00) (moved from 2.3)
+  - [ ] Validate stop sequence timing logic (moved from 2.3)
   - [ ] Validate time sequences during editing
   - [ ] Check service calendar consistency
   - [ ] Ensure stop sequence integrity

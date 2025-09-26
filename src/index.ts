@@ -18,6 +18,7 @@ import {
   updateBreadcrumbLookup,
 } from './modules/page-state-integration';
 import { PageStateManager } from './modules/page-state-manager';
+import { navigateToTimetable } from './modules/navigation-actions';
 import './styles/main.css';
 
 declare global {
@@ -188,6 +189,15 @@ export class GTFSEditor {
    */
   public onGTFSDataReloaded(): void {
     updateBreadcrumbLookup(this.gtfsParser);
+  }
+
+  // Navigation helper methods for global access
+  async navigateToTimetable(
+    routeId: string,
+    serviceId: string,
+    directionId?: string
+  ): Promise<void> {
+    await navigateToTimetable(routeId, serviceId, directionId);
   }
 }
 
