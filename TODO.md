@@ -58,3 +58,10 @@ This will show everything at a high level.
 - Smooth map transitions
 - Remove random map hover
 - Draw stops with the proper route colors
+- Support departure time
+
+
+### Important
+
+- Bigish issue: When I click on a route on the map and click the schedule, I don't know which direction
+- Also, the timetable alg places the sotps kinda weird. It shouldn't repeat them. Idk how to properly do this. Can SCS return the alignments, or should we figure them out?

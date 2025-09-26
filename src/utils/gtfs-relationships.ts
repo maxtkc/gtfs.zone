@@ -13,6 +13,7 @@ import {
   Routes,
   Trips,
   GTFS_RELATIONSHIPS,
+  GTFS_PRIMARY_KEYS,
 } from '../types/gtfs';
 
 // Export the auto-generated relationships for backwards compatibility
@@ -76,23 +77,9 @@ export class GTFSRelationshipResolver {
   }
 
   private getPrimaryKeyField(filename: string): string {
-    const primaryKeys: { [key: string]: string } = {
-      'agency.txt': 'agencyId',
-      'stops.txt': 'stopId',
-      'routes.txt': 'routeId',
-      'trips.txt': 'tripId',
-      'stop_times.txt': 'tripId', // Composite key, but tripId is main identifier
-      'calendar.txt': 'serviceId',
-      'calendar_dates.txt': 'serviceId',
-      'shapes.txt': 'shapeId',
-      'frequencies.txt': 'tripId',
-      'transfers.txt': 'fromStopId', // Composite key
-      'levels.txt': 'levelId',
-      'fare_attributes.txt': 'fareId',
-      'fare_rules.txt': 'fareId',
-    };
-
-    return primaryKeys[filename] || 'id';
+    return (
+      GTFS_PRIMARY_KEYS[filename as keyof typeof GTFS_PRIMARY_KEYS] || 'id'
+    );
   }
 
   /**

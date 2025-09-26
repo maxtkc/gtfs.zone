@@ -166,48 +166,19 @@ export function createTooltip(content: string, tooltip: string): string {
 }
 
 /**
- * Map common GTFS field names to their schema field names
+ * Convert snake_case field names to camelCase versions used in our schemas.
+ * This uses the same logic as the GTFS type generation to ensure consistency.
  */
-const fieldNameMap: Record<string, string> = {
-  // Agency fields (both underscore and camelCase versions)
-  agency_id: 'agencyId',
-  id: 'agencyId', // Agency id without prefix
-  agency_name: 'agencyName',
-  name: 'agencyName', // Agency name without prefix
-  agency_url: 'agencyUrl',
-  url: 'agencyUrl', // Agency url without prefix
-  agency_timezone: 'agencyTimezone',
-  timezone: 'agencyTimezone', // Agency timezone without prefix
-  agency_lang: 'agencyLang',
-  lang: 'agencyLang', // Agency lang without prefix
-  agency_phone: 'agencyPhone',
-  phone: 'agencyPhone', // Agency phone without prefix
-  agency_fare_url: 'agencyFareUrl',
-  fare_url: 'agencyFareUrl', // Agency fare_url without prefix
-  agency_email: 'agencyEmail',
-  email: 'agencyEmail', // Agency email without prefix
-
-  // Route fields
-  route_id: 'routeId',
-  route_short_name: 'routeShortName',
-  route_long_name: 'routeLongName',
-  route_desc: 'routeDesc',
-  route_type: 'routeType',
-  route_url: 'routeUrl',
-  route_color: 'routeColor',
-  route_text_color: 'routeTextColor',
-  route_sort_order: 'routeSortOrder',
-
-  // Service/Calendar fields
-  service_id: 'serviceId',
-  start_date: 'startDate',
-  end_date: 'endDate',
-  exception_type: 'exceptionType',
-};
+function formatFieldName(fieldName: string): string {
+  // Convert snake_case to camelCase for TypeScript
+  return fieldName.replace(/_([a-z])/g, (match, letter) =>
+    letter.toUpperCase()
+  );
+}
 
 /**
  * Convert GTFS field name to schema field name
  */
 export function getSchemaFieldName(gtfsFieldName: string): string {
-  return fieldNameMap[gtfsFieldName] || gtfsFieldName;
+  return formatFieldName(gtfsFieldName);
 }

@@ -837,6 +837,307 @@ export class GTFSDatabase {
     }
   }
 
+  // ===== TIMETABLE EDITING CRUD OPERATIONS =====
+
+  /**
+   * Insert a new trip record
+   */
+  async insertTrip(tripData: GTFSDatabaseRecord): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const transaction = this.db.transaction('trips', 'readwrite');
+      const store = transaction.objectStore('trips');
+      const id = await store.add(tripData);
+      await transaction.done;
+      console.log(`Inserted new trip with ID ${id}`);
+      return typeof id === 'number' ? id : 0;
+    } catch (error) {
+      console.error('Failed to insert trip:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a trip record
+   */
+  async updateTrip(
+    tripId: number,
+    tripData: Partial<GTFSDatabaseRecord>
+  ): Promise<void> {
+    await this.updateRow('trips', tripId, tripData);
+  }
+
+  /**
+   * Delete a trip and all its stop_times
+   */
+  async deleteTrip(tripId: number, gtfsTripId: string): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const transaction = this.db.transaction(
+        ['trips', 'stop_times'],
+        'readwrite'
+      );
+
+      // Delete trip record
+      await transaction.objectStore('trips').delete(tripId);
+
+      // Delete all stop_times for this trip
+      const stopTimesStore = transaction.objectStore('stop_times');
+      const stopTimesIndex = stopTimesStore.index('trip_id');
+      const stopTimesCursor = await stopTimesIndex.openCursor(gtfsTripId);
+
+      while (stopTimesCursor) {
+        await stopTimesCursor.delete();
+        await stopTimesCursor.continue();
+      }
+
+      await transaction.done;
+      console.log(`Deleted trip ${gtfsTripId} and its stop_times`);
+    } catch (error) {
+      console.error(`Failed to delete trip ${gtfsTripId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Duplicate a trip with new trip_id
+   */
+  async duplicateTrip(
+    originalTripId: string,
+    newTripId: string,
+    timeOffset: number = 0
+  ): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const transaction = this.db.transaction(
+        ['trips', 'stop_times'],
+        'readwrite'
+      );
+
+      // Get original trip
+      const tripsStore = transaction.objectStore('trips');
+      const tripsIndex = tripsStore.index('trip_id');
+      const originalTrip = await tripsIndex.get(originalTripId);
+
+      if (!originalTrip) {
+        throw new Error(`Trip ${originalTripId} not found`);
+      }
+
+      // Create new trip record
+      const newTrip = { ...originalTrip, trip_id: newTripId };
+      delete newTrip.id; // Remove auto-increment ID
+      await tripsStore.add(newTrip);
+
+      // Get and duplicate stop_times
+      const stopTimesStore = transaction.objectStore('stop_times');
+      const stopTimesIndex = stopTimesStore.index('trip_id');
+      const stopTimesCursor = await stopTimesIndex.openCursor(originalTripId);
+
+      while (stopTimesCursor) {
+        const originalStopTime = stopTimesCursor.value;
+        const newStopTime = { ...originalStopTime, trip_id: newTripId };
+        delete newStopTime.id; // Remove auto-increment ID
+
+        // Apply time offset if specified
+        if (timeOffset !== 0) {
+          if (newStopTime.arrival_time) {
+            newStopTime.arrival_time = this.addMinutesToTime(
+              newStopTime.arrival_time as string,
+              timeOffset
+            );
+          }
+          if (newStopTime.departure_time) {
+            newStopTime.departure_time = this.addMinutesToTime(
+              newStopTime.departure_time as string,
+              timeOffset
+            );
+          }
+        }
+
+        await stopTimesStore.add(newStopTime);
+        await stopTimesCursor.continue();
+      }
+
+      await transaction.done;
+      console.log(`Duplicated trip ${originalTripId} as ${newTripId}`);
+    } catch (error) {
+      console.error(`Failed to duplicate trip ${originalTripId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk update stop_times for a trip
+   */
+  async bulkUpdateStopTimes(
+    tripId: string,
+    stopTimeUpdates: Array<{
+      stopId: string;
+      stopSequence: number;
+      arrivalTime?: string;
+      departureTime?: string;
+      isSkipped?: boolean;
+    }>
+  ): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const transaction = this.db.transaction('stop_times', 'readwrite');
+      const store = transaction.objectStore('stop_times');
+      const index = store.index('trip_id');
+
+      // Get all existing stop_times for this trip
+      const existingStopTimes = await index.getAll(tripId);
+
+      // Create a map for quick lookup
+      const existingMap = new Map(
+        existingStopTimes.map((st) => [`${st.stop_id}_${st.stop_sequence}`, st])
+      );
+
+      for (const update of stopTimeUpdates) {
+        const key = `${update.stopId}_${update.stopSequence}`;
+        const existing = existingMap.get(key);
+
+        if (existing) {
+          // Update existing record
+          const updated = { ...existing };
+          if (update.arrivalTime !== undefined) {
+            updated.arrival_time = update.arrivalTime;
+          }
+          if (update.departureTime !== undefined) {
+            updated.departure_time = update.departureTime;
+          }
+          if (update.isSkipped) {
+            // Mark as skipped by removing times
+            updated.arrival_time = '';
+            updated.departure_time = '';
+          }
+          await store.put(updated);
+        } else if (!update.isSkipped) {
+          // Insert new stop_time if not skipped
+          const newStopTime: GTFSDatabaseRecord = {
+            trip_id: tripId,
+            stop_id: update.stopId,
+            stop_sequence: update.stopSequence,
+            arrival_time: update.arrivalTime || '',
+            departure_time: update.departureTime || update.arrivalTime || '',
+            pickup_type: 0,
+            drop_off_type: 0,
+          };
+          await store.add(newStopTime);
+        }
+      }
+
+      await transaction.done;
+      console.log(`Bulk updated stop_times for trip ${tripId}`);
+    } catch (error) {
+      console.error(
+        `Failed to bulk update stop_times for trip ${tripId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Update service/calendar record
+   */
+  async updateService(
+    serviceId: string,
+    serviceData: Partial<GTFSDatabaseRecord>
+  ): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const transaction = this.db.transaction('calendar', 'readwrite');
+      const store = transaction.objectStore('calendar');
+      const index = store.index('service_id');
+      const existing = await index.get(serviceId);
+
+      if (existing) {
+        const updated = { ...existing, ...serviceData };
+        await store.put(updated);
+        console.log(`Updated service ${serviceId}`);
+      } else {
+        // Create new service record
+        const newService = { ...serviceData, service_id: serviceId };
+        await store.add(newService);
+        console.log(`Created new service ${serviceId}`);
+      }
+
+      await transaction.done;
+    } catch (error) {
+      console.error(`Failed to update service ${serviceId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check referential integrity before deletion
+   */
+  async checkTripReferences(tripId: string): Promise<{
+    canDelete: boolean;
+    blockingReferences: string[];
+  }> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    const blockingReferences: string[] = [];
+
+    try {
+      // Check stop_times
+      const stopTimes = await this.queryRows('stop_times', { trip_id: tripId });
+      if (stopTimes.length > 0) {
+        blockingReferences.push(`${stopTimes.length} stop_times records`);
+      }
+
+      // Check frequencies
+      const frequencies = await this.queryRows('frequencies', {
+        trip_id: tripId,
+      });
+      if (frequencies.length > 0) {
+        blockingReferences.push(`${frequencies.length} frequencies records`);
+      }
+
+      return {
+        canDelete: blockingReferences.length === 0,
+        blockingReferences,
+      };
+    } catch (error) {
+      console.error(`Failed to check references for trip ${tripId}:`, error);
+      return {
+        canDelete: false,
+        blockingReferences: ['Error checking references'],
+      };
+    }
+  }
+
+  /**
+   * Utility: Add minutes to a time string (HH:MM:SS)
+   */
+  private addMinutesToTime(timeStr: string, minutes: number): string {
+    const [hours, mins, secs] = timeStr.split(':').map(Number);
+    const totalMinutes = hours * 60 + mins + minutes;
+    const newHours = Math.floor(totalMinutes / 60);
+    const newMins = totalMinutes % 60;
+
+    return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
   /**
    * Close database connection
    */

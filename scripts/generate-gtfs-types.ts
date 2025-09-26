@@ -3,6 +3,43 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+// Extract primary key mappings from GTFS spec
+function extractPrimaryKeys(): Record<string, string> {
+  const primaryKeys: Record<string, string> = {
+    'agency.txt': 'agencyId',
+    'stops.txt': 'stopId',
+    'routes.txt': 'routeId',
+    'trips.txt': 'tripId',
+    'stop_times.txt': 'tripId',
+    'pathways.txt': 'pathwayId',
+    'levels.txt': 'levelId',
+    'attributions.txt': 'attributionId',
+    'calendar.txt': 'serviceId',
+    'calendar_dates.txt': 'serviceId',
+    'fare_attributes.txt': 'fareId',
+    'fare_rules.txt': 'fareId',
+    'shapes.txt': 'shapeId',
+    'frequencies.txt': 'tripId',
+    'transfers.txt': 'fromStopId',
+    'feed_info.txt': 'feedPublisherName'
+  };
+
+  return primaryKeys;
+}
+
+// Map presence string to GTFSFilePresence enum value
+function mapPresenceValue(presence: string): string {
+  const presenceMap: Record<string, string> = {
+    'Required': 'GTFSFilePresence.Required',
+    'Optional': 'GTFSFilePresence.Optional',
+    'Conditionally Required': 'GTFSFilePresence.ConditionallyRequired',
+    'Conditionally Forbidden': 'GTFSFilePresence.ConditionallyForbidden',
+    'Recommended': 'GTFSFilePresence.Recommended'
+  };
+
+  return presenceMap[presence] || 'GTFSFilePresence.Optional';
+}
+
 // Extract foreign key relationships from GTFS spec
 function extractForeignKeyRelationships(gtfsSpec: any): Array<{
   sourceFile: string;
@@ -233,7 +270,7 @@ function generateZodSchemaForFile(filename: string, fields: any[], relationships
 
   // Add foreign key validation refinements
   if (fileRelationships.length > 0) {
-    schemaCode += `.superRefine((data, ctx) => {
+    schemaCode += `.superRefine((_data, _ctx) => {
     // Foreign key validation will be added by GTFSValidator
     // This allows for context-aware validation with access to all GTFS data
   })`;
@@ -257,6 +294,10 @@ async function generateGTFSTypes(): Promise<string> {
     const relationships = extractForeignKeyRelationships(gtfsSpec);
     console.log(`Found ${relationships.length} foreign key relationships`);
 
+    // Extract primary keys from the specification
+    const primaryKeys = extractPrimaryKeys();
+    console.log(`Generated primary key mappings for ${Object.keys(primaryKeys).length} GTFS files`);
+
     let typeDefinitions = `/**
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
  *
@@ -272,9 +313,12 @@ import { z } from 'zod';
 // Foreign key relationships extracted from GTFS specification
 export const GTFS_RELATIONSHIPS = ${JSON.stringify(relationships, null, 2)} as const;
 
+// Primary key mappings for GTFS files
+export const GTFS_PRIMARY_KEYS = ${JSON.stringify(primaryKeys, null, 2)} as const;
+
 // Validation context interface for foreign key checking
 export interface GTFSValidationContext {
-  [filename: string]: Map<string, any>;
+  [filename: string]: Map<string, unknown>;
 }
 
 // Foreign key validation utilities
@@ -352,7 +396,9 @@ export function validateForeignKey(
     typeDefinitions += `export enum GTFSFilePresence {\n`;
     typeDefinitions += `  Required = 'Required',\n`;
     typeDefinitions += `  Optional = 'Optional',\n`;
-    typeDefinitions += `  ConditionallyRequired = 'Conditionally Required'\n`;
+    typeDefinitions += `  ConditionallyRequired = 'Conditionally Required',\n`;
+    typeDefinitions += `  ConditionallyForbidden = 'Conditionally Forbidden',\n`;
+    typeDefinitions += `  Recommended = 'Recommended'\n`;
     typeDefinitions += `}\n\n`;
     
     // Generate file metadata interface
@@ -368,20 +414,7 @@ export function validateForeignKey(
     typeDefinitions += `// Complete list of GTFS files\n`;
     typeDefinitions += `export const GTFS_FILES: GTFSFileInfo[] = [\n`;
     for (const file of gtfsSpec.files) {
-      let presenceValue;
-      switch (file.presence) {
-        case 'Required':
-          presenceValue = 'GTFSFilePresence.Required';
-          break;
-        case 'Optional':
-          presenceValue = 'GTFSFilePresence.Optional';
-          break;
-        case 'Conditionally Required':
-          presenceValue = 'GTFSFilePresence.ConditionallyRequired';
-          break;
-        default:
-          presenceValue = 'GTFSFilePresence.Optional';
-      }
+      const presenceValue = mapPresenceValue(file.presence);
       
       const hasSchema = gtfsSpec.fieldDefinitions[file.filename] && gtfsSpec.fieldDefinitions[file.filename].length > 0;
       const schemaRef = hasSchema ? `GTFSSchemas['${file.filename}']` : 'z.any()';
@@ -415,7 +448,7 @@ export function validateForeignKey(
     typeDefinitions += `  if (!schema) return undefined;\n`;
     typeDefinitions += `  \n`;
     typeDefinitions += `  // Get the shape of the schema\n`;
-    typeDefinitions += `  const shape = (schema as any).shape;\n`;
+    typeDefinitions += `  const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;\n`;
     typeDefinitions += `  if (!shape || !shape[fieldName]) return undefined;\n`;
     typeDefinitions += `  \n`;
     typeDefinitions += `  // Extract description from the field schema\n`;
@@ -430,11 +463,11 @@ export function validateForeignKey(
     typeDefinitions += `  const schema = GTFSSchemas[filename as keyof typeof GTFSSchemas];\n`;
     typeDefinitions += `  if (!schema) return {};\n`;
     typeDefinitions += `  \n`;
-    typeDefinitions += `  const shape = (schema as any).shape;\n`;
+    typeDefinitions += `  const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;\n`;
     typeDefinitions += `  const descriptions: Record<string, string> = {};\n`;
     typeDefinitions += `  \n`;
     typeDefinitions += `  for (const [fieldName, fieldSchema] of Object.entries(shape || {})) {\n`;
-    typeDefinitions += `    const desc = (fieldSchema as any)?.description;\n`;
+    typeDefinitions += `    const desc = (fieldSchema as z.ZodSchema & { description?: string })?.description;\n`;
     typeDefinitions += `    if (desc) {\n`;
     typeDefinitions += `      descriptions[fieldName] = desc;\n`;
     typeDefinitions += `    }\n`;

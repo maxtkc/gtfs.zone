@@ -2,7 +2,7 @@
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
  *
  * Generated from https://gtfs.org/documentation/schedule/reference
- * Scraped at: 2025-09-22T16:13:59.623Z
+ * Scraped at: 2025-09-26T00:36:24.670Z
  *
  * This file contains TypeScript interfaces and Zod schemas for all GTFS files and their fields.
  * Zod schemas include field descriptions accessible at runtime and foreign key validation.
@@ -492,6 +492,26 @@ export const GTFS_RELATIONSHIPS = [
     optional: true,
   },
 ] as const;
+
+// Primary key mappings for GTFS files
+export const GTFS_PRIMARY_KEYS = {
+  'agency.txt': 'agencyId',
+  'stops.txt': 'stopId',
+  'routes.txt': 'routeId',
+  'trips.txt': 'tripId',
+  'stop_times.txt': 'tripId',
+  'pathways.txt': 'pathwayId',
+  'levels.txt': 'levelId',
+  'attributions.txt': 'attributionId',
+  'calendar.txt': 'serviceId',
+  'calendar_dates.txt': 'serviceId',
+  'fare_attributes.txt': 'fareId',
+  'fare_rules.txt': 'fareId',
+  'shapes.txt': 'shapeId',
+  'frequencies.txt': 'tripId',
+  'transfers.txt': 'fromStopId',
+  'feed_info.txt': 'feedPublisherName',
+} as const;
 
 // Validation context interface for foreign key checking
 export interface GTFSValidationContext {
@@ -1980,6 +2000,8 @@ export enum GTFSFilePresence {
   Required = 'Required',
   Optional = 'Optional',
   ConditionallyRequired = 'Conditionally Required',
+  ConditionallyForbidden = 'Conditionally Forbidden',
+  Recommended = 'Recommended',
 }
 
 // GTFS file metadata
@@ -2114,14 +2136,14 @@ export const GTFS_FILES: GTFSFileInfo[] = [
   },
   {
     filename: 'networks.txt',
-    presence: GTFSFilePresence.Optional,
+    presence: GTFSFilePresence.ConditionallyForbidden,
     description:
       'Network grouping of routes.Conditionally Forbidden:- Forbidden if network_id exists in routes.txt.- Optional otherwise.',
     schema: GTFSSchemas['networks.txt'],
   },
   {
     filename: 'route_networks.txt',
-    presence: GTFSFilePresence.Optional,
+    presence: GTFSFilePresence.ConditionallyForbidden,
     description:
       'Rules to assign routes to networks.Conditionally Forbidden:- Forbidden if network_id exists in routes.txt.- Optional otherwise.',
     schema: GTFSSchemas['route_networks.txt'],
@@ -2253,15 +2275,13 @@ export function getFieldDescription(
   }
 
   // Get the shape of the schema
-  const shape = (schema as Record<string, unknown>).shape;
+  const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
   if (!shape || !shape[fieldName]) {
     return undefined;
   }
 
   // Extract description from the field schema
-  return (shape[fieldName] as Record<string, unknown>)?.description as
-    | string
-    | undefined;
+  return shape[fieldName]?.description;
 }
 
 export function getFileSchema(filename: string): z.ZodSchema | undefined {
@@ -2276,12 +2296,13 @@ export function getAllFieldDescriptions(
     return {};
   }
 
-  const shape = (schema as Record<string, unknown>).shape;
+  const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
   const descriptions: Record<string, string> = {};
 
   for (const [fieldName, fieldSchema] of Object.entries(shape || {})) {
-    const desc = (fieldSchema as Record<string, unknown>)?.description;
-    if (desc && typeof desc === 'string') {
+    const desc = (fieldSchema as z.ZodSchema & { description?: string })
+      ?.description;
+    if (desc) {
       descriptions[fieldName] = desc;
     }
   }

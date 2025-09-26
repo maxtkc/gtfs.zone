@@ -7,6 +7,7 @@ import {
   GTFSSchemas,
   GTFSRecord,
   GTFS_RELATIONSHIPS,
+  GTFS_PRIMARY_KEYS,
   GTFSValidationContext,
   validateForeignKey,
 } from '../types/gtfs';
@@ -122,35 +123,9 @@ export class GTFSCaster {
    * Get the primary key field name for a GTFS file
    */
   private getPrimaryKeyField(filename: string): string {
-    const primaryKeyMap: { [filename: string]: string } = {
-      'agency.txt': 'agencyId',
-      'stops.txt': 'stopId',
-      'routes.txt': 'routeId',
-      'trips.txt': 'tripId',
-      'stop_times.txt': 'tripId', // Composite key, using trip_id as primary
-      'calendar.txt': 'serviceId',
-      'calendar_dates.txt': 'serviceId',
-      'shapes.txt': 'shapeId',
-      'frequencies.txt': 'tripId',
-      'transfers.txt': 'fromStopId', // Composite key
-      'pathways.txt': 'pathwayId',
-      'levels.txt': 'levelId',
-      'fare_attributes.txt': 'fareId',
-      'fare_rules.txt': 'fareId',
-      'location_groups.txt': 'locationGroupId',
-      'booking_rules.txt': 'bookingRuleId',
-      'networks.txt': 'networkId',
-      'areas.txt': 'areaId',
-      'timeframes.txt': 'timeframeGroupId',
-      'rider_categories.txt': 'riderCategoryId',
-      'fare_media.txt': 'fareMediaId',
-      'fare_products.txt': 'fareProductId',
-      'translations.txt': 'tableName', // Composite key
-      'feed_info.txt': 'feedPublisherName',
-      'attributions.txt': 'attributionId',
-    };
-
-    return primaryKeyMap[filename] || 'id';
+    return (
+      GTFS_PRIMARY_KEYS[filename as keyof typeof GTFS_PRIMARY_KEYS] || 'id'
+    );
   }
 
   /**
