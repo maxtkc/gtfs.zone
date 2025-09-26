@@ -455,6 +455,22 @@ export class UIController {
     }
   }
 
+  // Method expected by Objects Navigation interface
+  showFileInEditor(filename: string, rowId?: string): void {
+    // Switch to Files tab if not already active
+    const filesTab = document.querySelector('[data-tab-name="files"]');
+    if (filesTab) {
+      filesTab.click();
+    }
+
+    // Open the file in the editor
+    this.openFile(filename);
+
+    // If rowId is provided, we could potentially navigate to that specific row
+    // For now, just open the file
+    console.log(`Opened ${filename} in editor${rowId ? ` for row ${rowId}` : ''}`);
+  }
+
   showFileList() {
     const listView = document.getElementById('file-list-view');
     const editorView = document.getElementById('file-editor-view');

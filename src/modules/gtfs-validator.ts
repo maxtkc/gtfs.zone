@@ -1,4 +1,5 @@
 import { GTFSDatabaseRecord } from './gtfs-database.js';
+import { GTFSTableMap, GTFSTableName } from '../types/gtfs-entities.js';
 
 interface ValidationMessage {
   level: 'error' | 'warning' | 'info';
@@ -22,6 +23,7 @@ interface ValidationResults {
 
 interface GTFSParserInterface {
   getFileDataSync(fileName: string): GTFSDatabaseRecord[] | null;
+  getFileDataSyncTyped<T extends GTFSTableName>(fileName: `${T}.txt`): GTFSTableMap[T][] | null;
   getAllFileNames(): string[];
   gtfsData: {
     [fileName: string]: {
@@ -126,7 +128,7 @@ export class GTFSValidator {
   }
 
   validateAgencies() {
-    const agencies = this.gtfsParser.getFileDataSync('agency.txt');
+    const agencies = this.gtfsParser.getFileDataSyncTyped('agency.txt');
     if (!agencies) {
       return;
     }
@@ -138,7 +140,7 @@ export class GTFSValidator {
 
     const agencyIds = new Set();
 
-    agencies.forEach((agency: GTFSDatabaseRecord, index: number) => {
+    agencies.forEach((agency, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -201,8 +203,8 @@ export class GTFSValidator {
   }
 
   validateRoutes() {
-    const routes = this.gtfsParser.getFileDataSync('routes.txt');
-    const agencies = this.gtfsParser.getFileDataSync('agency.txt');
+    const routes = this.gtfsParser.getFileDataSyncTyped('routes.txt');
+    const agencies = this.gtfsParser.getFileDataSyncTyped('agency.txt');
 
     if (!routes) {
       return;
@@ -215,10 +217,10 @@ export class GTFSValidator {
 
     const routeIds = new Set();
     const agencyIds = new Set(
-      (agencies || []).map((a: GTFSDatabaseRecord) => a.agency_id)
+      (agencies || []).map((a) => a.agency_id)
     );
 
-    routes.forEach((route: GTFSDatabaseRecord, index: number) => {
+    routes.forEach((route, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -295,7 +297,7 @@ export class GTFSValidator {
   }
 
   validateStops() {
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+    const stops = this.gtfsParser.getFileDataSyncTyped('stops.txt');
     if (!stops) {
       return;
     }
@@ -307,7 +309,7 @@ export class GTFSValidator {
 
     const stopIds = new Set();
 
-    stops.forEach((stop: GTFSDatabaseRecord, index: number) => {
+    stops.forEach((stop, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -396,8 +398,8 @@ export class GTFSValidator {
   }
 
   validateTrips() {
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    const routes = this.gtfsParser.getFileDataSync('routes.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped('trips.txt');
+    const routes = this.gtfsParser.getFileDataSyncTyped('routes.txt');
 
     if (!trips) {
       return;
@@ -410,10 +412,10 @@ export class GTFSValidator {
 
     const tripIds = new Set();
     const routeIds = new Set(
-      (routes || []).map((r: GTFSDatabaseRecord) => r.route_id)
+      (routes || []).map((r) => r.route_id)
     );
 
-    trips.forEach((trip: GTFSDatabaseRecord, index: number) => {
+    trips.forEach((trip, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -466,9 +468,9 @@ export class GTFSValidator {
   }
 
   validateStopTimes() {
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped('stop_times.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped('trips.txt');
+    const stops = this.gtfsParser.getFileDataSyncTyped('stops.txt');
 
     if (!stopTimes) {
       return;
@@ -480,13 +482,13 @@ export class GTFSValidator {
     }
 
     const tripIds = new Set(
-      (trips || []).map((t: GTFSDatabaseRecord) => t.trip_id)
+      (trips || []).map((t) => t.trip_id)
     );
     const stopIds = new Set(
-      (stops || []).map((s: GTFSDatabaseRecord) => s.stop_id)
+      (stops || []).map((s) => s.stop_id)
     );
 
-    stopTimes.forEach((stopTime: GTFSDatabaseRecord, index: number) => {
+    stopTimes.forEach((stopTime, index: number) => {
       const rowNum = index + 1;
 
       // Required fields
@@ -565,11 +567,11 @@ export class GTFSValidator {
   }
 
   validateCalendar() {
-    const calendar = this.gtfsParser.getFileDataSync('calendar.txt');
-    const calendarDates = this.gtfsParser.getFileDataSync('calendar_dates.txt');
+    const calendar = this.gtfsParser.getFileDataSyncTyped('calendar.txt');
+    const calendarDates = this.gtfsParser.getFileDataSyncTyped('calendar_dates.txt');
 
     if (calendar) {
-      calendar.forEach((service: GTFSDatabaseRecord, index: number) => {
+      calendar.forEach((service, index: number) => {
         const rowNum = index + 1;
 
         if (!service.service_id || service.service_id.trim() === '') {
@@ -603,7 +605,7 @@ export class GTFSValidator {
     }
 
     if (calendarDates) {
-      calendarDates.forEach((exception: GTFSDatabaseRecord, index: number) => {
+      calendarDates.forEach((exception, index: number) => {
         const rowNum = index + 1;
 
         if (!exception.service_id || exception.service_id.trim() === '') {
@@ -640,12 +642,12 @@ export class GTFSValidator {
   }
 
   validateShapes() {
-    const shapes = this.gtfsParser.getFileDataSync('shapes.txt');
+    const shapes = this.gtfsParser.getFileDataSyncTyped('shapes.txt');
     if (!shapes) {
       return;
     }
 
-    shapes.forEach((shape: GTFSDatabaseRecord, index: number) => {
+    shapes.forEach((shape, index: number) => {
       const rowNum = index + 1;
 
       if (!shape.shape_id || shape.shape_id.trim() === '') {
@@ -718,13 +720,13 @@ export class GTFSValidator {
 
   validateReferences() {
     // Additional cross-reference validation
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped('trips.txt');
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped('stop_times.txt');
 
     if (trips && stopTimes) {
-      const tripIds = new Set(trips.map((t: GTFSDatabaseRecord) => t.trip_id));
+      const tripIds = new Set(trips.map((t) => t.trip_id));
       const tripsWithStopTimes = new Set(
-        stopTimes.map((st: GTFSDatabaseRecord) => st.trip_id)
+        stopTimes.map((st) => st.trip_id)
       );
 
       // Check for trips without stop times
@@ -748,11 +750,10 @@ export class GTFSValidator {
     rowNum: number | null = null
   ) {
     this.validationResults.errors.push({
-      type: 'error',
+      level: 'error',
       message,
-      code,
-      fileName,
-      rowNum,
+      file: fileName || undefined,
+      line: rowNum || undefined,
     });
   }
 
@@ -763,11 +764,10 @@ export class GTFSValidator {
     rowNum: number | null = null
   ) {
     this.validationResults.warnings.push({
-      type: 'warning',
+      level: 'warning',
       message,
-      code,
-      fileName,
-      rowNum,
+      file: fileName || undefined,
+      line: rowNum || undefined,
     });
   }
 
@@ -778,11 +778,10 @@ export class GTFSValidator {
     rowNum: number | null = null
   ) {
     this.validationResults.info.push({
-      type: 'info',
+      level: 'info',
       message,
-      code,
-      fileName,
-      rowNum,
+      file: fileName || undefined,
+      line: rowNum || undefined,
     });
   }
 

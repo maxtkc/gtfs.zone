@@ -1,15 +1,37 @@
+import { Routes, Stops } from '../types/gtfs-entities.js';
+
+interface SearchResults {
+  stops: Stops[];
+  routes: Routes[];
+}
+
+interface GTFSParser {
+  searchAllAsync?: (query: string) => Promise<SearchResults>;
+  searchAll: (query: string) => SearchResults;
+  getRouteTypeText: (routeType: string) => string;
+}
+
+interface MapController {
+  highlightStop: (stopId: string) => void;
+  highlightRoute: (routeId: string) => void;
+  clearHighlights: () => void;
+}
+
 export class SearchController {
-  constructor(gtfsParser, mapController) {
+  private gtfsParser: GTFSParser;
+  private mapController: MapController;
+  private searchInput: HTMLInputElement | null = null;
+  private searchResults: HTMLElement | null = null;
+  private isSearching: boolean = false;
+  private searchTimeout: NodeJS.Timeout | null = null;
+
+  constructor(gtfsParser: GTFSParser, mapController: MapController) {
     this.gtfsParser = gtfsParser;
     this.mapController = mapController;
-    this.searchInput = null;
-    this.searchResults = null;
-    this.isSearching = false;
-    this.searchTimeout = null;
   }
 
-  initialize() {
-    this.searchInput = document.getElementById('map-search');
+  initialize(): void {
+    this.searchInput = document.getElementById('map-search') as HTMLInputElement;
     if (!this.searchInput) {
       return;
     }
@@ -18,7 +40,7 @@ export class SearchController {
     this.setupEventListeners();
   }
 
-  createSearchResults() {
+  private createSearchResults(): void {
     // Create search results dropdown
     const controlsContainer = document.getElementById('map-controls');
     if (!controlsContainer) {
@@ -33,14 +55,14 @@ export class SearchController {
     controlsContainer.appendChild(this.searchResults);
   }
 
-  setupEventListeners() {
+  private setupEventListeners(): void {
     if (!this.searchInput) {
       return;
     }
 
     // Search on input with debounce
     this.searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.trim();
+      const query = (e.target as HTMLInputElement).value.trim();
 
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
@@ -58,9 +80,9 @@ export class SearchController {
         this.searchInput.blur();
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        const firstResult = this.searchResults.querySelector(
+        const firstResult = this.searchResults?.querySelector(
           '.search-result-item'
-        );
+        ) as HTMLElement;
         if (firstResult) {
           firstResult.click();
         }
@@ -82,7 +104,7 @@ export class SearchController {
     });
   }
 
-  async performSearch(query) {
+  private async performSearch(query: string): Promise<void> {
     if (!query || query.length < 2) {
       this.hideResults();
       return;
@@ -105,7 +127,7 @@ export class SearchController {
     this.isSearching = false;
   }
 
-  displayResults(results, query) {
+  private displayResults(results: SearchResults, query: string): void {
     if (!this.searchResults) {
       return;
     }
@@ -129,7 +151,7 @@ export class SearchController {
           </div>
       `;
 
-      routes.forEach((route) => {
+      routes.forEach((route: Routes) => {
         const routeColor = route.route_color
           ? `#${route.route_color}`
           : '#3b82f6';
@@ -166,7 +188,7 @@ export class SearchController {
           </div>
       `;
 
-      stops.forEach((stop) => {
+      stops.forEach((stop: Stops) => {
         const stopType = stop.location_type || '0';
         const stopIcon = stopType === '1' ? '🚉' : '🚏';
 
@@ -201,15 +223,15 @@ export class SearchController {
     this.attachResultHandlers();
   }
 
-  attachResultHandlers() {
+  private attachResultHandlers(): void {
     const resultItems = this.searchResults.querySelectorAll(
       '.search-result-item'
     );
 
     resultItems.forEach((item) => {
       item.addEventListener('click', () => {
-        const type = item.dataset.type;
-        const id = item.dataset.id;
+        const type = item.dataset.type!;
+        const id = item.dataset.id!;
 
         this.selectResult(type, id);
         this.hideResults();
@@ -218,7 +240,7 @@ export class SearchController {
     });
   }
 
-  selectResult(type, id) {
+  private selectResult(type: string, id: string): void {
     if (type === 'stop') {
       this.mapController.highlightStop(id);
     } else if (type === 'route') {
@@ -226,7 +248,7 @@ export class SearchController {
     }
   }
 
-  showLoadingState() {
+  private showLoadingState(): void {
     if (!this.searchResults) {
       return;
     }
@@ -240,7 +262,7 @@ export class SearchController {
     this.showResults();
   }
 
-  showErrorState() {
+  private showErrorState(): void {
     if (!this.searchResults) {
       return;
     }
@@ -254,7 +276,7 @@ export class SearchController {
     this.showResults();
   }
 
-  showNoResultsState(query) {
+  private showNoResultsState(query: string): void {
     if (!this.searchResults) {
       return;
     }
@@ -268,19 +290,19 @@ export class SearchController {
     this.showResults();
   }
 
-  showResults() {
+  private showResults(): void {
     if (this.searchResults) {
       this.searchResults.classList.remove('hidden');
     }
   }
 
-  hideResults() {
+  private hideResults(): void {
     if (this.searchResults) {
       this.searchResults.classList.add('hidden');
     }
   }
 
-  clearSearch() {
+  clearSearch(): void {
     if (this.searchInput) {
       this.searchInput.value = '';
     }

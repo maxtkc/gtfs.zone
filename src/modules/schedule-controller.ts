@@ -15,13 +15,14 @@ import {
   Calendar,
   CalendarDates,
   Trips,
-} from '../types/gtfs.js';
+  StopTimes,
+} from '../types/gtfs-entities.js';
+import { notifications } from './notification-system';
 
 export interface EditableStopTime {
   stopId: string;
   arrivalTime: string | null;
   departureTime: string | null;
-  isModified: boolean;
   isSkipped: boolean;
   originalArrivalTime?: string;
   originalDepartureTime?: string;
@@ -33,25 +34,9 @@ export interface AlignedTrip {
   stopTimes: Map<number, string>; // position -> time (departure or arrival), null for gaps
   arrivalTimes?: Map<number, string>; // position -> arrival time, null for gaps
   departureTimes?: Map<number, string>; // position -> departure time, null for gaps
-  isModified: boolean;
-  isNew: boolean;
   editableStopTimes?: Map<number, EditableStopTime>;
 }
 
-export interface EditableService {
-  serviceId: string;
-  startDate?: string;
-  endDate?: string;
-  monday?: boolean;
-  tuesday?: boolean;
-  wednesday?: boolean;
-  thursday?: boolean;
-  friday?: boolean;
-  saturday?: boolean;
-  sunday?: boolean;
-  isModified: boolean;
-  originalData?: Calendar | CalendarDates;
-}
 
 export interface DirectionInfo {
   id: string;
@@ -68,36 +53,9 @@ export interface TimetableData {
   directionName?: string;
   availableDirections?: DirectionInfo[];
   selectedDirectionId?: string;
-  isEditable?: boolean;
-  editableService?: EditableService;
   showArrivalDeparture?: boolean; // Whether to show separate arrival/departure columns
 }
 
-export interface TimetableEditState {
-  hasUnsavedChanges: boolean;
-  modifiedTrips: Set<string>;
-  modifiedStops: Map<string, Set<string>>; // tripId -> Set<stopId>
-  serviceModified: boolean;
-  undoStack: TimetableOperation[];
-  redoStack: TimetableOperation[];
-}
-
-export interface TimetableOperation {
-  type:
-    | 'time_edit'
-    | 'trip_add'
-    | 'trip_delete'
-    | 'trip_duplicate'
-    | 'stop_skip'
-    | 'stop_insert'
-    | 'service_edit';
-  tripId?: string;
-  stopId?: string;
-  oldValue?: string | boolean;
-  newValue?: string | boolean;
-  timestamp: number;
-  data?: unknown;
-}
 
 // Validation schemas for editable fields
 export const TimeValidationSchema = z
@@ -143,7 +101,6 @@ export const EditableStopTimeSchema = z
     stopId: z.string().min(1, 'Stop ID is required'),
     arrivalTime: TimeValidationSchema.nullable(),
     departureTime: TimeValidationSchema.nullable(),
-    isModified: z.boolean(),
     isSkipped: z.boolean(),
     originalArrivalTime: z.string().optional(),
     originalDepartureTime: z.string().optional(),
@@ -171,193 +128,77 @@ export const EditableStopTimeSchema = z
     }
   );
 
+interface GTFSParserInterface {
+  getFileDataSync(filename: string): any[];
+  gtfsDatabase: {
+    queryRows(tableName: string, filter: any): Promise<any[]>;
+    updateRow(tableName: string, key: string, data: any): Promise<void>;
+    generateKey(tableName: string, data: any): string;
+  };
+}
+
+interface GTFSRelationships {
+  getCalendarForService(serviceId: string): Calendar | CalendarDates | null;
+  getTripsForRoute(routeId: string): Trips[];
+  getStopTimesForTrip(tripId: string): StopTimes[];
+  getStopById(stopId: string): Stops | null;
+  getStopByIdAsync(stopId: string): Promise<Stops | null>;
+}
+
 export class ScheduleController {
-  private relationships: Record<string, unknown>;
-  private gtfsParser: Record<string, unknown>;
-  private editState: TimetableEditState;
+  private relationships: GTFSRelationships;
+  private gtfsParser: GTFSParserInterface;
 
   constructor(
-    gtfsRelationships: Record<string, unknown>,
-    gtfsParser: Record<string, unknown>
+    gtfsRelationships: GTFSRelationships,
+    gtfsParser: GTFSParserInterface
   ) {
     this.relationships = gtfsRelationships;
     this.gtfsParser = gtfsParser;
-    this.editState = this.initializeEditState();
   }
 
-  /**
-   * Initialize empty edit state
-   */
-  private initializeEditState(): TimetableEditState {
-    return {
-      hasUnsavedChanges: false,
-      modifiedTrips: new Set(),
-      modifiedStops: new Map(),
-      serviceModified: false,
-      undoStack: [],
-      redoStack: [],
-    };
-  }
 
-  /**
-   * Mark a trip as modified
-   */
-  private markTripModified(tripId: string, stopId?: string): void {
-    this.editState.modifiedTrips.add(tripId);
 
-    if (stopId) {
-      if (!this.editState.modifiedStops.has(tripId)) {
-        this.editState.modifiedStops.set(tripId, new Set());
-      }
-      this.editState.modifiedStops.get(tripId)!.add(stopId);
-    }
 
-    this.editState.hasUnsavedChanges = true;
-  }
 
-  /**
-   * Mark service as modified
-   */
-  private markServiceModified(): void {
-    this.editState.serviceModified = true;
-    this.editState.hasUnsavedChanges = true;
-  }
 
-  /**
-   * Check if there are unsaved changes
-   */
-  public hasUnsavedChanges(): boolean {
-    return this.editState.hasUnsavedChanges;
-  }
 
-  /**
-   * Get modified trips
-   */
-  public getModifiedTrips(): Set<string> {
-    return new Set(this.editState.modifiedTrips);
-  }
 
-  /**
-   * Clear edit state (after save)
-   */
-  public clearEditState(): void {
-    this.editState = this.initializeEditState();
-  }
 
-  /**
-   * Add operation to undo stack
-   */
-  private addOperation(operation: TimetableOperation): void {
-    // Clear redo stack when new operation is added
-    this.editState.redoStack = [];
 
-    // Add to undo stack
-    this.editState.undoStack.push(operation);
-
-    // Limit undo stack size to prevent memory issues
-    const MAX_UNDO_OPERATIONS = 100;
-    if (this.editState.undoStack.length > MAX_UNDO_OPERATIONS) {
-      this.editState.undoStack.shift();
-    }
-  }
-
-  /**
-   * Undo the last operation
-   */
-  public undo(): boolean {
-    const operation = this.editState.undoStack.pop();
-    if (!operation) {
-      return false;
-    }
-
-    // Move operation to redo stack
-    this.editState.redoStack.push(operation);
-
-    // Apply reverse operation
-    this.applyReverseOperation(operation);
-
-    return true;
-  }
-
-  /**
-   * Redo the last undone operation
-   */
-  public redo(): boolean {
-    const operation = this.editState.redoStack.pop();
-    if (!operation) {
-      return false;
-    }
-
-    // Move operation back to undo stack
-    this.editState.undoStack.push(operation);
-
-    // Apply operation
-    this.applyOperation(operation);
-
-    return true;
-  }
-
-  /**
-   * Apply an operation (for redo)
-   */
-  private applyOperation(operation: TimetableOperation): void {
-    switch (operation.type) {
-      case 'time_edit':
-        if (operation.tripId && operation.stopId && operation.newValue) {
-          // Apply the time edit
-          this.updateTimeInternal(
-            operation.tripId,
-            operation.stopId,
-            operation.newValue as string,
-            false
-          );
-        }
-        break;
-      case 'stop_skip':
-        if (operation.tripId && operation.stopId) {
-          this.skipStopInternal(
-            operation.tripId,
-            operation.stopId,
-            operation.newValue as boolean,
-            false
-          );
-        }
-        break;
-      // Add other operation types as needed
-    }
-  }
-
-  /**
-   * Apply reverse of an operation (for undo)
-   */
-  private applyReverseOperation(operation: TimetableOperation): void {
-    switch (operation.type) {
-      case 'time_edit':
-        if (operation.tripId && operation.stopId && operation.oldValue) {
-          // Apply the old time
-          this.updateTimeInternal(
-            operation.tripId,
-            operation.stopId,
-            operation.oldValue as string,
-            false
-          );
-        }
-        break;
-      case 'stop_skip':
-        if (operation.tripId && operation.stopId) {
-          this.skipStopInternal(
-            operation.tripId,
-            operation.stopId,
-            operation.oldValue as boolean,
-            false
-          );
-        }
-        break;
-      // Add other operation types as needed
-    }
-  }
 
   // ===== PUBLIC EDITING METHODS =====
+
+  /**
+   * Cast time from HH:MM to HH:MM:SS format
+   */
+  private castTimeToHHMMSS(timeInput: string): string {
+    const trimmed = timeInput.trim();
+
+    // If already in HH:MM:SS format, return as-is
+    if (/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$|^(2[4-9]|[3-9]\d):[0-5]\d:[0-5]\d$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    // If in HH:MM format, append :00
+    if (/^([01]\d|2[0-3]):[0-5]\d$|^(2[4-9]|[3-9]\d):[0-5]\d$/.test(trimmed)) {
+      return trimmed + ':00';
+    }
+
+    // If in H:MM format, pad with leading zero and append :00
+    if (/^\d:[0-5]\d$/.test(trimmed)) {
+      return '0' + trimmed + ':00';
+    }
+
+    // If in H:M format, pad both and append :00
+    if (/^\d:\d$/.test(trimmed)) {
+      const parts = trimmed.split(':');
+      return parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0') + ':00';
+    }
+
+    // Return original if no casting possible
+    return trimmed;
+  }
 
   /**
    * Update time for a specific stop in a trip
@@ -368,10 +209,13 @@ export class ScheduleController {
     newTime: string
   ): Promise<void> {
     try {
+      // Cast time to HH:MM:SS format
+      const castedTime = this.castTimeToHHMMSS(newTime);
+
       // Validate time format
-      const validationResult = TimeValidationSchema.safeParse(newTime);
+      const validationResult = TimeValidationSchema.safeParse(castedTime);
       if (!validationResult.success) {
-        console.error('Invalid time format:', validationResult.error);
+        console.error('Invalid time format after casting:', validationResult.error);
         // Show error feedback to user
         this.showTimeError(
           tripId,
@@ -381,31 +225,10 @@ export class ScheduleController {
         return;
       }
 
-      // Get current time for undo operation
-      const oldTime = await this.getCurrentTime(tripId, stopId);
+      // Update database directly
+      await this.updateStopTimeInDatabase(tripId, stopId, castedTime);
 
-      // Add to undo stack
-      if (oldTime !== newTime) {
-        this.addOperation({
-          type: 'time_edit',
-          tripId,
-          stopId,
-          oldValue: oldTime || '',
-          newValue: newTime,
-          timestamp: Date.now(),
-        });
-      }
-
-      // Update internal state
-      this.updateTimeInternal(tripId, stopId, newTime, false);
-
-      // Update database
-      await this.updateStopTimeInDatabase(tripId, stopId, newTime);
-
-      // Mark as modified
-      this.markTripModified(tripId, stopId);
-
-      console.log(`Updated time for ${tripId}/${stopId} to ${newTime}`);
+      console.log(`Updated time for ${tripId}/${stopId} from ${newTime} to ${castedTime}`);
     } catch (error) {
       console.error('Failed to update time:', error);
       this.showTimeError(tripId, stopId, 'Failed to save time change');
@@ -422,10 +245,13 @@ export class ScheduleController {
     newTime: string
   ): Promise<void> {
     try {
+      // Cast time to HH:MM:SS format
+      const castedTime = this.castTimeToHHMMSS(newTime);
+
       // Validate time format
-      const validationResult = TimeValidationSchema.safeParse(newTime);
+      const validationResult = TimeValidationSchema.safeParse(castedTime);
       if (!validationResult.success) {
-        console.error('Invalid time format:', validationResult.error);
+        console.error('Invalid time format after casting:', validationResult.error);
         this.showTimeError(
           tripId,
           stopId,
@@ -434,7 +260,7 @@ export class ScheduleController {
         return;
       }
 
-      // Get current times for undo operation and validation
+      // Get current times for validation
       const currentArrivalTime = await this.getCurrentArrivalTime(
         tripId,
         stopId
@@ -443,14 +269,12 @@ export class ScheduleController {
         tripId,
         stopId
       );
-      const oldTime =
-        timeType === 'arrival' ? currentArrivalTime : currentDepartureTime;
 
       // Validate arrival <= departure constraint if both are specified
       if (
         timeType === 'arrival' &&
         currentDepartureTime &&
-        newTime > currentDepartureTime
+        castedTime > currentDepartureTime
       ) {
         this.showTimeError(
           tripId,
@@ -462,7 +286,7 @@ export class ScheduleController {
       if (
         timeType === 'departure' &&
         currentArrivalTime &&
-        newTime < currentArrivalTime
+        castedTime < currentArrivalTime
       ) {
         this.showTimeError(
           tripId,
@@ -472,36 +296,11 @@ export class ScheduleController {
         return;
       }
 
-      // Add to undo stack
-      if (oldTime !== newTime) {
-        this.addOperation({
-          type: 'time_edit',
-          tripId,
-          stopId,
-          oldValue: oldTime || '',
-          newValue: newTime,
-          timestamp: Date.now(),
-          data: { timeType }, // Store which type of time was edited
-        });
-      }
-
-      // Update internal state
-      this.updateArrivalDepartureTimeInternal(
-        tripId,
-        stopId,
-        timeType,
-        newTime,
-        false
-      );
-
-      // Update database
-      await this.updateStopTimeInDatabase(tripId, stopId, newTime, timeType);
-
-      // Mark as modified
-      this.markTripModified(tripId, stopId);
+      // Update database directly
+      await this.updateStopTimeInDatabase(tripId, stopId, castedTime, timeType);
 
       console.log(
-        `Updated ${timeType} time for ${tripId}/${stopId} to ${newTime}`
+        `Updated ${timeType} time for ${tripId}/${stopId} from ${newTime} to ${castedTime}`
       );
     } catch (error) {
       console.error('Failed to update arrival/departure time:', error);
@@ -512,41 +311,34 @@ export class ScheduleController {
   /**
    * Skip a stop for a trip
    */
-  public skipStop(tripId: string, stopId: string): void {
-    this.addOperation({
-      type: 'stop_skip',
-      tripId,
-      stopId,
-      oldValue: false,
-      newValue: true,
-      timestamp: Date.now(),
-    });
+  public async skipStop(tripId: string, stopId: string): Promise<void> {
+    try {
+      // Update database directly by setting times to null
+      await this.updateStopTimeInDatabase(tripId, stopId, null);
+      console.log(`Skipped stop ${stopId} for trip ${tripId}`);
 
-    this.skipStopInternal(tripId, stopId, true, false);
-    this.markTripModified(tripId, stopId);
-
-    // Refresh the display
-    this.refreshTimetableCell(tripId, stopId);
+      // Refresh the display
+      this.refreshTimetableCell(tripId, stopId);
+    } catch (error) {
+      console.error('Failed to skip stop:', error);
+    }
   }
 
   /**
    * Unskip a stop for a trip
    */
-  public unskipStop(tripId: string, stopId: string): void {
-    this.addOperation({
-      type: 'stop_skip',
-      tripId,
-      stopId,
-      oldValue: true,
-      newValue: false,
-      timestamp: Date.now(),
-    });
+  public async unskipStop(tripId: string, stopId: string): Promise<void> {
+    try {
+      // TODO: Restore previous times or set to "00:00:00"
+      // For now, set to "00:00:00" as a placeholder - user can edit
+      await this.updateStopTimeInDatabase(tripId, stopId, "00:00:00");
+      console.log(`Unskipped stop ${stopId} for trip ${tripId}`);
 
-    this.skipStopInternal(tripId, stopId, false, false);
-    this.markTripModified(tripId, stopId);
-
-    // Refresh the display
-    this.refreshTimetableCell(tripId, stopId);
+      // Refresh the display
+      this.refreshTimetableCell(tripId, stopId);
+    } catch (error) {
+      console.error('Failed to unskip stop:', error);
+    }
   }
 
   /**
@@ -597,123 +389,99 @@ export class ScheduleController {
     }
   }
 
-  /**
-   * Insert stop before another stop (placeholder)
-   */
-  public insertStopBefore(stopId: string): void {
-    console.log(`insertStopBefore: ${stopId} - TODO: Implement in Phase 5`);
-    // TODO: Implement in Phase 5
-  }
-
-  /**
-   * Duplicate a trip (placeholder)
-   */
-  public duplicateTrip(tripId: string): void {
-    console.log(`duplicateTrip: ${tripId} - TODO: Implement in Phase 6`);
-    // TODO: Implement in Phase 6
-  }
-
-  /**
-   * Delete a trip (placeholder)
-   */
-  public deleteTrip(tripId: string): void {
-    console.log(`deleteTrip: ${tripId} - TODO: Implement in Phase 6`);
-    // TODO: Implement in Phase 6
-  }
-
-  /**
-   * Add new trip (placeholder)
-   */
-  public addNewTrip(): void {
-    console.log(`addNewTrip - TODO: Implement in Phase 6`);
-    // TODO: Implement in Phase 6
-  }
 
   // ===== PRIVATE HELPER METHODS =====
 
-  /**
-   * Internal method to update time without adding to undo stack (legacy single time method)
-   */
-  private updateTimeInternal(
-    tripId: string,
-    stopId: string,
-    newTime: string,
-    addToUndo: boolean = true
-  ): void {
-    // Find the trip in current data and update its editable stop times
-    // This will be used to maintain state until we refresh from database
-    console.log(
-      `updateTimeInternal: ${tripId}, ${stopId}, ${newTime}, addToUndo: ${addToUndo}`
-    );
-
-    // TODO: Update in-memory trip data structure for immediate UI feedback
-  }
-
-  /**
-   * Internal method to update arrival/departure time without adding to undo stack
-   */
-  private updateArrivalDepartureTimeInternal(
-    tripId: string,
-    stopId: string,
-    timeType: 'arrival' | 'departure',
-    newTime: string,
-    addToUndo: boolean = true
-  ): void {
-    // Find the trip in current data and update its editable stop times
-    console.log(
-      `updateArrivalDepartureTimeInternal: ${tripId}, ${stopId}, ${timeType}, ${newTime}, addToUndo: ${addToUndo}`
-    );
-
-    // TODO: Update in-memory trip data structure for immediate UI feedback
-  }
-
-  /**
-   * Internal method to skip/unskip stop without adding to undo stack
-   */
-  private skipStopInternal(
-    tripId: string,
-    stopId: string,
-    isSkipped: boolean,
-    addToUndo: boolean = true
-  ): void {
-    console.log(
-      `skipStopInternal: ${tripId}, ${stopId}, ${isSkipped}, addToUndo: ${addToUndo}`
-    );
-
-    // TODO: Update in-memory trip data structure for immediate UI feedback
-  }
 
   /**
    * Get current time for a stop in a trip (legacy single time method)
    */
   private async getCurrentTime(
-    _tripId: string,
-    _stopId: string
+    tripId: string,
+    stopId: string
   ): Promise<string | null> {
-    // TODO: Implement database lookup
-    return null;
+    try {
+      const database = (this.gtfsParser as any).gtfsDatabase;
+      if (!database) {
+        return null;
+      }
+
+      const stopTimes = await database.queryRows('stop_times', {
+        trip_id: tripId,
+        stop_id: stopId
+      });
+
+      if (stopTimes.length === 0) {
+        return null;
+      }
+
+      // Return departureTime or fall back to arrivalTime
+      const stopTime = stopTimes[0];
+      return ((stopTime as any).departureTime || (stopTime as any).arrivalTime) as string || null;
+    } catch (error) {
+      console.error('Failed to get current time:', error);
+      return null;
+    }
   }
 
   /**
    * Get current arrival time for a stop in a trip
    */
   private async getCurrentArrivalTime(
-    _tripId: string,
-    _stopId: string
+    tripId: string,
+    stopId: string
   ): Promise<string | null> {
-    // TODO: Implement database lookup for arrival_time
-    return null;
+    try {
+      const database = (this.gtfsParser as any).gtfsDatabase;
+      if (!database) {
+        return null;
+      }
+
+      const stopTimes = await database.queryRows('stop_times', {
+        trip_id: tripId,
+        stop_id: stopId
+      });
+
+      if (stopTimes.length === 0) {
+        return null;
+      }
+
+      const stopTime = stopTimes[0];
+      return (stopTime as any).arrivalTime as string || null;
+    } catch (error) {
+      console.error('Failed to get current arrival time:', error);
+      return null;
+    }
   }
 
   /**
    * Get current departure time for a stop in a trip
    */
   private async getCurrentDepartureTime(
-    _tripId: string,
-    _stopId: string
+    tripId: string,
+    stopId: string
   ): Promise<string | null> {
-    // TODO: Implement database lookup for departure_time
-    return null;
+    try {
+      const database = (this.gtfsParser as any).gtfsDatabase;
+      if (!database) {
+        return null;
+      }
+
+      const stopTimes = await database.queryRows('stop_times', {
+        trip_id: tripId,
+        stop_id: stopId
+      });
+
+      if (stopTimes.length === 0) {
+        return null;
+      }
+
+      const stopTime = stopTimes[0];
+      return (stopTime as any).departureTime as string || null;
+    } catch (error) {
+      console.error('Failed to get current departure time:', error);
+      return null;
+    }
   }
 
   /**
@@ -725,32 +493,132 @@ export class ScheduleController {
     newTime: string,
     timeType?: 'arrival' | 'departure'
   ): Promise<void> {
-    // TODO: Use GTFSDatabase to update stop_times table
-    const field =
-      timeType === 'arrival'
-        ? 'arrival_time'
-        : timeType === 'departure'
-          ? 'departure_time'
-          : 'departure_time';
-    console.log(
-      `updateStopTimeInDatabase: ${tripId}, ${stopId}, ${field} = ${newTime}`
-    );
+    try {
+      // Access the database through gtfsParser
+      const database = (this.gtfsParser as any).gtfsDatabase;
+      if (!database) {
+        const error = 'Database connection not available';
+        console.error(error);
+        notifications.showError('Unable to save changes - database connection lost');
+        throw new Error(error);
+      }
+
+      // Find the stop_time record by trip_id and stop_id
+      const stopTimes = await database.queryRows('stop_times', {
+        trip_id: tripId,
+        stop_id: stopId
+      });
+
+      if (stopTimes.length === 0) {
+        const error = `No stop_time found for trip ${tripId}, stop ${stopId}`;
+        console.error('Database update failed:', error);
+        notifications.showError('Unable to find the schedule record to update');
+        throw new Error(error);
+      }
+
+      // Use the first matching record (there should be only one)
+      const stopTime = stopTimes[0];
+
+      // Determine which field to update
+      const field =
+        timeType === 'arrival'
+          ? 'arrivalTime'
+          : timeType === 'departure'
+            ? 'departureTime'
+            : 'departureTime';
+
+      // Generate natural key for the stop_time record and update
+      const naturalKey = database.generateKey('stop_times', stopTime);
+      await database.updateRow('stop_times', naturalKey, {
+        [field]: newTime
+      });
+
+      // Log success and show success notification
+      console.log(
+        `Updated ${field} for trip ${tripId}, stop ${stopId} to ${newTime || 'null'}`
+      );
+      notifications.showSuccess(
+        `Time updated to ${newTime || 'skipped'}`,
+        { duration: 2000 }
+      );
+
+      // Refresh the affected UI cell
+      this.refreshTimetableCell(tripId, stopId);
+
+    } catch (error) {
+      console.error('Failed to update stop_time in database:', error);
+
+      // Show user-friendly error message if not already shown
+      if (!error.message.includes('Database connection') && !error.message.includes('No stop_time found')) {
+        notifications.showError(
+          'Failed to save time change - please try again',
+          { duration: 6000 }
+        );
+      }
+
+      throw error;
+    }
   }
 
   /**
    * Show time validation error to user
    */
   private showTimeError(tripId: string, stopId: string, message: string): void {
-    // TODO: Show user-friendly error notification
     console.error(`Time error for ${tripId}/${stopId}: ${message}`);
+    notifications.showError(
+      `Invalid time format: ${message}`,
+      { duration: 5000 }
+    );
   }
 
   /**
    * Refresh a single timetable cell
    */
-  private refreshTimetableCell(tripId: string, stopId: string): void {
-    // TODO: Update specific DOM element without full refresh
-    console.log(`refreshTimetableCell: ${tripId}, ${stopId}`);
+  private async refreshTimetableCell(tripId: string, stopId: string): Promise<void> {
+    try {
+      // Find the specific input element for this trip/stop combination
+      const cellSelector = `input[data-trip-id="${tripId}"][data-stop-id="${stopId}"]`;
+      const inputElement = document.querySelector(cellSelector) as HTMLInputElement;
+
+      if (!inputElement) {
+        console.log(`Cell not found for refresh: ${tripId}, ${stopId}`);
+        return;
+      }
+
+      // Get the updated time from database
+      const database = (this.gtfsParser as any).gtfsDatabase;
+      if (!database) {
+        console.warn('Database not available for cell refresh');
+        return;
+      }
+
+      const stopTimes = await database.queryRows('stop_times', {
+        trip_id: tripId,
+        stop_id: stopId
+      });
+
+      if (stopTimes.length > 0) {
+        const stopTime = stopTimes[0];
+        const timeType = inputElement.dataset.timeType || 'departure';
+        const newTime = timeType === 'arrival' ? (stopTime as any).arrivalTime : (stopTime as any).departureTime;
+
+        // Update the input value without triggering change events
+        inputElement.value = newTime || '';
+
+        // Update visual styling if needed
+        if (newTime === null) {
+          inputElement.classList.add('text-muted');
+          inputElement.placeholder = 'Skipped';
+        } else {
+          inputElement.classList.remove('text-muted');
+          inputElement.placeholder = '';
+        }
+
+        console.log(`Refreshed cell ${tripId}/${stopId}: ${newTime || 'skipped'}`);
+      }
+    } catch (error) {
+      console.error(`Failed to refresh cell ${tripId}/${stopId}:`, error);
+    }
   }
 
   /**
@@ -801,6 +669,8 @@ export class ScheduleController {
     directionId?: string
   ): Promise<string> {
     try {
+      console.log('DEBUG: renderSchedule called with:', { routeId, serviceId, directionId });
+
       // Get all available directions for this route and service
       const availableDirections = this.getAvailableDirections(
         routeId,
@@ -814,7 +684,7 @@ export class ScheduleController {
           ? availableDirections[0].id
           : undefined);
 
-      const timetableData = this.generateTimetableData(
+      const timetableData = await this.generateTimetableData(
         routeId,
         serviceId,
         selectedDirection
@@ -823,6 +693,11 @@ export class ScheduleController {
       // Add direction information to timetable data
       timetableData.availableDirections = availableDirections;
       timetableData.selectedDirectionId = selectedDirection;
+
+      console.log('DEBUG: Timetable data generated:', {
+        tripsCount: timetableData.trips.length,
+        stopsCount: timetableData.stops.length
+      });
 
       return this.renderTimetableHTML(timetableData);
     } catch (error) {
@@ -834,15 +709,15 @@ export class ScheduleController {
   /**
    * Generate timetable data for a route and service
    */
-  private generateTimetableData(
+  private async generateTimetableData(
     routeId: string,
     serviceId: string,
     directionId?: string
-  ): TimetableData {
+  ): Promise<TimetableData> {
     // Get route information
-    const routesData = this.gtfsParser.getFileDataSync('routes.txt') || [];
+    const routesData = this.gtfsParser.getFileDataSync('routes.txt') as Routes[] || [];
     const route = routesData.find(
-      (r: Record<string, unknown>) => r.route_id === routeId
+      (r: Routes) => (r as any).route_id === routeId
     );
     if (!route) {
       throw new Error(`Route ${routeId} not found`);
@@ -856,14 +731,14 @@ export class ScheduleController {
     // Get all trips for this route and service
     const allTrips = this.relationships.getTripsForRoute(routeId);
     let trips = allTrips.filter(
-      (trip: Record<string, unknown>) => trip.serviceId === serviceId
+      (trip: Trips) => (trip as any).serviceId === serviceId
     );
 
     // Filter by direction if specified
     if (directionId !== undefined) {
       trips = trips.filter(
-        (trip: Record<string, unknown>) =>
-          (trip.directionId || '0') === directionId
+        (trip: Trips) =>
+          ((trip as any).directionId || '0') === directionId
       );
     }
 
@@ -877,14 +752,14 @@ export class ScheduleController {
 
     // Build stop sequences for each trip
     const tripSequences: string[][] = [];
-    trips.forEach((trip: Record<string, unknown>) => {
-      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
+    trips.forEach((trip: Trips) => {
+      const stopTimes = this.relationships.getStopTimesForTrip((trip as any).id);
       const tripStops = stopTimes
         .sort(
-          (a: Record<string, unknown>, b: Record<string, unknown>) =>
-            a.stopSequence - b.stopSequence
+          (a: StopTimes, b: StopTimes) =>
+            parseInt((a as any).stopSequence) - parseInt((b as any).stopSequence)
         )
-        .map((st: Record<string, unknown>) => st.stopId);
+        .map((st: StopTimes) => (st as any).stopId);
       tripSequences.push(tripStops);
     });
 
@@ -893,11 +768,15 @@ export class ScheduleController {
     const scsHelper = new SCSResultHelper(scsResult);
 
     // Get stop details for the optimal sequence
-    const stops = scsResult.supersequence.map((stopId) => {
-      return (
-        this.relationships.getStopById(stopId) || { id: stopId, name: stopId }
-      );
-    });
+    const stops = await Promise.all(scsResult.supersequence.map(async (stopId) => {
+      const stop = await this.relationships.getStopByIdAsync(stopId);
+      if (!stop) {
+        const error = `Stop ${stopId} not found in stops.txt but referenced in stop_times.txt`;
+        console.error('GTFS Data Integrity Error:', error);
+        throw new Error(error);
+      }
+      return stop;
+    }));
 
     // Align trips using the SCS result
     const alignedTrips = this.alignTripsWithSCS(trips, scsHelper);
@@ -907,6 +786,35 @@ export class ScheduleController {
       directionId !== undefined
         ? this.getDirectionName(directionId, trips)
         : undefined;
+
+    // Debug: Show what's being rendered
+    console.log('=== TIMETABLE DEBUG ===');
+    console.log('Route:', (route as any).route_id, (route as any).route_short_name || (route as any).route_long_name);
+    console.log('Service:', service.serviceId);
+    console.log('Stops sequence:');
+    console.table(stops.map((stop, index) => ({
+      position: index,
+      stop_id: (stop as any).id,
+      stop_name: (stop as any).name
+    })));
+
+    console.log('Aligned trips data:');
+    console.table(alignedTrips.map(trip => {
+      const stopTimesArray = Array.from(trip.stopTimes.entries());
+      console.log(`DEBUG: Trip ${trip.tripId} stopTimes Map:`, trip.stopTimes);
+      console.log(`DEBUG: Trip ${trip.tripId} stopTimes entries:`, stopTimesArray);
+
+      return {
+        trip_id: trip.tripId,
+        headsign: trip.headsign,
+        stop_positions_with_times: stopTimesArray.length > 0
+          ? stopTimesArray.map(([pos, time]) => `${pos}:${time}`).join(', ')
+          : 'EMPTY - no stop times found',
+        total_stops: trip.stopTimes.size,
+        has_arrival_times: trip.arrivalTimes?.size || 0,
+        has_departure_times: trip.departureTimes?.size || 0
+      };
+    }));
 
     return {
       route,
@@ -929,7 +837,7 @@ export class ScheduleController {
     const alignedTrips: AlignedTrip[] = [];
 
     trips.forEach((trip, tripIndex) => {
-      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
+      const stopTimes = this.relationships.getStopTimesForTrip((trip as any).id);
       const stopTimeMap = new Map<number, string>();
       const arrivalTimeMap = new Map<number, string>();
       const departureTimeMap = new Map<number, string>();
@@ -937,37 +845,50 @@ export class ScheduleController {
 
       // Sort stop times by sequence
       const sortedStopTimes = stopTimes.sort(
-        (a: Record<string, unknown>, b: Record<string, unknown>) =>
-          a.stopSequence - b.stopSequence
+        (a: StopTimes, b: StopTimes) =>
+          parseInt((a as any).stopSequence) - parseInt((b as any).stopSequence)
       );
 
       // Use SCS alignment to map times to supersequence positions
       const positionMapping = scsHelper.getPositionMapping(tripIndex);
 
-      sortedStopTimes.forEach((st: Record<string, unknown>, inputPosition) => {
+      console.log(`DEBUG: Trip ${(trip as any).id} (index ${tripIndex}) position mapping:`, positionMapping);
+      console.log(`DEBUG: Trip ${(trip as any).id} has ${sortedStopTimes.length} stop times`);
+
+      sortedStopTimes.forEach((st: StopTimes, inputPosition) => {
         const superPosition = positionMapping.get(inputPosition);
+        console.log(`DEBUG: Trip ${(trip as any).id} stop ${(st as any).stopId} - input pos ${inputPosition} -> super pos ${superPosition}`);
+
         if (superPosition !== undefined) {
-          const arrivalTime = st.arrivalTime as string | null;
-          const departureTime = st.departureTime as string | null;
+          const arrivalTime = (st as any).arrivalTime as string | null;
+          const departureTime = (st as any).departureTime as string | null;
           const displayTime = departureTime || arrivalTime; // Fallback for legacy display
+
+          console.log(`DEBUG: Trip ${(trip as any).id} at super position ${superPosition}:`, {
+            arrivalTime,
+            departureTime,
+            displayTime
+          });
 
           if (arrivalTime) {
             arrivalTimeMap.set(superPosition, arrivalTime);
+            console.log(`DEBUG: Set arrival time ${arrivalTime} at position ${superPosition}`);
           }
           if (departureTime) {
             departureTimeMap.set(superPosition, departureTime);
+            console.log(`DEBUG: Set departure time ${departureTime} at position ${superPosition}`);
           }
           if (displayTime) {
             stopTimeMap.set(superPosition, displayTime);
+            console.log(`DEBUG: Set display time ${displayTime} at position ${superPosition}`);
           }
 
           // Create editable stop time with both arrival and departure
           if (arrivalTime || departureTime) {
             editableStopTimes.set(superPosition, {
-              stopId: st.stopId as string,
+              stopId: (st as any).stopId,
               arrivalTime: arrivalTime,
               departureTime: departureTime,
-              isModified: false,
               isSkipped: false,
               originalArrivalTime: arrivalTime,
               originalDepartureTime: departureTime,
@@ -977,15 +898,22 @@ export class ScheduleController {
       });
 
       alignedTrips.push({
-        tripId: trip.id,
-        headsign: trip.id,
+        tripId: (trip as any).id,
+        headsign: (trip as any).headsign || (trip as any).id,
         stopTimes: stopTimeMap,
         arrivalTimes: arrivalTimeMap,
         departureTimes: departureTimeMap,
-        isModified: false,
-        isNew: false,
         editableStopTimes,
       });
+
+      // Debug: Show time mapping for this trip
+      console.log(`Trip ${(trip as any).id} time mapping:`);
+      console.table(Array.from(stopTimeMap.entries()).map(([position, time]) => ({
+        supersequence_position: position,
+        display_time: time,
+        arrival_time: arrivalTimeMap.get(position) || '-',
+        departure_time: departureTimeMap.get(position) || '-'
+      })));
     });
 
     return alignedTrips;
@@ -1013,9 +941,9 @@ export class ScheduleController {
     route: Routes,
     service: Calendar | CalendarDates
   ): string {
-    const routeName = route.route_short_name
-      ? `${route.route_short_name}${route.route_long_name ? ' - ' + route.route_long_name : ''}`
-      : route.route_long_name || route.route_id;
+    const routeName = (route as any).route_short_name
+      ? `${(route as any).route_short_name}${(route as any).route_long_name ? ' - ' + (route as any).route_long_name : ''}`
+      : (route as any).route_long_name || (route as any).route_id;
 
     const serviceName = service.serviceId;
 
@@ -1057,9 +985,9 @@ export class ScheduleController {
         <button
           class="tab ${isActive ? 'tab-active' : ''}"
           data-direction-id="${direction.id}"
-          data-route-id="${data.route.route_id}"
+          data-route-id="${(data.route as any).route_id}"
           data-service-id="${data.service.serviceId}"
-          onclick="gtfsEditor.navigateToTimetable('${data.route.route_id}', '${data.service.serviceId}', '${direction.id}')"
+          onclick="gtfsEditor.navigateToTimetable('${(data.route as any).route_id}', '${data.service.serviceId}', '${direction.id}')"
         >
           <span class="flex items-center gap-2">
             ${directionIcon}
@@ -1209,7 +1137,7 @@ export class ScheduleController {
                     .map(
                       (route) => `
                     <div class="badge badge-outline badge-sm">
-                      ${route.route_short_name || route.route_id}
+                      ${(route as any).route_short_name || (route as any).route_id}
                     </div>
                   `
                     )
@@ -1238,20 +1166,20 @@ export class ScheduleController {
    * Get routes that use a specific service
    */
   private getRoutesUsingService(serviceId: string): Routes[] {
-    const allRoutes = this.gtfsParser.getFileDataSync('routes.txt') || [];
-    const allTrips = this.gtfsParser.getFileDataSync('trips.txt') || [];
+    const allRoutes = this.gtfsParser.getFileDataSync('routes.txt') as Routes[] || [];
+    const allTrips = this.gtfsParser.getFileDataSync('trips.txt') as Trips[] || [];
 
     // Get unique route IDs that have trips using this service
     const routeIds = new Set();
-    allTrips.forEach((trip: Record<string, unknown>) => {
-      if (trip.service_id === serviceId) {
-        routeIds.add(trip.route_id);
+    allTrips.forEach((trip: Trips) => {
+      if ((trip as any).serviceId === serviceId) {
+        routeIds.add((trip as any).routeId); // This might be routeId in trips
       }
     });
 
     // Return route objects for these route IDs
-    return allRoutes.filter((route: Record<string, unknown>) =>
-      routeIds.has(route.route_id)
+    return allRoutes.filter((route: Routes) =>
+      routeIds.has((route as any).route_id)
     );
   }
 
@@ -1294,18 +1222,22 @@ export class ScheduleController {
       `;
     }
 
-    const isEditable = data.isEditable || false;
     const showArrivalDeparture = this.shouldShowSeparateArrivalDeparture(
       data.trips
     );
     data.showArrivalDeparture = showArrivalDeparture; // Store for use in rendering
 
+    console.log('DEBUG: renderTimetableContent called with:', {
+      showArrivalDeparture,
+      tripsCount: data.trips.length,
+      stopsCount: data.stops.length
+    });
+
     return `
       <div class="timetable-container flex-1 overflow-auto">
-        ${isEditable ? this.renderEditingControls(showArrivalDeparture) : ''}
         <table class="table table-zebra table-pin-rows table-compact table-hover w-full text-sm group">
-          ${this.renderTimetableHeader(data.trips, isEditable, showArrivalDeparture)}
-          ${this.renderTimetableBody(data.stops, data.trips, isEditable, showArrivalDeparture)}
+          ${this.renderTimetableHeader(data.trips, showArrivalDeparture)}
+          ${this.renderTimetableBody(data.stops, data.trips, showArrivalDeparture)}
         </table>
       </div>
     `;
@@ -1333,46 +1265,10 @@ export class ScheduleController {
   }
 
   /**
-   * Render editing controls bar
-   */
-  private renderEditingControls(showArrivalDeparture: boolean = false): string {
-    return `
-      <div class="editing-controls bg-base-200 p-2 mb-2 rounded-lg flex items-center gap-2 text-sm">
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-info" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
-          </svg>
-          <span class="font-medium">Editing Mode</span>
-        </div>
-        <div class="divider divider-horizontal"></div>
-        <div class="flex items-center gap-4 text-xs">
-          <div class="tooltip" data-tip="Undo last change">
-            <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.undo()" ${this.editState.undoStack.length === 0 ? 'disabled' : ''}>
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"></path>
-              </svg>
-            </button>
-          </div>
-          <div class="tooltip" data-tip="Redo last change">
-            <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.redo()" ${this.editState.redoStack.length === 0 ? 'disabled' : ''}>
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-              </svg>
-            </button>
-          </div>
-          ${showArrivalDeparture ? '<div class="badge badge-info badge-sm">Arrival/Departure View</div>' : ''}
-          ${this.editState.hasUnsavedChanges ? '<div class="badge badge-warning badge-sm">Unsaved Changes</div>' : ''}
-        </div>
-      </div>
-    `;
-  }
-
-  /**
    * Render timetable header with trip columns
    */
   private renderTimetableHeader(
     trips: AlignedTrip[],
-    isEditable: boolean = false,
     showArrivalDeparture: boolean = false
   ): string {
     const tripHeaders = trips
@@ -1381,83 +1277,28 @@ export class ScheduleController {
           // Show two columns per trip: Arrival and Departure
           const arrivalHeader = `
             <th class="trip-header arrival-header p-2 text-center min-w-[70px] border-b border-base-300 bg-blue-50/50">
-              <div class="trip-id text-xs font-medium ${trip.isModified ? 'text-info' : ''}">${trip.tripId}</div>
+              <div class="trip-id text-xs font-medium">${trip.tripId}</div>
               <div class="time-type text-[10px] opacity-60 mt-1">ARR</div>
             </th>
           `;
           const departureHeader = `
             <th class="trip-header departure-header p-2 text-center min-w-[70px] border-b border-base-300 bg-orange-50/50 border-l border-base-200">
-              <div class="trip-id text-xs font-medium ${trip.isModified ? 'text-info' : ''}">${trip.tripId}</div>
+              <div class="trip-id text-xs font-medium">${trip.tripId}</div>
               <div class="time-type text-[10px] opacity-60 mt-1">DEP</div>
-              ${
-                isEditable
-                  ? `
-                <div class="trip-actions opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 right-0">
-                  <div class="flex gap-1">
-                    <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.duplicateTrip('${trip.tripId}')" title="Duplicate trip">
-                      <svg class="w-2 h-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M7 7a1 1 0 012 0v6a1 1 0 11-2 0V7zM13 7a1 1 0 012 0v6a1 1 0 11-2 0V7z"></path>
-                      </svg>
-                    </button>
-                    <button class="btn btn-ghost btn-xs text-error" onclick="gtfsEditor.scheduleController.deleteTrip('${trip.tripId}')" title="Delete trip">
-                      <svg class="w-2 h-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              `
-                  : ''
-              }
             </th>
           `;
           return arrivalHeader + departureHeader;
         } else {
           // Single column per trip (original behavior)
-          if (isEditable) {
-            return `
-              <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300 group">
-                <div class="trip-id text-xs font-medium ${trip.isModified ? 'text-info' : ''}">${trip.tripId}</div>
-                <div class="trip-actions opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-                  <div class="flex justify-center gap-1">
-                    <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.duplicateTrip('${trip.tripId}')" title="Duplicate trip">
-                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M7 7a1 1 0 012 0v6a1 1 0 11-2 0V7zM13 7a1 1 0 012 0v6a1 1 0 11-2 0V7z"></path>
-                        <path fill-rule="evenodd" d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 011 1v8a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" clip-rule="evenodd"></path>
-                      </svg>
-                    </button>
-                    <button class="btn btn-ghost btn-xs text-error" onclick="gtfsEditor.scheduleController.deleteTrip('${trip.tripId}')" title="Delete trip">
-                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clip-rule="evenodd"></path>
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </th>
-            `;
-          } else {
-            return `
-              <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300">
-                <div class="trip-id text-xs font-medium">${trip.tripId}</div>
-              </th>
-            `;
-          }
+          return `
+            <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300">
+              <div class="trip-id text-xs font-medium">${trip.tripId}</div>
+            </th>
+          `;
         }
       })
       .join('');
 
-    const newTripColumn = isEditable
-      ? `
-      <th class="trip-header p-2 text-center ${showArrivalDeparture ? 'min-w-[140px]' : 'min-w-[80px]'} border-b border-base-300 border-dashed" ${showArrivalDeparture ? 'colspan="2"' : ''}>
-        <button class="btn btn-ghost btn-sm w-full h-full" onclick="gtfsEditor.scheduleController.addNewTrip()" title="Add new trip">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
-          </svg>
-        </button>
-      </th>
-    `
-      : '';
 
     return `
       <thead class="sticky top-0 bg-base-100 z-10">
@@ -1466,7 +1307,6 @@ export class ScheduleController {
             Stop
           </th>
           ${tripHeaders}
-          ${newTripColumn}
         </tr>
       </thead>
     `;
@@ -1478,7 +1318,6 @@ export class ScheduleController {
   private renderTimetableBody(
     stops: Stops[],
     trips: AlignedTrip[],
-    isEditable: boolean = false,
     showArrivalDeparture: boolean = false
   ): string {
     const rows = stops
@@ -1495,41 +1334,33 @@ export class ScheduleController {
               const arrivalTime = trip.arrivalTimes?.get(stopPosition);
               const departureTime = trip.departureTimes?.get(stopPosition);
 
-              const arrivalCell = isEditable
-                ? this.renderEditableArrivalDepartureCell(
-                    trip.tripId,
-                    stop.id,
-                    arrivalTime,
-                    'arrival',
-                    editableStopTime
-                  )
-                : this.renderReadOnlyTimeCell(arrivalTime, 'arrival');
+              const arrivalCell = this.renderEditableArrivalDepartureCell(
+                trip.tripId,
+                stop.stop_id,
+                arrivalTime,
+                'arrival',
+                editableStopTime
+              );
 
-              const departureCell = isEditable
-                ? this.renderEditableArrivalDepartureCell(
-                    trip.tripId,
-                    stop.id,
-                    departureTime,
-                    'departure',
-                    editableStopTime
-                  )
-                : this.renderReadOnlyTimeCell(departureTime, 'departure');
+              const departureCell = this.renderEditableArrivalDepartureCell(
+                trip.tripId,
+                stop.stop_id,
+                departureTime,
+                'departure',
+                editableStopTime
+              );
 
               return arrivalCell + departureCell;
             } else {
               // Single column per trip (original behavior)
               const time = trip.stopTimes.get(stopPosition);
 
-              if (isEditable) {
-                return this.renderEditableTimeCell(
-                  trip.tripId,
-                  stop.id,
-                  time,
-                  editableStopTime
-                );
-              } else {
-                return this.renderReadOnlyTimeCell(time);
-              }
+              return this.renderEditableTimeCell(
+                trip.tripId,
+                stop.stop_id,
+                time,
+                editableStopTime
+              );
             }
           })
           .join('');
@@ -1537,9 +1368,8 @@ export class ScheduleController {
         return `
         <tr class="${rowClass}">
           <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
-            <div class="stop-name-text">${this.escapeHtml(stop.name)}</div>
-            <div class="stop-id text-xs opacity-70">${stop.id}</div>
-            ${isEditable ? this.renderStopActions(stop.id) : ''}
+            <div class="stop-name-text">${this.escapeHtml((stop as any).name || (stop as any).id)}</div>
+            <div class="stop-id text-xs opacity-70">${(stop as any).id}</div>
           </td>
           ${timeCells}
         </tr>
@@ -1583,7 +1413,6 @@ export class ScheduleController {
     editableStopTime?: EditableStopTime
   ): string {
     const isSkipped = editableStopTime?.isSkipped || false;
-    const isModified = editableStopTime?.isModified || false;
     const displayTime = time ? this.formatTime(time) : '';
     const cellClass = `time-cell p-1 text-center ${
       isSkipped
@@ -1591,7 +1420,7 @@ export class ScheduleController {
         : time
           ? 'has-time'
           : 'no-time text-base-content/30'
-    } ${isModified ? 'modified border border-info' : ''} ${
+    } ${
       timeType === 'arrival' ? 'bg-blue-50/30' : 'bg-orange-50/30'
     } ${timeType === 'departure' ? 'border-l border-base-200' : ''}`;
 
@@ -1621,7 +1450,7 @@ export class ScheduleController {
         <div class="time-input-container relative">
           <input
             type="text"
-            class="time-input input input-xs w-16 text-center font-mono bg-transparent border-none focus:outline-none focus:bg-base-200 ${isModified ? 'text-info' : ''}"
+            class="time-input input input-xs w-16 text-center font-mono bg-transparent border-none focus:outline-none focus:bg-base-200"
             value="${displayTime}"
             placeholder="--:--"
             data-trip-id="${tripId}"
@@ -1661,7 +1490,6 @@ export class ScheduleController {
     editableStopTime?: EditableStopTime
   ): string {
     const isSkipped = editableStopTime?.isSkipped || false;
-    const isModified = editableStopTime?.isModified || false;
     const displayTime = time ? this.formatTime(time) : '';
 
     const cellClass = `time-cell p-1 text-center ${
@@ -1670,7 +1498,7 @@ export class ScheduleController {
         : time
           ? 'has-time'
           : 'no-time text-base-content/30'
-    } ${isModified ? 'modified border border-info' : ''}`;
+    }`;
 
     if (isSkipped) {
       return `
@@ -1692,7 +1520,7 @@ export class ScheduleController {
         <div class="time-input-container">
           <input
             type="text"
-            class="time-input input input-xs w-20 text-center font-mono bg-transparent border-none focus:outline-none focus:bg-base-200 ${isModified ? 'text-info' : ''}"
+            class="time-input input input-xs w-20 text-center font-mono bg-transparent border-none focus:outline-none focus:bg-base-200"
             value="${displayTime}"
             placeholder="--:--"
             data-trip-id="${tripId}"
@@ -1712,21 +1540,6 @@ export class ScheduleController {
           </div>
         </div>
       </td>
-    `;
-  }
-
-  /**
-   * Render stop actions (for inserting stops)
-   */
-  private renderStopActions(stopId: string): string {
-    return `
-      <div class="stop-actions opacity-0 group-hover:opacity-100 transition-opacity text-xs mt-1">
-        <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.insertStopBefore('${stopId}')" title="Insert stop before">
-          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
-          </svg>
-        </button>
-      </div>
     `;
   }
 
@@ -1790,13 +1603,13 @@ export class ScheduleController {
     // Get all trips for this route and service
     const allTrips = this.relationships.getTripsForRoute(routeId);
     const trips = allTrips.filter(
-      (trip: Record<string, unknown>) => trip.serviceId === serviceId
+      (trip: Trips) => (trip as any).serviceId === serviceId
     );
 
     // Group trips by direction ID
     const directionMap = new Map<string, number>();
-    trips.forEach((trip: Record<string, unknown>) => {
-      const dirId = (trip.directionId || '0').toString();
+    trips.forEach((trip: Trips) => {
+      const dirId = ((trip as any).directionId || '0').toString();
       directionMap.set(dirId, (directionMap.get(dirId) || 0) + 1);
     });
 

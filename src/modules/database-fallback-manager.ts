@@ -602,19 +602,37 @@ class FallbackDatabase {
 
   async getRow(
     tableName: string,
-    id: number
+    key: string
   ): Promise<GTFSDatabaseRecord | undefined> {
     const data = this.manager.getFallbackData(tableName);
-    return data.find((row) => row.id === id);
+    const keyPath = this.getNaturalKeyPath(tableName);
+
+    if (keyPath) {
+      // Simple natural key lookup
+      return data.find((row) => row[keyPath] === key);
+    } else {
+      // Composite key lookup - key should be a composite key string
+      return data.find((row) => this.generateCompositeKey(tableName, row) === key);
+    }
   }
 
   async updateRow(
     tableName: string,
-    id: number,
+    key: string,
     data: Partial<GTFSDatabaseRecord>
   ): Promise<void> {
     const tableData = this.manager.getFallbackData(tableName);
-    const index = tableData.findIndex((row) => row.id === id);
+    const keyPath = this.getNaturalKeyPath(tableName);
+
+    let index = -1;
+    if (keyPath) {
+      // Simple natural key lookup
+      index = tableData.findIndex((row) => row[keyPath] === key);
+    } else {
+      // Composite key lookup
+      index = tableData.findIndex((row) => this.generateCompositeKey(tableName, row) === key);
+    }
+
     if (index >= 0) {
       tableData[index] = { ...tableData[index], ...data };
       this.manager.setFallbackData(tableName, tableData);
@@ -623,6 +641,63 @@ class FallbackDatabase {
 
   async getAllRows(tableName: string): Promise<GTFSDatabaseRecord[]> {
     return this.manager.getFallbackData(tableName);
+  }
+
+  /**
+   * Get the natural key path for a table (copied from GTFSDatabase)
+   */
+  private getNaturalKeyPath(tableName: string): string | null {
+    switch (tableName) {
+      case 'agency':
+        return 'agency_id';
+      case 'routes':
+        return 'route_id';
+      case 'stops':
+        return 'stop_id';
+      case 'trips':
+        return 'trip_id';
+      case 'calendar':
+        return 'service_id';
+      case 'shapes':
+        return 'shape_id';
+      case 'fare_attributes':
+        return 'fare_id';
+      case 'fare_rules':
+        return 'fare_id';
+      case 'locations':
+        return 'location_id';
+      // Composite key tables use out-of-line keys
+      case 'stop_times':
+      case 'calendar_dates':
+      case 'frequencies':
+      case 'transfers':
+      case 'feed_info':
+        return null; // Out-of-line keys for composite/special cases
+      default:
+        return null; // Default to out-of-line keys for unknown tables
+    }
+  }
+
+  /**
+   * Generate composite key for tables that need it (copied from GTFSDatabase)
+   */
+  private generateCompositeKey(tableName: string, row: GTFSDatabaseRecord): string {
+    switch (tableName) {
+      case 'stop_times':
+        return `${row.trip_id}:${row.stop_sequence}`;
+      case 'calendar_dates':
+        return `${row.service_id}:${row.date}`;
+      case 'frequencies':
+        return `${row.trip_id}:${row.start_time}`;
+      case 'transfers':
+        return row.from_stop_id as string; // Simple key
+      case 'feed_info':
+        return 'project'; // Fixed key for single-record table
+      default:
+        // For tables with simple natural keys, fall back to first meaningful field
+        const keyPath = this.getNaturalKeyPath(tableName);
+        return keyPath ? (row[keyPath] as string) : 'unknown';
+    }
   }
 
   async queryRows(

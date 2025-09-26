@@ -3,12 +3,16 @@ import Papa from 'papaparse';
 import { GTFSDatabase, GTFSDatabaseRecord } from './gtfs-database.js';
 import { GTFS_FILES, GTFSFilePresence } from '../types/gtfs.js';
 import { loadingStateManager } from './loading-state-manager.js';
+import { GTFSTableMap } from '../types/gtfs-entities.js';
 
-interface GTFSFileData {
+interface GTFSFileData<T = GTFSDatabaseRecord> {
   content: string;
-  data: GTFSDatabaseRecord[];
+  data: T[];
   errors: Papa.ParseError[];
 }
+
+// Type-safe table name to entity type mapping
+type GTFSTableName = keyof GTFSTableMap;
 
 export class GTFSParser {
   private gtfsData: { [fileName: string]: GTFSFileData } = {};
@@ -360,6 +364,32 @@ export class GTFSParser {
     return fileName.replace('.txt', '').replace('.geojson', '');
   }
 
+  // Type-safe helper to get table name as GTFSTableName
+  private getTypedTableName(fileName: string): GTFSTableName | null {
+    const tableName = this.getTableName(fileName);
+    // Check if the table name is a valid GTFS entity type
+    if (tableName in ({} as GTFSTableMap)) {
+      return tableName as GTFSTableName;
+    }
+    return null;
+  }
+
+  // Type-safe parsing method that returns properly typed entities
+  private parseCSVWithType<T extends keyof GTFSTableMap>(
+    content: string,
+    tableName: T
+  ): { data: GTFSTableMap[T][]; errors: Papa.ParseError[] } {
+    const parsed = Papa.parse(content, {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    return {
+      data: parsed.data as GTFSTableMap[T][],
+      errors: parsed.errors,
+    };
+  }
+
   async parseFromURL(url: string): Promise<void> {
     try {
       // eslint-disable-next-line no-console
@@ -424,6 +454,30 @@ export class GTFSParser {
     return this.gtfsData[fileName]?.content || '';
   }
 
+  // Method expected by Editor interface
+  updateFileInMemory(fileName: string, content: string): void {
+    if (this.gtfsData[fileName]) {
+      this.gtfsData[fileName].content = content;
+
+      // Re-parse CSV if it's a text file
+      if (fileName.endsWith('.txt')) {
+        const parsed = Papa.parse(content, {
+          header: true,
+          skipEmptyLines: true,
+        });
+        this.gtfsData[fileName].data = parsed.data;
+        this.gtfsData[fileName].errors = parsed.errors;
+      }
+    }
+  }
+
+  // Method expected by Editor interface
+  async refreshRelatedTables(fileName: string): Promise<void> {
+    // This could trigger relationship validation or cache refresh
+    // For now, just update the database
+    await this.updateFileContent(fileName, this.getFileContent(fileName));
+  }
+
   async getFileData(fileName: string): Promise<GTFSDatabaseRecord[] | null> {
     // Try to get from IndexedDB first
     try {
@@ -444,9 +498,25 @@ export class GTFSParser {
     return this.gtfsData[fileName]?.data || null;
   }
 
+  // Type-safe async file data retrieval
+  async getFileDataTyped<T extends GTFSTableName>(
+    fileName: `${T}.txt`
+  ): Promise<GTFSTableMap[T][] | null> {
+    const data = await this.getFileData(fileName);
+    return data as GTFSTableMap[T][] | null;
+  }
+
   // Synchronous version for backward compatibility (will use memory data)
   getFileDataSync(fileName: string): GTFSDatabaseRecord[] | null {
     return this.gtfsData[fileName]?.data || null;
+  }
+
+  // Type-safe synchronous file data retrieval
+  getFileDataSyncTyped<T extends GTFSTableName>(
+    fileName: `${T}.txt`
+  ): GTFSTableMap[T][] | null {
+    const data = this.getFileDataSync(fileName);
+    return data as GTFSTableMap[T][] | null;
   }
 
   getAllFileNames(): string[] {
@@ -499,18 +569,12 @@ export class GTFSParser {
             let csvContent = '';
 
             if (fileName.endsWith('.txt')) {
-              // Remove the auto-generated 'id' field and create CSV
-              const cleanRows = rows.map((row) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { id, ...cleanRow } = row;
-                return cleanRow;
-              });
-
-              if (cleanRows.length > 0) {
-                const headers = Object.keys(cleanRows[0]);
+              // Create CSV content from natural key data (no auto-increment id to remove)
+              if (rows.length > 0) {
+                const headers = Object.keys(rows[0]);
                 csvContent = [
                   headers.join(','),
-                  ...cleanRows.map((row) =>
+                  ...rows.map((row) =>
                     headers.map((header) => row[header] || '').join(',')
                   ),
                 ].join('\n');
@@ -549,9 +613,9 @@ export class GTFSParser {
   }
 
   getRoutesForStop(stopId: string) {
-    const routes = this.getFileDataSync('routes.txt');
-    const trips = this.getFileDataSync('trips.txt');
-    const stopTimes = this.getFileDataSync('stop_times.txt');
+    const routes = this.getFileDataSyncTyped('routes.txt');
+    const trips = this.getFileDataSyncTyped('trips.txt');
+    const stopTimes = this.getFileDataSyncTyped('stop_times.txt');
 
     if (!routes || !trips || !stopTimes) {
       return [];
@@ -603,7 +667,7 @@ export class GTFSParser {
 
   // Search functionality
   searchStops(query: string) {
-    const stops = this.getFileDataSync('stops.txt') || [];
+    const stops = this.getFileDataSyncTyped('stops.txt') || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -625,7 +689,7 @@ export class GTFSParser {
   }
 
   searchRoutes(query: string) {
-    const routes = this.getFileDataSync('routes.txt') || [];
+    const routes = this.getFileDataSyncTyped('routes.txt') || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -661,7 +725,7 @@ export class GTFSParser {
 
   // Async versions of search methods that use IndexedDB
   async searchStopsAsync(query: string) {
-    const stops = (await this.getFileData('stops.txt')) || [];
+    const stops = (await this.getFileDataTyped('stops.txt')) || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -683,7 +747,7 @@ export class GTFSParser {
   }
 
   async searchRoutesAsync(query: string) {
-    const routes = (await this.getFileData('routes.txt')) || [];
+    const routes = (await this.getFileDataTyped('routes.txt')) || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -718,9 +782,9 @@ export class GTFSParser {
   }
 
   async getRoutesForStopAsync(stopId: string) {
-    const routes = await this.getFileData('routes.txt');
-    const trips = await this.getFileData('trips.txt');
-    const stopTimes = await this.getFileData('stop_times.txt');
+    const routes = await this.getFileDataTyped('routes.txt');
+    const trips = await this.getFileDataTyped('trips.txt');
+    const stopTimes = await this.getFileDataTyped('stop_times.txt');
 
     if (!routes || !trips || !stopTimes) {
       return [];

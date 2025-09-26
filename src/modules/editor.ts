@@ -24,6 +24,14 @@ interface TokenState {
 interface GTFSParser {
   updateFileInMemory(fileName: string, content: string): void;
   refreshRelatedTables(fileName: string): Promise<void>;
+  getFileContent(fileName: string): string;
+  getFileData(fileName: string): Promise<any[]>;
+  updateFileContent(fileName: string, content: string): Promise<void>;
+  gtfsDatabase: {
+    updateRow(tableName: string, key: string, data: any): Promise<void>;
+    getNaturalKeyFields(tableName: string): string[];
+    generateKey(tableName: string, data: any): string;
+  };
   // Add other methods as needed
 }
 
@@ -210,7 +218,12 @@ export class Editor {
   }
 
   async openFile(fileName: string): Promise<void> {
-    if (!this.gtfsParser || !this.gtfsParser.getFileContent(fileName)) {
+    if (!this.gtfsParser) {
+      return;
+    }
+
+    const content = this.gtfsParser.getFileContent(fileName);
+    if (!content) {
       return;
     }
 
@@ -594,11 +607,17 @@ export class Editor {
       const tableName = this.currentFile.replace('.txt', 's');
       const updates = Array.from(this.pendingUpdates.values());
 
-      // Perform batch updates to IndexedDB
+      // Perform batch updates to IndexedDB using natural keys
       for (const update of updates) {
+        // Generate natural key for the row data
+        const naturalKey = this.gtfsParser.gtfsDatabase.generateKey(
+          tableName,
+          update.rowData
+        );
+
         await this.gtfsParser.gtfsDatabase.updateRow(
           tableName,
-          update.rowIndex + 1, // IndexedDB uses 1-based IDs
+          naturalKey,
           update.rowData
         );
 

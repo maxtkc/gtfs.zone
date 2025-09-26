@@ -2,12 +2,14 @@ import { Map as MapLibreMap, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageStateManager } from './page-state-manager.js';
 import { GTFSDatabaseRecord } from './gtfs-database.js';
+import { Stops, Routes, Trips, StopTimes, Shapes } from '../types/gtfs-entities.js';
 
 export class MapController {
   private map: MapLibreMap | null;
   private mapElementId: string;
   private gtfsParser: {
-    getFileDataSync: (filename: string) => GTFSDatabaseRecord[];
+    getFileDataSync: (filename: string) => GTFSDatabaseRecord[] | null;
+    getFileDataSyncTyped: <T>(filename: string) => T[] | null;
     getRoutesForStop: (stopId: string) => GTFSDatabaseRecord[];
     getWheelchairText: (code: string) => string;
     getRouteTypeText: (typeCode: string) => string;
@@ -26,7 +28,8 @@ export class MapController {
   }
 
   initialize(gtfsParser: {
-    getFileDataSync: (filename: string) => GTFSDatabaseRecord[];
+    getFileDataSync: (filename: string) => GTFSDatabaseRecord[] | null;
+    getFileDataSyncTyped: <T>(filename: string) => T[] | null;
   }) {
     this.gtfsParser = gtfsParser;
 
@@ -134,7 +137,7 @@ export class MapController {
   }
 
   addStopsToMap() {
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt');
     if (!stops) {
       return;
     }
@@ -348,9 +351,9 @@ export class MapController {
 
   // Diagnostic method to analyze shape usage patterns
   private analyzeShapeUsage(
-    routes: GTFSDatabaseRecord[],
-    trips: GTFSDatabaseRecord[],
-    shapes: GTFSDatabaseRecord[] | null
+    routes: Routes[],
+    trips: Trips[],
+    shapes: Shapes[] | null
   ): void {
     console.group('🔍 Shape Usage Analysis');
 
@@ -418,7 +421,7 @@ export class MapController {
   private buildShapeToRouteMapping(): void {
     this.shapeToRouteMapping.clear();
 
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt');
     if (!trips) {
       return;
     }
@@ -467,9 +470,9 @@ export class MapController {
 
   // Enhanced route rendering with focus states and proper layering
   private addEnhancedRoutesToMap(): void {
-    const routes = this.gtfsParser.getFileDataSync('routes.txt');
-    const trips = this.gtfsParser.getFileDataSync('trips.txt');
-    const shapes = this.gtfsParser.getFileDataSync('shapes.txt');
+    const routes = this.gtfsParser.getFileDataSyncTyped<Routes>('routes.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt');
+    const shapes = this.gtfsParser.getFileDataSyncTyped<Shapes>('shapes.txt');
 
     if (!routes || !trips) {
       return;
@@ -656,7 +659,7 @@ export class MapController {
   // Create route geometry from shapes.txt
   private createRouteGeometryFromShape(
     shapeId: string,
-    shapes: GTFSDatabaseRecord[]
+    shapes: Shapes[]
   ): GeoJSON.LineString | null {
     const shapePoints = shapes
       .filter((point) => point.shape_id === shapeId)
@@ -685,8 +688,8 @@ export class MapController {
   private createRouteGeometryFromStops(
     tripId: string
   ): GeoJSON.LineString | null {
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt');
-    const stops = this.gtfsParser.getFileDataSync('stops.txt');
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt');
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt');
 
     if (!stopTimes || !stops) {
       return null;
@@ -735,7 +738,7 @@ export class MapController {
 
   // Object highlighting methods for Objects navigation
   highlightAgencyRoutes(agencyId) {
-    const routes = this.gtfsParser.getFileDataSync('routes.txt') || [];
+    const routes = this.gtfsParser.getFileDataSyncTyped<Routes>('routes.txt') || [];
     const agencyRoutes = routes.filter((route) => route.agency_id === agencyId);
 
     if (agencyRoutes.length === 0) {
@@ -755,9 +758,9 @@ export class MapController {
   }
 
   highlightRoute(routeId, color = '#ff6b35', weight = 6) {
-    const trips = this.gtfsParser.getFileDataSync('trips.txt') || [];
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
+    const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -836,8 +839,8 @@ export class MapController {
   }
 
   highlightTrip(tripId, color = '#e74c3c', weight = 5) {
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -978,7 +981,7 @@ export class MapController {
   }
 
   highlightStop(stopId, color = '#e74c3c', radius = 12) {
-    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -1056,9 +1059,9 @@ export class MapController {
   }
 
   fitToRoutes(routeIds) {
-    const trips = this.gtfsParser.getFileDataSync('trips.txt') || [];
-    const stopTimes = this.gtfsParser.getFileDataSync('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileDataSync('stops.txt') || [];
+    const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Find all stops for these routes
     const allStops = new Set();

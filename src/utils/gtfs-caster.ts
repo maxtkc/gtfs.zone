@@ -10,8 +10,9 @@ import {
   GTFS_PRIMARY_KEYS,
   GTFSValidationContext,
   validateForeignKey,
-} from '../types/gtfs';
-import { GTFSRelationshipResolver } from './gtfs-relationships';
+} from '../types/gtfs.js';
+import { GTFSRelationshipResolver } from './gtfs-relationships.js';
+import { GTFSTableMap } from '../types/gtfs-entities.js';
 
 export interface ValidationResult {
   success: boolean;
@@ -310,6 +311,18 @@ export class GTFSCaster {
   ): T[] {
     const result = this.validateFile(filename, rawData, { strict: false });
     return (result.data || []) as T[];
+  }
+
+  /**
+   * Cast raw CSV data to typed GTFS entities using the new type system
+   */
+  public castToTypedEntity<T extends keyof GTFSTableMap>(
+    tableName: T,
+    rawData: Record<string, unknown>[]
+  ): GTFSTableMap[T][] {
+    const filename = `${tableName}.txt`;
+    const result = this.validateFile(filename, rawData, { strict: false });
+    return (result.data || []) as GTFSTableMap[T][];
   }
 
   /**
