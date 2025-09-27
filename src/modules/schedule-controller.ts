@@ -18,6 +18,7 @@ import {
   StopTimes,
   GTFSTableMap,
 } from '../types/gtfs-entities.js';
+import { generateCompositeKeyFromRecord } from '../utils/gtfs-primary-keys.js';
 import { notifications } from './notification-system';
 
 export interface EditableStopTime {
@@ -47,7 +48,7 @@ export interface DirectionInfo {
 export interface TimetableData {
   route: Routes;
   service: Calendar | CalendarDates;
-  stops: EnhancedStop[];
+  stops: Stops[];
   trips: AlignedTrip[];
   direction_id?: string;
   directionName?: string;
@@ -127,27 +128,7 @@ export const EditableStopTimeSchema = z
     }
   );
 
-// Enhanced GTFS interfaces with both original properties and shorthand convenience properties
-interface EnhancedStop {
-  // Shorthand properties
-  id: string;
-  name: string;
-  // Original GTFS properties
-  stop_id: string;
-  stop_name: string;
-  stop_code?: string;
-  stop_desc?: string;
-  stop_lat?: number;
-  stop_lon?: number;
-  zone_id?: string;
-  stop_url?: string;
-  location_type?: string;
-  parent_station?: string;
-  stop_timezone?: string;
-  wheelchair_boarding?: string;
-  level_id?: string;
-  platform_code?: string;
-}
+// Enhanced GTFS interfaces using standard GTFS property names
 
 interface EnhancedTrip {
   // Shorthand properties
@@ -189,8 +170,8 @@ interface GTFSRelationships {
   getCalendarForService(service_id: string): Calendar | CalendarDates | null;
   getTripsForRoute(route_id: string): EnhancedTrip[];
   getStopTimesForTrip(trip_id: string): StopTimes[];
-  getStopById(stop_id: string): EnhancedStop | null;
-  getStopByIdAsync(stop_id: string): Promise<EnhancedStop | null>;
+  getStopById(stop_id: string): Stops | null;
+  getStopByIdAsync(stop_id: string): Promise<Stops | null>;
 }
 
 export class ScheduleController {
@@ -285,6 +266,114 @@ export class ScheduleController {
   }
 
   /**
+   * Update linked time (both arrival and departure set to same value)
+   */
+  public async updateLinkedTime(
+    trip_id: string,
+    stop_id: string,
+    newTime: string
+  ): Promise<void> {
+    try {
+      // Handle empty input (clear both times)
+      if (!newTime.trim()) {
+        const database = this.gtfsParser.gtfsDatabase;
+        if (!database) {
+          throw new Error('Database connection not available');
+        }
+
+        const stopTimes = await database.queryRows('stop_times', {
+          trip_id: trip_id,
+          stop_id: stop_id,
+        });
+
+        if (stopTimes.length > 0) {
+          const stopTime = stopTimes[0];
+          const naturalKey = generateCompositeKeyFromRecord('stop_times', stopTime);
+          await database.updateRow('stop_times', naturalKey, {
+            arrival_time: null,
+            departure_time: null,
+          });
+          console.log(`Cleared both times for ${trip_id}/${stop_id}`);
+
+          // Update input value immediately
+          const input = document.querySelector(`input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"][data-time-type="linked"]`) as HTMLInputElement;
+          if (input) {
+            input.value = '';
+          }
+        }
+        return;
+      }
+
+      // Cast time to HH:MM:SS format
+      const castedTime = this.castTimeToHHMMSS(newTime);
+
+      // Validate time format
+      const validationResult = TimeValidationSchema.safeParse(castedTime);
+      if (!validationResult.success) {
+        console.error(
+          'Invalid time format after casting:',
+          validationResult.error
+        );
+        this.showTimeError(
+          trip_id,
+          stop_id,
+          'Invalid time format. Use HH:MM (24-hour)'
+        );
+        return;
+      }
+
+      // Update both arrival and departure times to the same value
+      const database = this.gtfsParser.gtfsDatabase;
+      if (!database) {
+        const error = 'Database connection not available';
+        console.error(error);
+        notifications.showError(
+          'Unable to save changes - database connection lost'
+        );
+        throw new Error(error);
+      }
+
+      // Find the stop_time record
+      const stopTimes = await database.queryRows('stop_times', {
+        trip_id: trip_id,
+        stop_id: stop_id,
+      });
+
+      if (stopTimes.length === 0) {
+        const error = `No stop_time found for trip ${trip_id}, stop ${stop_id}`;
+        console.error('Database update failed:', error);
+        notifications.showError('Unable to find the schedule record to update');
+        throw new Error(error);
+      }
+
+      const stopTime = stopTimes[0];
+      const naturalKey = generateCompositeKeyFromRecord('stop_times', stopTime);
+
+      // Update both times to the same value
+      await database.updateRow('stop_times', naturalKey, {
+        arrival_time: castedTime,
+        departure_time: castedTime,
+      });
+
+      console.log(
+        `Updated linked times for trip ${trip_id}, stop ${stop_id} to ${castedTime}`
+      );
+      notifications.showSuccess(`Linked time updated to ${castedTime}`, {
+        duration: 2000,
+      });
+
+      // Update input value immediately
+      const input = document.querySelector(`input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"][data-time-type="linked"]`) as HTMLInputElement;
+      if (input) {
+        input.value = this.formatTimeWithSeconds(castedTime);
+      }
+    } catch (error) {
+      console.error('Failed to update linked time:', error);
+      this.showTimeError(trip_id, stop_id, 'Failed to save time change');
+    }
+  }
+
+  /**
    * Update arrival or departure time for a specific stop in a trip
    */
   public async updateArrivalDepartureTime(
@@ -294,6 +383,13 @@ export class ScheduleController {
     newTime: string
   ): Promise<void> {
     try {
+      // Handle empty input (skip/clear time)
+      if (!newTime.trim()) {
+        await this.updateStopTimeInDatabase(trip_id, stop_id, null, timeType);
+        console.log(`Cleared ${timeType} time for ${trip_id}/${stop_id}`);
+        return;
+      }
+
       // Cast time to HH:MM:SS format
       const castedTime = this.castTimeToHHMMSS(newTime);
 
@@ -359,43 +455,262 @@ export class ScheduleController {
       console.log(
         `Updated ${timeType} time for ${trip_id}/${stop_id} from ${newTime} to ${castedTime}`
       );
+
+      // Update input value immediately
+      const input = document.querySelector(`input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"][data-time-type="${timeType}"]`) as HTMLInputElement;
+      if (input) {
+        input.value = castedTime ? this.formatTimeWithSeconds(castedTime) : '';
+      }
     } catch (error) {
       console.error('Failed to update arrival/departure time:', error);
       this.showTimeError(trip_id, stop_id, 'Failed to save time change');
     }
   }
 
-  /**
-   * Skip a stop for a trip
-   */
-  public async skipStop(trip_id: string, stop_id: string): Promise<void> {
-    try {
-      // Update database directly by setting times to null
-      await this.updateStopTimeInDatabase(trip_id, stop_id, null);
-      console.log(`Skipped stop ${stop_id} for trip ${trip_id}`);
 
-      // Refresh the display
-      this.refreshTimetableCell(trip_id, stop_id);
+  /**
+   * Database state detection helper
+   */
+  private isLinkedState(arrival_time: string | null, departure_time: string | null): boolean {
+    return arrival_time === departure_time && arrival_time !== null && departure_time !== null;
+  }
+
+  /**
+   * Create linked input element (single input for both arrival and departure)
+   */
+  private createLinkedInput(trip_id: string, stop_id: string, timeValue: string): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'flex items-center gap-1';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'time-input input input-xs w-20 text-center font-mono bg-success-50/50 border-success-200 focus:bg-success-100';
+    input.value = timeValue;
+    input.placeholder = '--:--:--';
+    input.setAttribute('data-trip-id', trip_id);
+    input.setAttribute('data-stop-id', stop_id);
+    input.setAttribute('data-time-type', 'linked');
+    input.pattern = '^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$';
+    input.title = 'Enter time in HH:MM:SS format (linked arrival and departure)';
+    input.onchange = () => this.updateLinkedTime(trip_id, stop_id, input.value);
+    input.onkeydown = (event) => this.handleTimeKeyDown(event, trip_id, stop_id);
+    input.onfocus = () => input.select();
+
+    const button = document.createElement('button');
+    button.className = 'btn btn-primary btn-xs w-6 h-6 p-0';
+    button.onclick = () => this.toggleTimesLink(trip_id, stop_id);
+    button.title = 'Times are linked - click to unlink and add dwell time';
+    button.innerHTML = `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+    </svg>`;
+
+    container.appendChild(input);
+    container.appendChild(button);
+
+    return container;
+  }
+
+  /**
+   * Create unlinked inputs (separate arrival and departure inputs)
+   */
+  private createUnlinkedInputs(trip_id: string, stop_id: string, arrivalTime: string, departureTime: string): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'space-y-1';
+
+    // Arrival input row
+    const arrivalRow = document.createElement('div');
+    arrivalRow.className = 'flex items-center gap-1';
+
+    const arrivalInput = document.createElement('input');
+    arrivalInput.type = 'text';
+    arrivalInput.className = 'time-input input input-xs w-20 text-center font-mono bg-blue-50/50 border-blue-200 focus:bg-blue-100';
+    arrivalInput.value = arrivalTime;
+    arrivalInput.placeholder = '--:--:--';
+    arrivalInput.setAttribute('data-trip-id', trip_id);
+    arrivalInput.setAttribute('data-stop-id', stop_id);
+    arrivalInput.setAttribute('data-time-type', 'arrival');
+    arrivalInput.pattern = '^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$';
+    arrivalInput.title = 'Enter arrival time in HH:MM:SS format (leave empty to skip)';
+    arrivalInput.onchange = () => this.updateArrivalDepartureTime(trip_id, stop_id, 'arrival', arrivalInput.value);
+    arrivalInput.onkeydown = (event) => this.handleTimeKeyDown(event, trip_id, stop_id);
+    arrivalInput.onfocus = () => arrivalInput.select();
+
+    const linkButton = document.createElement('button');
+    linkButton.className = 'btn btn-ghost btn-xs w-6 h-6 p-0 opacity-60';
+    linkButton.onclick = () => this.toggleTimesLink(trip_id, stop_id);
+    linkButton.title = 'Click to link arrival and departure times';
+    linkButton.innerHTML = `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+    </svg>`;
+
+    arrivalRow.appendChild(arrivalInput);
+    arrivalRow.appendChild(linkButton);
+
+    // Departure input row
+    const departureRow = document.createElement('div');
+    departureRow.className = 'flex items-center gap-1';
+
+    const departureInput = document.createElement('input');
+    departureInput.type = 'text';
+    departureInput.className = 'time-input input input-xs w-20 text-center font-mono bg-orange-50/50 border-orange-200 focus:bg-orange-100';
+    departureInput.value = departureTime;
+    departureInput.placeholder = '--:--:--';
+    departureInput.setAttribute('data-trip-id', trip_id);
+    departureInput.setAttribute('data-stop-id', stop_id);
+    departureInput.setAttribute('data-time-type', 'departure');
+    departureInput.pattern = '^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$';
+    departureInput.title = 'Enter departure time in HH:MM:SS format (leave empty to skip)';
+    departureInput.onchange = () => this.updateArrivalDepartureTime(trip_id, stop_id, 'departure', departureInput.value);
+    departureInput.onkeydown = (event) => this.handleTimeKeyDown(event, trip_id, stop_id);
+    departureInput.onfocus = () => departureInput.select();
+
+    const spacer = document.createElement('div');
+    spacer.className = 'w-6'; // Spacer to align with link button
+
+    departureRow.appendChild(departureInput);
+    departureRow.appendChild(spacer);
+
+    container.appendChild(arrivalRow);
+    container.appendChild(departureRow);
+
+    return container;
+  }
+
+  /**
+   * Swap to linked input (DOM manipulation)
+   */
+  private async swapToLinkedInput(trip_id: string, stop_id: string): Promise<void> {
+    const inputContainer = document.querySelector(`input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"]`)?.closest('.stacked-time-container');
+    if (!inputContainer) {
+      console.error('Input container not found for swap to linked');
+      return;
+    }
+
+    // Get current times from database
+    const database = this.gtfsParser.gtfsDatabase;
+    if (!database) {
+      console.error('Database not available');
+      return;
+    }
+
+    const stopTimes = await database.queryRows('stop_times', {
+      trip_id: trip_id,
+      stop_id: stop_id,
+    });
+
+    if (stopTimes.length === 0) {
+      console.error(`No stop_time found for trip ${trip_id}, stop ${stop_id}`);
+      return;
+    }
+
+    const stopTime = stopTimes[0];
+    const arrival_time = stopTime.arrival_time;
+    const departure_time = stopTime.departure_time;
+
+    // Determine which time to use as primary (arrival preferred, fallback to departure)
+    const primaryTime = arrival_time || departure_time;
+    const timeValue = primaryTime ? this.formatTimeWithSeconds(primaryTime) : '';
+
+    // Create linked input and replace content
+    const linkedInput = this.createLinkedInput(trip_id, stop_id, timeValue);
+
+    inputContainer.innerHTML = '';
+    inputContainer.appendChild(linkedInput);
+
+    // Update database: set both times to the primary time
+    const naturalKey = generateCompositeKeyFromRecord('stop_times', stopTime);
+    await database.updateRow('stop_times', naturalKey, {
+      arrival_time: primaryTime,
+      departure_time: primaryTime,
+    });
+
+    console.log(`Linked times for ${trip_id}/${stop_id}: set both times to ${primaryTime}`);
+  }
+
+  /**
+   * Swap to unlinked inputs (DOM manipulation)
+   */
+  private async swapToUnlinkedInputs(trip_id: string, stop_id: string): Promise<void> {
+    const inputContainer = document.querySelector(`input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"]`)?.closest('.stacked-time-container');
+    if (!inputContainer) {
+      console.error('Input container not found for swap to unlinked');
+      return;
+    }
+
+    // Get current times from database
+    const database = this.gtfsParser.gtfsDatabase;
+    if (!database) {
+      console.error('Database not available');
+      return;
+    }
+
+    const stopTimes = await database.queryRows('stop_times', {
+      trip_id: trip_id,
+      stop_id: stop_id,
+    });
+
+    if (stopTimes.length === 0) {
+      console.error(`No stop_time found for trip ${trip_id}, stop ${stop_id}`);
+      return;
+    }
+
+    const stopTime = stopTimes[0];
+    const arrival_time = stopTime.arrival_time ? this.formatTimeWithSeconds(stopTime.arrival_time) : '';
+    const departure_time = stopTime.departure_time ? this.formatTimeWithSeconds(stopTime.departure_time) : '';
+
+    // Create unlinked inputs and replace content
+    const unlinkedInputs = this.createUnlinkedInputs(trip_id, stop_id, arrival_time, departure_time);
+
+    inputContainer.innerHTML = '';
+    inputContainer.appendChild(unlinkedInputs);
+
+    // No database changes for unlinking
+    console.log(`Unlinked times for ${trip_id}/${stop_id}: UI changed to separate inputs, no database changes`);
+  }
+
+  /**
+   * Toggle link between arrival and departure times (simplified with direct DOM manipulation)
+   */
+  public async toggleTimesLink(trip_id: string, stop_id: string): Promise<void> {
+    try {
+      // Determine current UI state by checking what's currently displayed
+      const linkedInput = document.querySelector(`input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"][data-time-type="linked"]`);
+      const isCurrentlyLinked = !!linkedInput;
+
+      console.log(`Toggle for ${trip_id}/${stop_id}: currently ${isCurrentlyLinked ? 'linked' : 'unlinked'}`);
+
+      // Toggle to opposite state
+      if (isCurrentlyLinked) {
+        await this.swapToUnlinkedInputs(trip_id, stop_id);
+      } else {
+        await this.swapToLinkedInput(trip_id, stop_id);
+      }
     } catch (error) {
-      console.error('Failed to skip stop:', error);
+      console.error('Failed to toggle times link:', error);
     }
   }
 
   /**
-   * Unskip a stop for a trip
+   * Add minutes to a time string (HH:MM:SS format)
    */
-  public async unskipStop(trip_id: string, stop_id: string): Promise<void> {
-    try {
-      // TODO: Restore previous times or set to "00:00:00"
-      // For now, set to "00:00:00" as a placeholder - user can edit
-      await this.updateStopTimeInDatabase(trip_id, stop_id, '00:00:00');
-      console.log(`Unskipped stop ${stop_id} for trip ${trip_id}`);
+  private addMinutesToTime(timeString: string, minutes: number): string {
+    if (!timeString) return '00:00:00';
 
-      // Refresh the display
-      this.refreshTimetableCell(trip_id, stop_id);
-    } catch (error) {
-      console.error('Failed to unskip stop:', error);
-    }
+    const parts = timeString.split(':');
+    if (parts.length < 2) return timeString;
+
+    const hours = parseInt(parts[0]);
+    const mins = parseInt(parts[1]);
+    const seconds = parts[2] ? parseInt(parts[2]) : 0;
+
+    // Convert to total minutes
+    let totalMinutes = hours * 60 + mins + minutes;
+
+    // Handle day overflow (24+ hours)
+    const newHours = Math.floor(totalMinutes / 60);
+    const newMins = totalMinutes % 60;
+
+    return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
   /**
@@ -584,8 +899,8 @@ export class ScheduleController {
             ? 'departure_time'
             : 'departure_time';
 
-      // Generate natural key for the stop_time record and update
-      const naturalKey = database.generateKey('stop_times', stopTime);
+      // Generate composite key for the stop_time record and update
+      const naturalKey = generateCompositeKeyFromRecord('stop_times', stopTime);
       await database.updateRow('stop_times', naturalKey, {
         [field]: newTime,
       });
@@ -598,8 +913,7 @@ export class ScheduleController {
         duration: 2000,
       });
 
-      // Refresh the affected UI cell
-      this.refreshTimetableCell(trip_id, stop_id);
+      // No refresh needed - input value is updated immediately
     } catch (error) {
       console.error('Failed to update stop_time in database:', error);
 
@@ -691,6 +1005,7 @@ export class ScheduleController {
       console.error(`Failed to refresh cell ${trip_id}/${stop_id}:`, error);
     }
   }
+
 
   /**
    * Focus navigation helpers
@@ -844,7 +1159,7 @@ export class ScheduleController {
     const scsHelper = new SCSResultHelper(scsResult);
 
     // Get stop details for the optimal sequence
-    const stops: EnhancedStop[] = await Promise.all(
+    const stops: Stops[] = await Promise.all(
       scsResult.supersequence.map(async (stop_id) => {
         const stop = await this.relationships.getStopByIdAsync(stop_id);
         if (!stop) {
@@ -852,6 +1167,7 @@ export class ScheduleController {
           console.error('GTFS Data Integrity Error:', error);
           throw new Error(error);
         }
+        // Return the stop with standard GTFS properties
         return stop;
       })
     );
@@ -877,8 +1193,8 @@ export class ScheduleController {
     console.table(
       stops.map((stop, index) => ({
         position: index,
-        stop_id: stop.id,
-        stop_name: stop.name,
+        stop_id: stop.stop_id,
+        stop_name: stop.stop_name,
       }))
     );
 
@@ -1333,13 +1649,7 @@ export class ScheduleController {
       `;
     }
 
-    const showArrivalDeparture = this.shouldShowSeparateArrivalDeparture(
-      data.trips
-    );
-    data.showArrivalDeparture = showArrivalDeparture; // Store for use in rendering
-
     console.log('DEBUG: renderTimetableContent called with:', {
-      showArrivalDeparture,
       tripsCount: data.trips.length,
       stopsCount: data.stops.length,
     });
@@ -1347,8 +1657,8 @@ export class ScheduleController {
     return `
       <div class="timetable-container flex-1 overflow-auto">
         <table class="table table-zebra table-pin-rows table-compact table-hover w-full text-sm group">
-          ${this.renderTimetableHeader(data.trips, showArrivalDeparture)}
-          ${this.renderTimetableBody(data.stops, data.trips, showArrivalDeparture)}
+          ${this.renderTimetableHeader(data.trips)}
+          ${this.renderTimetableBody(data.stops, data.trips)}
         </table>
       </div>
     `;
@@ -1358,55 +1668,24 @@ export class ScheduleController {
    * Determine if we should show separate arrival/departure columns
    */
   private shouldShowSeparateArrivalDeparture(trips: AlignedTrip[]): boolean {
-    // Show separate columns if any trip has different arrival and departure times
-    return trips.some((trip) => {
-      if (!trip.arrival_times || !trip.departure_times) {
-        return false;
-      }
-
-      // Check if any stop has different arrival and departure times
-      for (const [position, arrival_time] of trip.arrival_times) {
-        const departure_time = trip.departure_times.get(position);
-        if (arrival_time && departure_time && arrival_time !== departure_time) {
-          return true;
-        }
-      }
-      return false;
-    });
+    // Always show stacked arrival/departure layout
+    return true;
   }
 
   /**
    * Render timetable header with trip columns
    */
   private renderTimetableHeader(
-    trips: AlignedTrip[],
-    showArrivalDeparture: boolean = false
+    trips: AlignedTrip[]
   ): string {
     const tripHeaders = trips
       .map((trip) => {
-        if (showArrivalDeparture) {
-          // Show two columns per trip: Arrival and Departure
-          const arrivalHeader = `
-            <th class="trip-header arrival-header p-2 text-center min-w-[70px] border-b border-base-300 bg-blue-50/50">
-              <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
-              <div class="time-type text-[10px] opacity-60 mt-1">ARR</div>
-            </th>
-          `;
-          const departureHeader = `
-            <th class="trip-header departure-header p-2 text-center min-w-[70px] border-b border-base-300 bg-orange-50/50 border-l border-base-200">
-              <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
-              <div class="time-type text-[10px] opacity-60 mt-1">DEP</div>
-            </th>
-          `;
-          return arrivalHeader + departureHeader;
-        } else {
-          // Single column per trip (original behavior)
-          return `
-            <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300">
-              <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
-            </th>
-          `;
-        }
+        // Always show stacked column header
+        return `
+          <th class="trip-header p-2 text-center min-w-[100px] border-b border-base-300">
+            <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
+          </th>
+        `;
       })
       .join('');
 
@@ -1427,8 +1706,7 @@ export class ScheduleController {
    */
   private renderTimetableBody(
     stops: Stops[],
-    trips: AlignedTrip[],
-    showArrivalDeparture: boolean = false
+    trips: AlignedTrip[]
   ): string {
     const rows = stops
       .map((stop, stopIndex) => {
@@ -1439,47 +1717,25 @@ export class ScheduleController {
             const stopPosition = stopIndex;
             const editableStopTime = trip.editableStopTimes?.get(stopPosition);
 
-            if (showArrivalDeparture) {
-              // Render two cells per trip: arrival and departure
-              const arrival_time = trip.arrival_times?.get(stopPosition);
-              const departure_time = trip.departure_times?.get(stopPosition);
+            // Always render stacked arrival/departure cell
+            const arrival_time = trip.arrival_times?.get(stopPosition);
+            const departure_time = trip.departure_times?.get(stopPosition);
 
-              const arrivalCell = this.renderEditableArrivalDepartureCell(
-                trip.trip_id,
-                stop.stop_id,
-                arrival_time,
-                'arrival',
-                editableStopTime
-              );
-
-              const departureCell = this.renderEditableArrivalDepartureCell(
-                trip.trip_id,
-                stop.stop_id,
-                departure_time,
-                'departure',
-                editableStopTime
-              );
-
-              return arrivalCell + departureCell;
-            } else {
-              // Single column per trip (original behavior)
-              const time = trip.stopTimes.get(stopPosition);
-
-              return this.renderEditableTimeCell(
-                trip.trip_id,
-                stop.stop_id,
-                time,
-                editableStopTime
-              );
-            }
+            return this.renderStackedArrivalDepartureCell(
+              trip.trip_id,
+              stop.stop_id,
+              arrival_time,
+              departure_time,
+              editableStopTime
+            );
           })
           .join('');
 
         return `
         <tr class="${rowClass}">
           <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
-            <div class="stop-name-text">${this.escapeHtml(stop.name || stop.id)}</div>
-            <div class="stop-id text-xs opacity-70">${stop.id}</div>
+            <div class="stop-name-text">${this.escapeHtml(stop.stop_name || stop.stop_id)}</div>
+            <div class="stop-id text-xs opacity-70">${stop.stop_id}</div>
           </td>
           ${timeCells}
         </tr>
@@ -1508,6 +1764,114 @@ export class ScheduleController {
     return `
       <td class="${cellClass}">
         ${time ? `<span class="time-badge badge badge-ghost badge-sm font-mono">${this.formatTime(time)}</span>` : '—'}
+      </td>
+    `;
+  }
+
+  /**
+   * Render stacked arrival/departure time cell (single cell with both inputs)
+   * Now uses database state detection instead of UI state attributes
+   */
+  private renderStackedArrivalDepartureCell(
+    trip_id: string,
+    stop_id: string,
+    arrival_time: string | null,
+    departure_time: string | null,
+    _editableStopTime?: EditableStopTime
+  ): string {
+    const arrivalDisplay = arrival_time ? this.formatTimeWithSeconds(arrival_time) : '';
+    const departureDisplay = departure_time ? this.formatTimeWithSeconds(departure_time) : '';
+
+    // Use database state detection - no more UI state tracking
+    const showLinked = this.isLinkedState(arrival_time, departure_time);
+
+    // Check if stop is effectively skipped (no times at all)
+    const isSkipped = !arrival_time && !departure_time;
+
+    const cellClass = `time-cell p-2 text-center ${
+      isSkipped
+        ? 'no-time text-base-content/30'
+        : (arrival_time || departure_time)
+          ? 'has-time'
+          : 'no-time text-base-content/30'
+    }`;
+
+    return `
+      <td class="${cellClass}">
+        <div class="stacked-time-container space-y-1">
+          ${showLinked ? `
+            <!-- Single linked time input -->
+            <div class="flex items-center gap-1">
+              <input
+                type="text"
+                class="time-input input input-xs w-20 text-center font-mono bg-success-50/50 border-success-200 focus:bg-success-100"
+                value="${arrivalDisplay}"
+                placeholder="--:--:--"
+                data-trip-id="${trip_id}"
+                data-stop-id="${stop_id}"
+                data-time-type="linked"
+                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$"
+                title="Enter time in HH:MM:SS format (linked arrival and departure)"
+                onchange="gtfsEditor.scheduleController.updateLinkedTime('${trip_id}', '${stop_id}', this.value)"
+                onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${trip_id}', '${stop_id}')"
+                onfocus="this.select()"
+              />
+              <button
+                class="btn btn-primary btn-xs w-6 h-6 p-0"
+                onclick="gtfsEditor.scheduleController.toggleTimesLink('${trip_id}', '${stop_id}')"
+                title="Times are linked - click to unlink and add dwell time"
+              >
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+                </svg>
+              </button>
+            </div>
+          ` : `
+            <!-- Separate arrival/departure inputs -->
+            <div class="flex items-center gap-1">
+              <input
+                type="text"
+                class="time-input input input-xs w-20 text-center font-mono bg-blue-50/50 border-blue-200 focus:bg-blue-100"
+                value="${arrivalDisplay}"
+                placeholder="--:--:--"
+                data-trip-id="${trip_id}"
+                data-stop-id="${stop_id}"
+                data-time-type="arrival"
+                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$"
+                title="Enter arrival time in HH:MM:SS format (leave empty to skip)"
+                onchange="gtfsEditor.scheduleController.updateArrivalDepartureTime('${trip_id}', '${stop_id}', 'arrival', this.value)"
+                onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${trip_id}', '${stop_id}')"
+                onfocus="this.select()"
+              />
+              <button
+                class="btn btn-ghost btn-xs w-6 h-6 p-0 opacity-60"
+                onclick="gtfsEditor.scheduleController.toggleTimesLink('${trip_id}', '${stop_id}')"
+                title="Click to link arrival and departure times"
+              >
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="flex items-center gap-1">
+              <input
+                type="text"
+                class="time-input input input-xs w-20 text-center font-mono bg-orange-50/50 border-orange-200 focus:bg-orange-100"
+                value="${departureDisplay}"
+                placeholder="--:--:--"
+                data-trip-id="${trip_id}"
+                data-stop-id="${stop_id}"
+                data-time-type="departure"
+                pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$"
+                title="Enter departure time in HH:MM:SS format (leave empty to skip)"
+                onchange="gtfsEditor.scheduleController.updateArrivalDepartureTime('${trip_id}', '${stop_id}', 'departure', this.value)"
+                onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${trip_id}', '${stop_id}')"
+                onfocus="this.select()"
+              />
+              <div class="w-6"></div> <!-- Spacer to align with link button -->
+            </div>
+          `}
+        </div>
       </td>
     `;
   }
@@ -1679,6 +2043,32 @@ export class ScheduleController {
   }
 
   /**
+   * Format time for display with seconds (HH:MM:SS)
+   */
+  private formatTimeWithSeconds(time: string): string {
+    if (!time) {
+      return '';
+    }
+
+    // Handle times like "24:30:00" or "25:15:00" (next day)
+    const parts = time.split(':');
+    if (parts.length >= 3) {
+      const hours = parseInt(parts[0]);
+      const minutes = parts[1];
+      const seconds = parts[2];
+
+      return `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}`;
+    } else if (parts.length === 2) {
+      // Add seconds if missing
+      const hours = parseInt(parts[0]);
+      const minutes = parts[1];
+      return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
+    }
+
+    return time;
+  }
+
+  /**
    * Render error state HTML
    */
   private renderErrorHTML(message: string): string {
@@ -1727,7 +2117,7 @@ export class ScheduleController {
     const directions: DirectionInfo[] = Array.from(directionMap.entries())
       .map(([id, tripCount]) => ({
         id,
-        name: this.getDirectionName(id, trips),
+        name: this.getDirectionName(id),
         tripCount,
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
@@ -1738,7 +2128,7 @@ export class ScheduleController {
   /**
    * Get a human-readable direction name
    */
-  private getDirectionName(direction_id: string, _trips: Trips[]): string {
+  private getDirectionName(direction_id: string): string {
     // Use standard direction names
     switch (direction_id) {
       case '0':

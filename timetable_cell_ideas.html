@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timetable Cell UI Ideas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        .cell-demo {
+            min-height: 60px;
+            min-width: 120px;
+            border: 1px solid #e5e7eb;
+        }
+        .time-input {
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body class="bg-base-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Timetable Cell UI Workshop</h1>
+
+        <!-- Theme Toggle -->
+        <div class="mb-8">
+            <label class="swap swap-rotate btn btn-ghost btn-sm">
+                <input type="checkbox" id="theme-toggle" />
+                <svg class="swap-off fill-current w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
+                <svg class="swap-on fill-current w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/></svg>
+            </label>
+        </div>
+
+        <!-- Demo Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+            <!-- Idea 1: Stacked Arrival/Departure -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Stacked Layout - Refined</h3>
+                    <p class="text-sm opacity-70 mb-4">Vertical layout with link control and full time format</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center gap-1">
+                        <div class="flex items-center gap-2 w-full">
+                            <span class="text-xs text-blue-600 font-medium w-8">ARR</span>
+                            <input type="text" class="time-input input input-xs flex-1 text-center bg-blue-50 border-blue-200 font-mono" value="08:15:00" placeholder="--:--:--">
+                            <button class="btn btn-ghost btn-xs w-6 h-6 p-0 opacity-100" title="Link times (same value)">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2 w-full">
+                            <span class="text-xs text-orange-600 font-medium w-8">DEP</span>
+                            <input type="text" class="time-input input input-xs flex-1 text-center bg-orange-50 border-orange-200 font-mono" value="08:15:00" placeholder="--:--:--">
+                            <div class="w-6"></div> <!-- Spacer to align with link button -->
+                        </div>
+                    </div>
+
+                    <!-- Different states demo -->
+                    <div class="mt-4 space-y-2">
+                        <div class="text-xs font-medium">States:</div>
+
+                        <!-- Linked state (same times) -->
+                        <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center gap-1 border-2 border-green-200">
+                            <div class="flex items-center gap-2 w-full">
+                                <span class="text-xs text-blue-600 font-medium w-8">ARR</span>
+                                <input type="text" class="time-input input input-xs flex-1 text-center bg-blue-50 border-blue-200 font-mono" value="08:15:00" placeholder="--:--:--">
+                                <button class="btn btn-primary btn-xs w-6 h-6 p-0" title="Times are linked">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2 w-full">
+                                <span class="text-xs text-orange-600 font-medium w-8">DEP</span>
+                                <input type="text" class="time-input input input-xs flex-1 text-center bg-orange-50 border-orange-200 font-mono" value="08:15:00" placeholder="--:--:--">
+                                <div class="w-6"></div>
+                            </div>
+                            <div class="text-xs text-green-600">✓ Linked (same time)</div>
+                        </div>
+
+                        <!-- Unlinked state (different times) -->
+                        <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center gap-1 border-2 border-orange-200">
+                            <div class="flex items-center gap-2 w-full">
+                                <span class="text-xs text-blue-600 font-medium w-8">ARR</span>
+                                <input type="text" class="time-input input input-xs flex-1 text-center bg-blue-50 border-blue-200 font-mono" value="08:15:00" placeholder="--:--:--">
+                                <button class="btn btn-ghost btn-xs w-6 h-6 p-0 opacity-60" title="Click to link times">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2 w-full">
+                                <span class="text-xs text-orange-600 font-medium w-8">DEP</span>
+                                <input type="text" class="time-input input input-xs flex-1 text-center bg-orange-50 border-orange-200 font-mono" value="08:16:30" placeholder="--:--:--">
+                                <div class="w-6"></div>
+                            </div>
+                            <div class="text-xs text-orange-600">⚬ Unlinked (1:30 dwell)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 2: Side-by-Side with Link -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Side-by-Side Linked</h3>
+                    <p class="text-sm opacity-70 mb-4">Horizontal layout with visual link indicator</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center">
+                        <div class="flex items-center gap-1 w-full">
+                            <input type="text" class="time-input input input-xs w-12 text-center bg-blue-50 border-blue-200" value="08:15" placeholder="--:--">
+                            <div class="flex flex-col items-center">
+                                <button class="btn btn-ghost btn-xs p-0 h-4 min-h-0" title="Link/unlink times">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <input type="text" class="time-input input input-xs w-12 text-center bg-orange-50 border-orange-200" value="08:16" placeholder="--:--">
+                        </div>
+                        <div class="text-xs opacity-50 mt-1">ARR • DEP</div>
+                        <button class="btn btn-ghost btn-xs mt-1" title="Propagate to following stops">⏭️ All</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 3: Single Input with Mode Toggle -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Single Input Toggle</h3>
+                    <p class="text-sm opacity-70 mb-4">One input that switches between modes</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center gap-2">
+                        <div class="tabs tabs-boxed tabs-xs">
+                            <a class="tab tab-active">Same</a>
+                            <a class="tab">Split</a>
+                        </div>
+                        <input type="text" class="time-input input input-sm w-20 text-center" value="08:15" placeholder="--:--">
+                        <div class="dropdown dropdown-top">
+                            <button tabindex="0" class="btn btn-ghost btn-xs">⚙️</button>
+                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-32">
+                                <li><a>🔗 Link times</a></li>
+                                <li><a>⏭️ Propagate</a></li>
+                                <li><a>⏸️ Skip stop</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 4: Expandable Cell -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Expandable Cell</h3>
+                    <p class="text-sm opacity-70 mb-4">Compact view that expands for advanced options</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center">
+                        <div class="flex items-center gap-1">
+                            <input type="text" class="time-input input input-sm w-16 text-center" value="08:15" placeholder="--:--">
+                            <div class="dropdown dropdown-right">
+                                <button tabindex="0" class="btn btn-ghost btn-xs">⋮</button>
+                                <div tabindex="0" class="dropdown-content z-[1] card card-compact w-64 p-4 shadow bg-base-100">
+                                    <div class="space-y-3">
+                                        <div class="form-control">
+                                            <label class="label label-text-alt">Arrival Time</label>
+                                            <input type="text" class="time-input input input-xs bg-blue-50" value="08:15">
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label label-text-alt">Departure Time</label>
+                                            <input type="text" class="time-input input input-xs bg-orange-50" value="08:16">
+                                        </div>
+                                        <div class="divider my-2"></div>
+                                        <div class="flex gap-2">
+                                            <button class="btn btn-xs btn-primary flex-1">Apply</button>
+                                            <button class="btn btn-xs btn-outline">Propagate</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-xs opacity-50 mt-1">+1min dwell</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 5: Badge-Style Compact -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Badge Style</h3>
+                    <p class="text-sm opacity-70 mb-4">Compact badges with hover actions</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center gap-1">
+                        <div class="flex flex-col gap-1">
+                            <div class="badge badge-sm bg-blue-100 text-blue-800 border-blue-200 gap-1">
+                                <span class="text-xs">A</span>
+                                <input type="text" class="time-input bg-transparent w-12 text-center text-xs border-none outline-none" value="08:15">
+                            </div>
+                            <div class="badge badge-sm bg-orange-100 text-orange-800 border-orange-200 gap-1">
+                                <span class="text-xs">D</span>
+                                <input type="text" class="time-input bg-transparent w-12 text-center text-xs border-none outline-none" value="08:16">
+                            </div>
+                        </div>
+                        <div class="btn-group opacity-0 hover:opacity-100 transition-opacity">
+                            <button class="btn btn-xs" title="Link">🔗</button>
+                            <button class="btn btn-xs" title="Propagate">⏭️</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 6: Slider with Dwell Time -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Dwell Time Control</h3>
+                    <p class="text-sm opacity-70 mb-4">Focus on dwell time between arrival/departure</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center gap-2">
+                        <input type="text" class="time-input input input-sm w-16 text-center" value="08:15" placeholder="Arrival">
+                        <div class="flex items-center gap-2 w-full">
+                            <span class="text-xs">+</span>
+                            <input type="range" class="range range-xs flex-1" min="0" max="5" value="1" step="0.5">
+                            <span class="text-xs">1m</span>
+                        </div>
+                        <div class="text-xs opacity-70">→ 08:16</div>
+                        <button class="btn btn-ghost btn-xs" title="Apply to all following">⏭️</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 7: Context Menu Approach -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Context Menu</h3>
+                    <p class="text-sm opacity-70 mb-4">Right-click for advanced options</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center">
+                        <input type="text" class="time-input input input-sm w-20 text-center" value="08:15" placeholder="--:--">
+                        <div class="text-xs opacity-50 mt-1">Right-click for options</div>
+
+                        <!-- Context menu preview -->
+                        <div class="menu bg-base-200 rounded-box w-48 p-2 text-xs mt-2 border border-base-300">
+                            <li><a>✏️ Edit arrival time</a></li>
+                            <li><a>✏️ Edit departure time</a></li>
+                            <li><a>🔗 Link times</a></li>
+                            <li><a>⏭️ Propagate change</a></li>
+                            <li><a>⏸️ Skip this stop</a></li>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 8: Inline Edit Mode -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Inline Edit Mode</h3>
+                    <p class="text-sm opacity-70 mb-4">Click to enter focused edit mode</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center">
+                        <!-- Normal view -->
+                        <div class="text-center cursor-pointer hover:bg-base-200 p-2 rounded">
+                            <div class="font-mono text-sm">08:15</div>
+                            <div class="text-xs opacity-50">+1min</div>
+                        </div>
+
+                        <!-- Edit mode preview -->
+                        <div class="divider my-2">Edit Mode</div>
+                        <div class="bg-primary/10 p-2 rounded border-2 border-primary/20 w-full">
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <label class="block">Arrival</label>
+                                    <input type="text" class="time-input input input-xs w-full bg-blue-50" value="08:15">
+                                </div>
+                                <div>
+                                    <label class="block">Departure</label>
+                                    <input type="text" class="time-input input input-xs w-full bg-orange-50" value="08:16">
+                                </div>
+                            </div>
+                            <div class="flex gap-1 mt-2">
+                                <button class="btn btn-xs btn-primary">Save</button>
+                                <button class="btn btn-xs">Cancel</button>
+                                <button class="btn btn-xs btn-outline">Propagate</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Idea 9: Popup Modal -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h3 class="card-title text-lg">Modal Dialog</h3>
+                    <p class="text-sm opacity-70 mb-4">Double-click opens detailed editor</p>
+
+                    <div class="cell-demo bg-base-100 rounded-lg p-2 flex flex-col justify-center items-center">
+                        <div class="cursor-pointer hover:bg-base-200 p-2 rounded text-center">
+                            <div class="font-mono">08:15</div>
+                            <div class="text-xs opacity-50">Double-click</div>
+                        </div>
+
+                        <!-- Modal preview -->
+                        <button class="btn btn-xs btn-outline mt-2" onclick="time_modal.showModal()">Open Modal</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Modal for Idea 9 -->
+        <dialog id="time_modal" class="modal">
+            <div class="modal-box">
+                <form method="dialog">
+                    <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+                </form>
+                <h3 class="font-bold text-lg">Edit Stop Time</h3>
+                <p class="py-2 text-sm opacity-70">Stop: Main Street Station • Trip: 101_Outbound</p>
+
+                <div class="grid grid-cols-2 gap-4 my-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Arrival Time</span>
+                        </label>
+                        <input type="text" class="time-input input input-bordered bg-blue-50" value="08:15:00">
+                        <label class="label">
+                            <span class="label-text-alt text-blue-600">When the vehicle arrives</span>
+                        </label>
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Departure Time</span>
+                        </label>
+                        <input type="text" class="time-input input input-bordered bg-orange-50" value="08:16:00">
+                        <label class="label">
+                            <span class="label-text-alt text-orange-600">When the vehicle leaves</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-control">
+                    <label class="cursor-pointer label justify-start gap-3">
+                        <input type="checkbox" class="checkbox checkbox-sm" checked>
+                        <span class="label-text">Link times (same arrival and departure)</span>
+                    </label>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Propagate Changes</span>
+                        <span class="label-text-alt">Apply changes to following stops</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button class="btn btn-sm btn-outline">Next 3 stops</button>
+                        <button class="btn btn-sm btn-outline">All remaining</button>
+                        <button class="btn btn-sm btn-outline">Custom range</button>
+                    </div>
+                </div>
+
+                <div class="modal-action">
+                    <button class="btn btn-primary">Save Changes</button>
+                    <form method="dialog">
+                        <button class="btn">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </dialog>
+
+        <!-- Bottom Notes -->
+        <div class="mt-12 card bg-base-200">
+            <div class="card-body">
+                <h2 class="card-title">Design Considerations</h2>
+                <ul class="list-disc list-inside space-y-2 text-sm">
+                    <li><strong>Easy Same Time:</strong> Most stops have same arrival/departure, so this should be the default</li>
+                    <li><strong>Visual Distinction:</strong> Arrival (blue) vs Departure (orange) color coding</li>
+                    <li><strong>Propagation:</strong> Easy way to apply time changes to multiple following stops</li>
+                    <li><strong>Compact:</strong> Cells should be reasonably sized for timetable view</li>
+                    <li><strong>Progressive Enhancement:</strong> Start simple, reveal complexity when needed</li>
+                    <li><strong>Keyboard Navigation:</strong> Tab, arrow keys, Enter to save</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+
+        themeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                html.setAttribute('data-theme', 'dark');
+            } else {
+                html.setAttribute('data-theme', 'light');
+            }
+        });
+
+        // Add some interactivity to demonstrate concepts
+        document.addEventListener('DOMContentLoaded', function() {
+            // Make time inputs select all on focus
+            document.querySelectorAll('.time-input').forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.select();
+                });
+            });
+
+            // Add hover effects
+            document.querySelectorAll('.cell-demo').forEach(cell => {
+                cell.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.02)';
+                    this.style.transition = 'transform 0.2s ease';
+                });
+                cell.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        });
+    </script>
+</body>
+</html>

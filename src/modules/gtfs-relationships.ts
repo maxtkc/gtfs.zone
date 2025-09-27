@@ -156,18 +156,18 @@ export class GTFSRelationships {
     }
 
     return {
-      id: stop.stop_id,
-      code: stop.stop_code,
-      name: stop.stop_name,
-      desc: stop.stop_desc,
-      lat: parseFloat(stop.stop_lat),
-      lon: parseFloat(stop.stop_lon),
+      stop_id: stop.stop_id,
+      stop_name: stop.stop_name,
+      stop_code: stop.stop_code,
+      stop_desc: stop.stop_desc,
+      stop_lat: parseFloat(stop.stop_lat),
+      stop_lon: parseFloat(stop.stop_lon),
       zone_id: stop.zone_id,
-      url: stop.stop_url,
-      locationType: stop.location_type,
+      stop_url: stop.stop_url,
+      location_type: stop.location_type,
       parent_station: stop.parent_station,
-      timezone: stop.stop_timezone,
-      wheelchairBoarding: stop.wheelchair_boarding,
+      stop_timezone: stop.stop_timezone,
+      wheelchair_boarding: stop.wheelchair_boarding,
       level_id: stop.level_id,
       platform_code: stop.platform_code,
     };
@@ -602,26 +602,25 @@ export class GTFSRelationships {
 
       const stop = stopsData[0];
       return {
-        id: stop.stop_id,
-        code: stop.stop_code,
-        name: stop.stop_name,
-        desc: stop.stop_desc,
-        lat: parseFloat(stop.stop_lat),
-        lon: parseFloat(stop.stop_lon),
+        stop_id: stop.stop_id,
+        stop_name: stop.stop_name,
+        stop_code: stop.stop_code,
+        stop_desc: stop.stop_desc,
+        stop_lat: parseFloat(stop.stop_lat),
+        stop_lon: parseFloat(stop.stop_lon),
         zone_id: stop.zone_id,
-        url: stop.stop_url,
-        locationType: stop.location_type,
+        stop_url: stop.stop_url,
+        location_type: stop.location_type,
         parent_station: stop.parent_station,
-        timezone: stop.stop_timezone,
-        wheelchairBoarding: stop.wheelchair_boarding,
+        stop_timezone: stop.stop_timezone,
+        wheelchair_boarding: stop.wheelchair_boarding,
         level_id: stop.level_id,
         platform_code: stop.platform_code,
       };
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error getting stop by ID from IndexedDB:', error);
-      // Fallback to sync method
-      return this.getStopById(stop_id);
+      throw new Error(`Failed to get stop ${stop_id} from database: ${error}`);
     }
   }
 
