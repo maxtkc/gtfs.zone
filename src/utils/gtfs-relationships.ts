@@ -26,7 +26,7 @@ export interface GTFSDatabase {
 
 export interface EnhancedStop extends Stops {
   routes?: Routes[];
-  parentStationDetails?: Stops;
+  parent_stationDetails?: Stops;
   childStops?: Stops[];
   level?: GTFSRecord;
 }
@@ -127,8 +127,8 @@ export class GTFSRelationshipResolver {
   /**
    * Enhance a stop with related data
    */
-  public enhanceStop(stopId: string): EnhancedStop | undefined {
-    const stop = this.database['stops.txt']?.get(stopId);
+  public enhanceStop(stop_id: string): EnhancedStop | undefined {
+    const stop = this.database['stops.txt']?.get(stop_id);
     if (!stop) {
       return undefined;
     }
@@ -136,47 +136,49 @@ export class GTFSRelationshipResolver {
     const enhanced: EnhancedStop = { ...(stop as Stops) };
 
     // Get parent station
-    const parentStationId = (stop as Record<string, unknown>).parentStation;
-    if (parentStationId) {
-      enhanced.parentStationDetails = this.database['stops.txt']?.get(
-        parentStationId
+    const parent_stationId = (stop as Record<string, unknown>).parent_station;
+    if (parent_stationId) {
+      enhanced.parent_stationDetails = this.database['stops.txt']?.get(
+        parent_stationId
       ) as Stops;
     }
 
     // Get child stops (if this is a station)
     enhanced.childStops = this.getReferencingRecords(
-      stopId,
+      stop_id,
       'stops.txt',
-      'parentStation'
+      'parent_station'
     ) as Stops[];
 
     // Get level information
-    const levelId = (stop as Record<string, unknown>).levelId;
-    if (levelId) {
-      enhanced.level = this.database['levels.txt']?.get(levelId);
+    const level_id = (stop as Record<string, unknown>).level_id;
+    if (level_id) {
+      enhanced.level = this.database['levels.txt']?.get(level_id);
     }
 
     // Get routes serving this stop
     const stopTimes = this.getReferencingRecords(
-      stopId,
+      stop_id,
       'stop_times.txt',
-      'stopId'
+      'stop_id'
     );
 
-    const tripIds = [
-      ...new Set(stopTimes.map((st) => (st as Record<string, unknown>).tripId)),
+    const trip_ids = [
+      ...new Set(
+        stopTimes.map((st) => (st as Record<string, unknown>).trip_id)
+      ),
     ];
-    const routeIds = new Set<string>();
+    const route_ids = new Set<string>();
 
-    for (const tripId of tripIds) {
-      const trip = this.database['trips.txt']?.get(tripId);
+    for (const trip_id of trip_ids) {
+      const trip = this.database['trips.txt']?.get(trip_id);
       if (trip) {
-        routeIds.add((trip as Record<string, unknown>).routeId);
+        route_ids.add((trip as Record<string, unknown>).route_id);
       }
     }
 
-    enhanced.routes = Array.from(routeIds)
-      .map((routeId) => this.database['routes.txt']?.get(routeId))
+    enhanced.routes = Array.from(route_ids)
+      .map((route_id) => this.database['routes.txt']?.get(route_id))
       .filter(Boolean) as Routes[];
 
     return enhanced;
@@ -185,8 +187,8 @@ export class GTFSRelationshipResolver {
   /**
    * Enhance a route with related data
    */
-  public enhanceRoute(routeId: string): EnhancedRoute | undefined {
-    const route = this.database['routes.txt']?.get(routeId);
+  public enhanceRoute(route_id: string): EnhancedRoute | undefined {
+    const route = this.database['routes.txt']?.get(route_id);
     if (!route) {
       return undefined;
     }
@@ -194,33 +196,33 @@ export class GTFSRelationshipResolver {
     const enhanced: EnhancedRoute = { ...(route as Routes) };
 
     // Get agency
-    const agencyId = (route as Record<string, unknown>).agencyId;
-    if (agencyId) {
-      enhanced.agency = this.database['agency.txt']?.get(agencyId) as Agency;
+    const agency_id = (route as Record<string, unknown>).agency_id;
+    if (agency_id) {
+      enhanced.agency = this.database['agency.txt']?.get(agency_id) as Agency;
     }
 
     // Get trips
     enhanced.trips = this.getReferencingRecords(
-      routeId,
+      route_id,
       'trips.txt',
-      'routeId'
+      'route_id'
     ) as Trips[];
 
     // Get unique stops served by this route
-    const stopIds = new Set<string>();
+    const stop_ids = new Set<string>();
     for (const trip of enhanced.trips || []) {
       const tripStopTimes = this.getReferencingRecords(
-        (trip as Record<string, unknown>).tripId,
+        (trip as Record<string, unknown>).trip_id,
         'stop_times.txt',
-        'tripId'
+        'trip_id'
       );
       for (const stopTime of tripStopTimes) {
-        stopIds.add((stopTime as Record<string, unknown>).stopId);
+        stop_ids.add((stopTime as Record<string, unknown>).stop_id);
       }
     }
 
-    enhanced.stops = Array.from(stopIds)
-      .map((stopId) => this.database['stops.txt']?.get(stopId))
+    enhanced.stops = Array.from(stop_ids)
+      .map((stop_id) => this.database['stops.txt']?.get(stop_id))
       .filter(Boolean) as Stops[];
 
     return enhanced;
@@ -229,8 +231,8 @@ export class GTFSRelationshipResolver {
   /**
    * Enhance a trip with related data
    */
-  public enhanceTrip(tripId: string): EnhancedTrip | undefined {
-    const trip = this.database['trips.txt']?.get(tripId);
+  public enhanceTrip(trip_id: string): EnhancedTrip | undefined {
+    const trip = this.database['trips.txt']?.get(trip_id);
     if (!trip) {
       return undefined;
     }
@@ -238,37 +240,37 @@ export class GTFSRelationshipResolver {
     const enhanced: EnhancedTrip = { ...(trip as Trips) };
 
     // Get route
-    const routeId = (trip as Record<string, unknown>).routeId;
-    if (routeId) {
-      enhanced.route = this.database['routes.txt']?.get(routeId) as Routes;
+    const route_id = (trip as Record<string, unknown>).route_id;
+    if (route_id) {
+      enhanced.route = this.database['routes.txt']?.get(route_id) as Routes;
     }
 
     // Get service pattern
-    const serviceId = (trip as Record<string, unknown>).serviceId;
-    if (serviceId) {
+    const service_id = (trip as Record<string, unknown>).service_id;
+    if (service_id) {
       enhanced.servicePattern =
-        this.database['calendar.txt']?.get(serviceId) ||
-        this.database['calendar_dates.txt']?.get(serviceId);
+        this.database['calendar.txt']?.get(service_id) ||
+        this.database['calendar_dates.txt']?.get(service_id);
     }
 
     // Get stop times
     enhanced.stopTimes = this.getReferencingRecords(
-      tripId,
+      trip_id,
       'stop_times.txt',
-      'tripId'
+      'trip_id'
     ).sort(
       (a, b) =>
-        ((a as Record<string, unknown>).stopSequence || 0) -
-        ((b as Record<string, unknown>).stopSequence || 0)
+        ((a as Record<string, unknown>).stop_sequence || 0) -
+        ((b as Record<string, unknown>).stop_sequence || 0)
     );
 
     // Get shape
-    const shapeId = (trip as Record<string, unknown>).shapeId;
-    if (shapeId) {
+    const shape_id = (trip as Record<string, unknown>).shape_id;
+    if (shape_id) {
       enhanced.shape = this.getReferencingRecords(
-        shapeId,
+        shape_id,
         'shapes.txt',
-        'shapeId'
+        'shape_id'
       ).sort(
         (a, b) =>
           ((a as Record<string, unknown>).shapePtSequence || 0) -
@@ -278,9 +280,9 @@ export class GTFSRelationshipResolver {
 
     // Get frequencies
     enhanced.frequencies = this.getReferencingRecords(
-      tripId,
+      trip_id,
       'frequencies.txt',
-      'tripId'
+      'trip_id'
     );
 
     return enhanced;

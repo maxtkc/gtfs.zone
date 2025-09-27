@@ -12,8 +12,8 @@ interface GTFSParser {
 }
 
 interface MapController {
-  highlightStop: (stopId: string) => void;
-  highlightRoute: (routeId: string) => void;
+  highlightStop: (stop_id: string) => void;
+  highlightRoute: (route_id: string) => void;
   clearHighlights: () => void;
 }
 
@@ -31,7 +31,9 @@ export class SearchController {
   }
 
   initialize(): void {
-    this.searchInput = document.getElementById('map-search') as HTMLInputElement;
+    this.searchInput = document.getElementById(
+      'map-search'
+    ) as HTMLInputElement;
     if (!this.searchInput) {
       return;
     }

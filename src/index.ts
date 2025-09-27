@@ -193,11 +193,11 @@ export class GTFSEditor {
 
   // Navigation helper methods for global access
   async navigateToTimetable(
-    routeId: string,
-    serviceId: string,
-    directionId?: string
+    route_id: string,
+    service_id: string,
+    direction_id?: string
   ): Promise<void> {
-    await navigateToTimetable(routeId, serviceId, directionId);
+    await navigateToTimetable(route_id, service_id, direction_id);
   }
 }
 

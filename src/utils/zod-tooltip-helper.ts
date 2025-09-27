@@ -166,14 +166,12 @@ export function createTooltip(content: string, tooltip: string): string {
 }
 
 /**
- * Convert snake_case field names to camelCase versions used in our schemas.
- * This uses the same logic as the GTFS type generation to ensure consistency.
+ * Keep snake_case field names to match GTFS specification.
+ * This ensures consistency with the GTFS type generation.
  */
 function formatFieldName(fieldName: string): string {
-  // Convert snake_case to camelCase for TypeScript
-  return fieldName.replace(/_([a-z])/g, (match, letter) =>
-    letter.toUpperCase()
-  );
+  // Keep snake_case field names to match GTFS specification
+  return fieldName;
 }
 
 /**

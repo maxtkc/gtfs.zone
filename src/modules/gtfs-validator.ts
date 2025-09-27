@@ -23,7 +23,9 @@ interface ValidationResults {
 
 interface GTFSParserInterface {
   getFileDataSync(fileName: string): GTFSDatabaseRecord[] | null;
-  getFileDataSyncTyped<T extends GTFSTableName>(fileName: `${T}.txt`): GTFSTableMap[T][] | null;
+  getFileDataSyncTyped<T extends GTFSTableName>(
+    fileName: `${T}.txt`
+  ): GTFSTableMap[T][] | null;
   getAllFileNames(): string[];
   gtfsData: {
     [fileName: string]: {
@@ -138,7 +140,7 @@ export class GTFSValidator {
       return;
     }
 
-    const agencyIds = new Set();
+    const agency_ids = new Set();
 
     agencies.forEach((agency, index: number) => {
       const rowNum = index + 1;
@@ -180,7 +182,7 @@ export class GTFSValidator {
 
       // Check for duplicate agency_id
       if (agency.agency_id) {
-        if (agencyIds.has(agency.agency_id)) {
+        if (agency_ids.has(agency.agency_id)) {
           this.addError(
             `Row ${rowNum}: Duplicate agency_id '${agency.agency_id}'`,
             'DUPLICATE_ID',
@@ -188,7 +190,7 @@ export class GTFSValidator {
             rowNum
           );
         }
-        agencyIds.add(agency.agency_id);
+        agency_ids.add(agency.agency_id);
       } else if (agencies.length > 1) {
         this.addError(
           `Row ${rowNum}: agency_id is required when multiple agencies exist`,
@@ -215,10 +217,8 @@ export class GTFSValidator {
       return;
     }
 
-    const routeIds = new Set();
-    const agencyIds = new Set(
-      (agencies || []).map((a) => a.agency_id)
-    );
+    const route_ids = new Set();
+    const agency_ids = new Set((agencies || []).map((a) => a.agency_id));
 
     routes.forEach((route, index: number) => {
       const rowNum = index + 1;
@@ -232,7 +232,7 @@ export class GTFSValidator {
           rowNum
         );
       } else {
-        if (routeIds.has(route.route_id)) {
+        if (route_ids.has(route.route_id)) {
           this.addError(
             `Row ${rowNum}: Duplicate route_id '${route.route_id}'`,
             'DUPLICATE_ID',
@@ -240,7 +240,7 @@ export class GTFSValidator {
             rowNum
           );
         }
-        routeIds.add(route.route_id);
+        route_ids.add(route.route_id);
       }
 
       if (!route.route_short_name && !route.route_long_name) {
@@ -283,7 +283,7 @@ export class GTFSValidator {
       }
 
       // Validate agency_id reference
-      if (route.agency_id && !agencyIds.has(route.agency_id)) {
+      if (route.agency_id && !agency_ids.has(route.agency_id)) {
         this.addError(
           `Row ${rowNum}: agency_id '${route.agency_id}' not found in agency.txt`,
           'INVALID_REFERENCE',
@@ -307,7 +307,7 @@ export class GTFSValidator {
       return;
     }
 
-    const stopIds = new Set();
+    const stop_ids = new Set();
 
     stops.forEach((stop, index: number) => {
       const rowNum = index + 1;
@@ -321,7 +321,7 @@ export class GTFSValidator {
           rowNum
         );
       } else {
-        if (stopIds.has(stop.stop_id)) {
+        if (stop_ids.has(stop.stop_id)) {
           this.addError(
             `Row ${rowNum}: Duplicate stop_id '${stop.stop_id}'`,
             'DUPLICATE_ID',
@@ -329,7 +329,7 @@ export class GTFSValidator {
             rowNum
           );
         }
-        stopIds.add(stop.stop_id);
+        stop_ids.add(stop.stop_id);
       }
 
       if (!stop.stop_name || stop.stop_name.trim() === '') {
@@ -410,10 +410,8 @@ export class GTFSValidator {
       return;
     }
 
-    const tripIds = new Set();
-    const routeIds = new Set(
-      (routes || []).map((r) => r.route_id)
-    );
+    const trip_ids = new Set();
+    const route_ids = new Set((routes || []).map((r) => r.route_id));
 
     trips.forEach((trip, index: number) => {
       const rowNum = index + 1;
@@ -427,7 +425,7 @@ export class GTFSValidator {
           rowNum
         );
       } else {
-        if (tripIds.has(trip.trip_id)) {
+        if (trip_ids.has(trip.trip_id)) {
           this.addError(
             `Row ${rowNum}: Duplicate trip_id '${trip.trip_id}'`,
             'DUPLICATE_ID',
@@ -435,7 +433,7 @@ export class GTFSValidator {
             rowNum
           );
         }
-        tripIds.add(trip.trip_id);
+        trip_ids.add(trip.trip_id);
       }
 
       if (!trip.route_id || trip.route_id.trim() === '') {
@@ -445,7 +443,7 @@ export class GTFSValidator {
           'trips.txt',
           rowNum
         );
-      } else if (!routeIds.has(trip.route_id)) {
+      } else if (!route_ids.has(trip.route_id)) {
         this.addError(
           `Row ${rowNum}: route_id '${trip.route_id}' not found in routes.txt`,
           'INVALID_REFERENCE',
@@ -481,12 +479,8 @@ export class GTFSValidator {
       return;
     }
 
-    const tripIds = new Set(
-      (trips || []).map((t) => t.trip_id)
-    );
-    const stopIds = new Set(
-      (stops || []).map((s) => s.stop_id)
-    );
+    const trip_ids = new Set((trips || []).map((t) => t.trip_id));
+    const stop_ids = new Set((stops || []).map((s) => s.stop_id));
 
     stopTimes.forEach((stopTime, index: number) => {
       const rowNum = index + 1;
@@ -499,7 +493,7 @@ export class GTFSValidator {
           'stop_times.txt',
           rowNum
         );
-      } else if (!tripIds.has(stopTime.trip_id)) {
+      } else if (!trip_ids.has(stopTime.trip_id)) {
         this.addError(
           `Row ${rowNum}: trip_id '${stopTime.trip_id}' not found in trips.txt`,
           'INVALID_REFERENCE',
@@ -515,7 +509,7 @@ export class GTFSValidator {
           'stop_times.txt',
           rowNum
         );
-      } else if (!stopIds.has(stopTime.stop_id)) {
+      } else if (!stop_ids.has(stopTime.stop_id)) {
         this.addError(
           `Row ${rowNum}: stop_id '${stopTime.stop_id}' not found in stops.txt`,
           'INVALID_REFERENCE',
@@ -568,7 +562,8 @@ export class GTFSValidator {
 
   validateCalendar() {
     const calendar = this.gtfsParser.getFileDataSyncTyped('calendar.txt');
-    const calendarDates = this.gtfsParser.getFileDataSyncTyped('calendar_dates.txt');
+    const calendarDates =
+      this.gtfsParser.getFileDataSyncTyped('calendar_dates.txt');
 
     if (calendar) {
       calendar.forEach((service, index: number) => {
@@ -724,16 +719,14 @@ export class GTFSValidator {
     const stopTimes = this.gtfsParser.getFileDataSyncTyped('stop_times.txt');
 
     if (trips && stopTimes) {
-      const tripIds = new Set(trips.map((t) => t.trip_id));
-      const tripsWithStopTimes = new Set(
-        stopTimes.map((st) => st.trip_id)
-      );
+      const trip_ids = new Set(trips.map((t) => t.trip_id));
+      const tripsWithStopTimes = new Set(stopTimes.map((st) => st.trip_id));
 
       // Check for trips without stop times
-      tripIds.forEach((tripId: string) => {
-        if (!tripsWithStopTimes.has(tripId)) {
+      trip_ids.forEach((trip_id: string) => {
+        if (!tripsWithStopTimes.has(trip_id)) {
           this.addWarning(
-            `Trip '${tripId}' has no stop times`,
+            `Trip '${trip_id}' has no stop times`,
             'TRIP_WITHOUT_STOP_TIMES',
             'trips.txt'
           );

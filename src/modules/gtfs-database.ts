@@ -16,12 +16,15 @@ import {
   FareAttributes,
   FareRules,
   ProjectMetadata,
-  GTFSTableMap
+  GTFSTableMap,
 } from '../types/gtfs-entities.js';
 import {
   getNaturalKeyField,
   isNaturalKey,
-  generateCompositeKeyFromRecord
+  generateCompositeKeyFromRecord,
+  parseCompositeKey,
+  getPrimaryKeyFields,
+  isCompositeKey,
 } from '../utils/gtfs-primary-keys.js';
 
 // Keep for backwards compatibility and dynamic operations
@@ -53,7 +56,7 @@ export interface GTFSDBSchema extends DBSchema {
     value: Trips;
   };
   stop_times: {
-    key: string; // Composite: tripId + ":" + stopSequence
+    key: string; // Composite: trip_id + ":" + stop_sequence
     value: StopTimes;
   };
   calendar: {
@@ -61,7 +64,7 @@ export interface GTFSDBSchema extends DBSchema {
     value: Calendar;
   };
   calendar_dates: {
-    key: string; // Composite: serviceId + ":" + date
+    key: string; // Composite: service_id + ":" + date
     value: CalendarDates;
   };
   shapes: {
@@ -140,13 +143,17 @@ export class GTFSDatabase {
       this.db = await openDB<GTFSDBSchema>(this.dbName, this.dbVersion, {
         upgrade: (db, oldVersion, newVersion, _transaction) => {
           // eslint-disable-next-line no-console
-          console.log(`Upgrading database from version ${oldVersion} to ${newVersion}`);
+          console.log(
+            `Upgrading database from version ${oldVersion} to ${newVersion}`
+          );
 
           if (oldVersion < 3) {
             // Migration to version 3: Switch to natural GTFS primary keys
             // Clear existing data as we're changing the key structure
             // eslint-disable-next-line no-console
-            console.log('Migrating to natural GTFS primary keys - clearing existing data');
+            console.log(
+              'Migrating to natural GTFS primary keys - clearing existing data'
+            );
 
             // Delete all existing object stores
             const existingStores = Array.from(db.objectStoreNames);
@@ -234,10 +241,15 @@ export class GTFSDatabase {
   /**
    * Generate composite key for entities with multiple primary key fields
    */
-  private generateCompositeKey(tableName: string, record: GTFSDatabaseRecord): string {
+  private generateCompositeKey(
+    tableName: string,
+    record: GTFSDatabaseRecord
+  ): string {
     try {
       const key = generateCompositeKeyFromRecord(tableName, record);
-      console.log(`DEBUG: Generated key "${key}" for ${tableName} record using GTFS spec`);
+      console.log(
+        `DEBUG: Generated key "${key}" for ${tableName} record using GTFS spec`
+      );
       return key;
     } catch (error) {
       console.error(`ERROR: Failed to generate key for ${tableName}:`, error);
@@ -247,52 +259,27 @@ export class GTFSDatabase {
   }
 
   /**
-   * Parse composite key back into components
+   * Parse composite key back into components using GTFS specification
    */
-  private parseCompositeKey(tableName: string, key: string): Record<string, string> {
-    switch (tableName) {
-      case 'stop_times': {
-        const [tripId, stopSequence] = key.split(':');
-        return { trip_id: tripId, stop_sequence: stopSequence };
-      }
-      case 'calendar_dates': {
-        const [serviceId, date] = key.split(':');
-        return { service_id: serviceId, date: date };
-      }
-      case 'frequencies': {
-        const [tripId, startTime] = key.split(':');
-        return { trip_id: tripId, start_time: startTime };
-      }
-      case 'transfers':
-        return { from_stop_id: key };
-      case 'feed_info':
-        return {};
-      default:
-        throw new Error(`No composite key parser defined for table: ${tableName}`);
-    }
+  private parseCompositeKeyFromString(
+    tableName: string,
+    key: string
+  ): Record<string, string> {
+    return parseCompositeKey(tableName, key);
   }
 
   /**
    * Check if a table uses composite keys
    */
   private hasCompositeKey(tableName: string): boolean {
-    return ['stop_times', 'calendar_dates', 'frequencies'].includes(tableName);
+    return isCompositeKey(tableName);
   }
 
   /**
-   * Get composite key fields for a table
+   * Get composite key fields for a table using GTFS specification
    */
   private getCompositeKeyFields(tableName: string): string[] {
-    switch (tableName) {
-      case 'stop_times':
-        return ['trip_id', 'stop_sequence'];
-      case 'calendar_dates':
-        return ['service_id', 'date'];
-      case 'frequencies':
-        return ['trip_id', 'start_time'];
-      default:
-        return [];
-    }
+    return getPrimaryKeyFields(tableName);
   }
 
   /**
@@ -321,19 +308,31 @@ export class GTFSDatabase {
     console.error(`Database error in ${operation}:`, error);
 
     // Enhanced constraint error debugging
-    if (error.name === 'ConstraintError' || error.message?.includes('constraint')) {
+    if (
+      error.name === 'ConstraintError' ||
+      error.message?.includes('constraint')
+    ) {
       console.error('CONSTRAINT ERROR DETAILS:');
       console.error('  Error name:', error.name);
       console.error('  Error message:', error.message);
       console.error('  Operation:', operation);
 
       // Try to provide more context about what kind of constraint failed
-      if (error.message?.includes('duplicate') || error.message?.includes('unique')) {
-        console.error('  → This appears to be a DUPLICATE KEY constraint violation');
-        console.error('  → Check for duplicate primary keys or unique constraints');
+      if (
+        error.message?.includes('duplicate') ||
+        error.message?.includes('unique')
+      ) {
+        console.error(
+          '  → This appears to be a DUPLICATE KEY constraint violation'
+        );
+        console.error(
+          '  → Check for duplicate primary keys or unique constraints'
+        );
       } else if (error.message?.includes('not satisfied')) {
         console.error('  → This appears to be a GENERAL CONSTRAINT violation');
-        console.error('  → Could be missing required fields, invalid data types, or key constraints');
+        console.error(
+          '  → Could be missing required fields, invalid data types, or key constraints'
+        );
       }
     }
 
@@ -588,20 +587,33 @@ export class GTFSDatabase {
         if (keyPath) {
           // Simple natural key - use the field as key
           const keyValue = row[keyPath];
-          console.log(`DEBUG: ${tableName} row ${index} - using natural key "${keyPath}" = "${keyValue}"`);
+          console.log(
+            `DEBUG: ${tableName} row ${index} - using natural key "${keyPath}" = "${keyValue}"`
+          );
           if (!keyValue) {
-            console.error(`ERROR: ${tableName} row ${index} missing required key field "${keyPath}":`, row);
-            throw new Error(`Missing required key field "${keyPath}" in row ${index}`);
+            console.error(
+              `ERROR: ${tableName} row ${index} missing required key field "${keyPath}":`,
+              row
+            );
+            throw new Error(
+              `Missing required key field "${keyPath}" in row ${index}`
+            );
           }
           return store.add(row);
         } else {
           // Composite key or special case - generate key
           const key = this.generateCompositeKey(tableName, row);
-          console.log(`DEBUG: ${tableName} row ${index} - generated composite key: "${key}"`);
+          console.log(
+            `DEBUG: ${tableName} row ${index} - generated composite key: "${key}"`
+          );
           return store.add(row, key);
         }
       } catch (error) {
-        console.error(`ERROR: Failed to prepare ${tableName} row ${index} for insertion:`, error, row);
+        console.error(
+          `ERROR: Failed to prepare ${tableName} row ${index} for insertion:`,
+          error,
+          row
+        );
         throw error;
       }
     });
@@ -810,7 +822,11 @@ export class GTFSDatabase {
       const projectData = { ...metadata, id: 'project' };
 
       if (existing) {
-        await this.db.put('project', { ...existing, ...projectData }, 'project');
+        await this.db.put(
+          'project',
+          { ...existing, ...projectData },
+          'project'
+        );
       } else {
         await this.db.add('project', projectData, 'project');
       }
@@ -1130,11 +1146,11 @@ export class GTFSDatabase {
     try {
       const transaction = this.db.transaction('trips', 'readwrite');
       const store = transaction.objectStore('trips');
-      const tripId = tripData.trip_id as string;
+      const trip_id = tripData.trip_id as string;
       await store.add(tripData);
       await transaction.done;
-      console.log(`Inserted new trip with ID ${tripId}`);
-      return tripId;
+      console.log(`Inserted new trip with ID ${trip_id}`);
+      return trip_id;
     } catch (error) {
       console.error('Failed to insert trip:', error);
       throw error;
@@ -1145,16 +1161,16 @@ export class GTFSDatabase {
    * Update a trip record
    */
   async updateTrip(
-    tripId: string,
+    trip_id: string,
     tripData: Partial<GTFSDatabaseRecord>
   ): Promise<void> {
-    await this.updateRow('trips', tripId, tripData);
+    await this.updateRow('trips', trip_id, tripData);
   }
 
   /**
    * Delete a trip and all its stop_times
    */
-  async deleteTrip(tripId: string): Promise<void> {
+  async deleteTrip(trip_id: string): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -1166,12 +1182,12 @@ export class GTFSDatabase {
       );
 
       // Delete trip record
-      await transaction.objectStore('trips').delete(tripId);
+      await transaction.objectStore('trips').delete(trip_id);
 
       // Delete all stop_times for this trip
       const stopTimesStore = transaction.objectStore('stop_times');
       const stopTimesIndex = stopTimesStore.index('trip_id');
-      const stopTimesCursor = await stopTimesIndex.openCursor(tripId);
+      const stopTimesCursor = await stopTimesIndex.openCursor(trip_id);
 
       while (stopTimesCursor) {
         await stopTimesCursor.delete();
@@ -1179,9 +1195,9 @@ export class GTFSDatabase {
       }
 
       await transaction.done;
-      console.log(`Deleted trip ${tripId} and its stop_times`);
+      console.log(`Deleted trip ${trip_id} and its stop_times`);
     } catch (error) {
-      console.error(`Failed to delete trip ${tripId}:`, error);
+      console.error(`Failed to delete trip ${trip_id}:`, error);
       throw error;
     }
   }
@@ -1243,7 +1259,10 @@ export class GTFSDatabase {
         }
 
         // Generate composite key for stop_times
-        const compositeKey = this.generateCompositeKey('stop_times', newStopTime);
+        const compositeKey = this.generateCompositeKey(
+          'stop_times',
+          newStopTime
+        );
         await stopTimesStore.add(newStopTime, compositeKey);
         await stopTimesCursor.continue();
       }
@@ -1260,12 +1279,12 @@ export class GTFSDatabase {
    * Bulk update stop_times for a trip
    */
   async bulkUpdateStopTimes(
-    tripId: string,
+    trip_id: string,
     stopTimeUpdates: Array<{
-      stopId: string;
-      stopSequence: number;
-      arrivalTime?: string;
-      departureTime?: string;
+      stop_id: string;
+      stop_sequence: number;
+      arrival_time?: string;
+      departure_time?: string;
       isSkipped?: boolean;
     }>
   ): Promise<void> {
@@ -1279,7 +1298,7 @@ export class GTFSDatabase {
       const index = store.index('trip_id');
 
       // Get all existing stop_times for this trip
-      const existingStopTimes = await index.getAll(tripId);
+      const existingStopTimes = await index.getAll(trip_id);
 
       // Create a map for quick lookup
       const existingMap = new Map(
@@ -1287,17 +1306,17 @@ export class GTFSDatabase {
       );
 
       for (const update of stopTimeUpdates) {
-        const key = `${update.stopId}_${update.stopSequence}`;
+        const key = `${update.stop_id}_${update.stop_sequence}`;
         const existing = existingMap.get(key);
 
         if (existing) {
           // Update existing record
           const updated = { ...existing };
-          if (update.arrivalTime !== undefined) {
-            updated.arrival_time = update.arrivalTime;
+          if (update.arrival_time !== undefined) {
+            updated.arrival_time = update.arrival_time;
           }
-          if (update.departureTime !== undefined) {
-            updated.departure_time = update.departureTime;
+          if (update.departure_time !== undefined) {
+            updated.departure_time = update.departure_time;
           }
           if (update.isSkipped) {
             // Mark as skipped by removing times
@@ -1308,24 +1327,27 @@ export class GTFSDatabase {
         } else if (!update.isSkipped) {
           // Insert new stop_time if not skipped
           const newStopTime: GTFSDatabaseRecord = {
-            trip_id: tripId,
-            stop_id: update.stopId,
-            stop_sequence: update.stopSequence,
-            arrival_time: update.arrivalTime || '',
-            departure_time: update.departureTime || update.arrivalTime || '',
+            trip_id: trip_id,
+            stop_id: update.stop_id,
+            stop_sequence: update.stop_sequence,
+            arrival_time: update.arrival_time || '',
+            departure_time: update.departure_time || update.arrival_time || '',
             pickup_type: 0,
             drop_off_type: 0,
           };
-          const compositeKey = this.generateCompositeKey('stop_times', newStopTime);
+          const compositeKey = this.generateCompositeKey(
+            'stop_times',
+            newStopTime
+          );
           await store.add(newStopTime, compositeKey);
         }
       }
 
       await transaction.done;
-      console.log(`Bulk updated stop_times for trip ${tripId}`);
+      console.log(`Bulk updated stop_times for trip ${trip_id}`);
     } catch (error) {
       console.error(
-        `Failed to bulk update stop_times for trip ${tripId}:`,
+        `Failed to bulk update stop_times for trip ${trip_id}:`,
         error
       );
       throw error;
@@ -1336,7 +1358,7 @@ export class GTFSDatabase {
    * Update service/calendar record
    */
   async updateService(
-    serviceId: string,
+    service_id: string,
     serviceData: Partial<GTFSDatabaseRecord>
   ): Promise<void> {
     if (!this.db) {
@@ -1347,22 +1369,22 @@ export class GTFSDatabase {
       const transaction = this.db.transaction('calendar', 'readwrite');
       const store = transaction.objectStore('calendar');
       const index = store.index('service_id');
-      const existing = await index.get(serviceId);
+      const existing = await index.get(service_id);
 
       if (existing) {
         const updated = { ...existing, ...serviceData };
         await store.put(updated);
-        console.log(`Updated service ${serviceId}`);
+        console.log(`Updated service ${service_id}`);
       } else {
         // Create new service record
-        const newService = { ...serviceData, service_id: serviceId };
+        const newService = { ...serviceData, service_id: service_id };
         await store.add(newService);
-        console.log(`Created new service ${serviceId}`);
+        console.log(`Created new service ${service_id}`);
       }
 
       await transaction.done;
     } catch (error) {
-      console.error(`Failed to update service ${serviceId}:`, error);
+      console.error(`Failed to update service ${service_id}:`, error);
       throw error;
     }
   }
@@ -1370,7 +1392,7 @@ export class GTFSDatabase {
   /**
    * Check referential integrity before deletion
    */
-  async checkTripReferences(tripId: string): Promise<{
+  async checkTripReferences(trip_id: string): Promise<{
     canDelete: boolean;
     blockingReferences: string[];
   }> {
@@ -1382,14 +1404,16 @@ export class GTFSDatabase {
 
     try {
       // Check stop_times
-      const stopTimes = await this.queryRows('stop_times', { trip_id: tripId });
+      const stopTimes = await this.queryRows('stop_times', {
+        trip_id: trip_id,
+      });
       if (stopTimes.length > 0) {
         blockingReferences.push(`${stopTimes.length} stop_times records`);
       }
 
       // Check frequencies
       const frequencies = await this.queryRows('frequencies', {
-        trip_id: tripId,
+        trip_id: trip_id,
       });
       if (frequencies.length > 0) {
         blockingReferences.push(`${frequencies.length} frequencies records`);
@@ -1400,7 +1424,7 @@ export class GTFSDatabase {
         blockingReferences,
       };
     } catch (error) {
-      console.error(`Failed to check references for trip ${tripId}:`, error);
+      console.error(`Failed to check references for trip ${trip_id}:`, error);
       return {
         canDelete: false,
         blockingReferences: ['Error checking references'],

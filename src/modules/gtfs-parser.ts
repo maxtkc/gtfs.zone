@@ -16,7 +16,7 @@ type GTFSTableName = keyof GTFSTableMap;
 
 export class GTFSParser {
   private gtfsData: { [fileName: string]: GTFSFileData } = {};
-  private gtfsDatabase: GTFSDatabase;
+  public gtfsDatabase: GTFSDatabase;
 
   constructor() {
     this.gtfsData = {};
@@ -377,7 +377,7 @@ export class GTFSParser {
   // Type-safe parsing method that returns properly typed entities
   private parseCSVWithType<T extends keyof GTFSTableMap>(
     content: string,
-    tableName: T
+    _tableName: T
   ): { data: GTFSTableMap[T][]; errors: Papa.ParseError[] } {
     const parsed = Papa.parse(content, {
       header: true,
@@ -612,7 +612,7 @@ export class GTFSParser {
     }
   }
 
-  getRoutesForStop(stopId: string) {
+  getRoutesForStop(stop_id: string) {
     const routes = this.getFileDataSyncTyped('routes.txt');
     const trips = this.getFileDataSyncTyped('trips.txt');
     const stopTimes = this.getFileDataSyncTyped('stop_times.txt');
@@ -623,11 +623,11 @@ export class GTFSParser {
 
     // Find trips that serve this stop
     const tripsAtStop = stopTimes
-      .filter((st) => st.stop_id === stopId)
+      .filter((st) => st.stop_id === stop_id)
       .map((st) => st.trip_id);
 
     // Find routes for those trips
-    const routeIds = [
+    const route_ids = [
       ...new Set(
         trips
           .filter((trip) => tripsAtStop.includes(trip.trip_id))
@@ -635,7 +635,7 @@ export class GTFSParser {
       ),
     ];
 
-    return routes.filter((route) => routeIds.includes(route.route_id));
+    return routes.filter((route) => route_ids.includes(route.route_id));
   }
 
   getWheelchairText(wheelchairBoarding: string) {
@@ -781,7 +781,7 @@ export class GTFSParser {
     };
   }
 
-  async getRoutesForStopAsync(stopId: string) {
+  async getRoutesForStopAsync(stop_id: string) {
     const routes = await this.getFileDataTyped('routes.txt');
     const trips = await this.getFileDataTyped('trips.txt');
     const stopTimes = await this.getFileDataTyped('stop_times.txt');
@@ -792,11 +792,11 @@ export class GTFSParser {
 
     // Find trips that serve this stop
     const tripsAtStop = stopTimes
-      .filter((st) => st.stop_id === stopId)
+      .filter((st) => st.stop_id === stop_id)
       .map((st) => st.trip_id);
 
     // Find routes for those trips
-    const routeIds = [
+    const route_ids = [
       ...new Set(
         trips
           .filter((trip) => tripsAtStop.includes(trip.trip_id))
@@ -804,7 +804,7 @@ export class GTFSParser {
       ),
     ];
 
-    return routes.filter((route) => routeIds.includes(route.route_id));
+    return routes.filter((route) => route_ids.includes(route.route_id));
   }
 
   /**

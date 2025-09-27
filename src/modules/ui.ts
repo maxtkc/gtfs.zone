@@ -468,7 +468,9 @@ export class UIController {
 
     // If rowId is provided, we could potentially navigate to that specific row
     // For now, just open the file
-    console.log(`Opened ${filename} in editor${rowId ? ` for row ${rowId}` : ''}`);
+    console.log(
+      `Opened ${filename} in editor${rowId ? ` for row ${rowId}` : ''}`
+    );
   }
 
   showFileList() {
@@ -676,21 +678,21 @@ export class UIController {
       if (
         objectType === 'Agency' ||
         key.startsWith('agency_') ||
-        key === 'agencyId'
+        key === 'agency_id'
       ) {
         tooltipDescription = getAgencyFieldDescription(schemaFieldName);
         console.log('Agency tooltip for', key, ':', tooltipDescription);
       } else if (
         objectType === 'Route' ||
         key.startsWith('route_') ||
-        key === 'routeId'
+        key === 'route_id'
       ) {
         tooltipDescription = getRouteFieldDescription(schemaFieldName);
         console.log('Route tooltip for', key, ':', tooltipDescription);
       } else if (
         objectType === 'Service' ||
         key.startsWith('service_') ||
-        key === 'serviceId' ||
+        key === 'service_id' ||
         key.includes('date') ||
         key.includes('day')
       ) {
@@ -833,7 +835,7 @@ export class UIController {
           // Route color indicator
           const colorEl = document.createElement('div');
           colorEl.className = 'w-2 h-2 rounded-full flex-shrink-0';
-          colorEl.style.backgroundColor = route.routeColor || '#2563eb';
+          colorEl.style.backgroundColor = route.route_color || '#2563eb';
 
           const routeNameEl = document.createElement('span');
           routeNameEl.className = 'text-xs font-medium flex-1';
@@ -869,14 +871,14 @@ export class UIController {
                 e.stopPropagation();
                 if (
                   service.scheduleAction &&
-                  service.routeId &&
-                  service.data?.serviceId
+                  service.route_id &&
+                  service.data?.service_id
                 ) {
                   // Navigate to timetable view using the new navigation system
                   navigateToTimetable(
-                    service.routeId,
-                    service.data.serviceId,
-                    service.directionId || service.data.directionId
+                    service.route_id,
+                    service.data.service_id,
+                    service.direction_id || service.data.direction_id
                   );
                 }
               });
@@ -930,9 +932,9 @@ export class UIController {
         // Agency double-click action
         headerEl.addEventListener('dblclick', () => {
           if (obj.agencyAction && this.objectsNavigation) {
-            const agencyId = obj.data.id || obj.data.agency_id;
-            if (agencyId) {
-              this.objectsNavigation.navigateToAgency(agencyId);
+            const agency_id = obj.data.id || obj.data.agency_id;
+            if (agency_id) {
+              this.objectsNavigation.navigateToAgency(agency_id);
             }
           }
         });
@@ -955,7 +957,7 @@ export class UIController {
         // Route color indicator
         const colorEl = document.createElement('div');
         colorEl.className = 'w-3 h-3 rounded-full flex-shrink-0';
-        colorEl.style.backgroundColor = obj.routeColor || '#2563eb';
+        colorEl.style.backgroundColor = obj.route_color || '#2563eb';
 
         const nameEl = document.createElement('span');
         nameEl.className = 'text-sm font-medium flex-1';
@@ -1039,23 +1041,23 @@ export class UIController {
         itemEl.appendChild(typeEl);
 
         itemEl.addEventListener('click', async () => {
-          if (obj.scheduleAction && obj.routeId && obj.data?.serviceId) {
+          if (obj.scheduleAction && obj.route_id && obj.data?.service_id) {
             // Navigate to timetable view using the new navigation system
             navigateToTimetable(
-              obj.routeId,
-              obj.data.serviceId,
-              obj.directionId || obj.data.directionId
+              obj.route_id,
+              obj.data.service_id,
+              obj.direction_id || obj.data.direction_id
             );
           } else if (obj.agencyAction && this.objectsNavigation) {
             // Navigate to agency view to show routes
-            const agencyId = obj.data.id || obj.data.agency_id;
-            if (agencyId) {
-              this.objectsNavigation.navigateToAgency(agencyId);
+            const agency_id = obj.data.id || obj.data.agency_id;
+            if (agency_id) {
+              this.objectsNavigation.navigateToAgency(agency_id);
             }
-          } else if (obj.routeAction && obj.routeId) {
+          } else if (obj.routeAction && obj.route_id) {
             // Navigate to route view to show services
             if (this.objectsNavigation) {
-              this.objectsNavigation.navigateToRoute(obj.routeId);
+              this.objectsNavigation.navigateToRoute(obj.route_id);
             }
           } else {
             this.showObjectDetails(

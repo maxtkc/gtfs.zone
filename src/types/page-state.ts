@@ -16,15 +16,15 @@
  */
 export type PageState =
   | { type: 'home' }
-  | { type: 'agency'; agencyId: string }
-  | { type: 'route'; routeId: string }
+  | { type: 'agency'; agency_id: string }
+  | { type: 'route'; route_id: string }
   | {
       type: 'timetable';
-      routeId: string;
-      serviceId: string;
-      directionId?: string;
+      route_id: string;
+      service_id: string;
+      direction_id?: string;
     }
-  | { type: 'stop'; stopId: string };
+  | { type: 'stop'; stop_id: string };
 
 /**
  * Represents a single item in the breadcrumb trail.
@@ -53,34 +53,34 @@ export function isPageState(value: unknown): value is PageState {
       return Object.keys(state).length === 1;
 
     case 'agency': {
-      const agencyState = state as { type: string; agencyId?: string };
+      const agencyState = state as { type: string; agency_id?: string };
       return (
         Object.keys(state).length === 2 &&
-        typeof agencyState.agencyId === 'string'
+        typeof agencyState.agency_id === 'string'
       );
     }
 
     case 'route': {
-      const routeState = state as { type: string; routeId?: string };
+      const routeState = state as { type: string; route_id?: string };
       return (
         Object.keys(state).length === 2 &&
-        typeof routeState.routeId === 'string'
+        typeof routeState.route_id === 'string'
       );
     }
 
     case 'timetable': {
       const timetableState = state as {
         type: string;
-        routeId?: string;
-        serviceId?: string;
-        directionId?: string;
+        route_id?: string;
+        service_id?: string;
+        direction_id?: string;
       };
       const hasRequiredFields =
-        typeof timetableState.routeId === 'string' &&
-        typeof timetableState.serviceId === 'string';
+        typeof timetableState.route_id === 'string' &&
+        typeof timetableState.service_id === 'string';
       const hasValidDirectionId =
-        timetableState.directionId === undefined ||
-        typeof timetableState.directionId === 'string';
+        timetableState.direction_id === undefined ||
+        typeof timetableState.direction_id === 'string';
       const keyCount = Object.keys(state).length;
       return (
         hasRequiredFields &&
@@ -90,9 +90,9 @@ export function isPageState(value: unknown): value is PageState {
     }
 
     case 'stop': {
-      const stopState = state as { type: string; stopId?: string };
+      const stopState = state as { type: string; stop_id?: string };
       return (
-        Object.keys(state).length === 2 && typeof stopState.stopId === 'string'
+        Object.keys(state).length === 2 && typeof stopState.stop_id === 'string'
       );
     }
 

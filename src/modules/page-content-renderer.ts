@@ -16,39 +16,39 @@ export interface ContentRendererDependencies {
   relationships: {
     hasDataAsync: () => Promise<boolean>;
     getAgenciesAsync: () => Promise<unknown[]>;
-    getRoutesForAgencyAsync: (agencyId: string) => Promise<unknown[]>;
-    getTripsForRouteAsync: (routeId: string) => Promise<unknown[]>;
-    getStopTimesForTripAsync: (tripId: string) => Promise<unknown[]>;
-    getStopAsync: (stopId: string) => Promise<unknown>;
-    getAgencyAsync: (agencyId: string) => Promise<unknown>;
-    getRouteAsync: (routeId: string) => Promise<unknown>;
+    getRoutesForAgencyAsync: (agency_id: string) => Promise<unknown[]>;
+    getTripsForRouteAsync: (route_id: string) => Promise<unknown[]>;
+    getStopTimesForTripAsync: (trip_id: string) => Promise<unknown[]>;
+    getStopAsync: (stop_id: string) => Promise<unknown>;
+    getAgencyAsync: (agency_id: string) => Promise<unknown>;
+    getRouteAsync: (route_id: string) => Promise<unknown>;
   };
 
   // Schedule controller for timetables
   scheduleController: {
     renderSchedule: (
-      routeId: string,
-      serviceId: string,
-      directionId?: string
+      route_id: string,
+      service_id: string,
+      direction_id?: string
     ) => Promise<string>;
   };
 
   // Map controller for visualization updates
   mapController: {
-    highlightRoute: (routeId: string) => void;
-    highlightStop: (stopId: string) => void;
+    highlightRoute: (route_id: string) => void;
+    highlightStop: (stop_id: string) => void;
     clearHighlights: () => void;
-    focusOnAgency: (agencyId: string) => void;
+    focusOnAgency: (agency_id: string) => void;
   };
 
   // Navigation callbacks
-  onAgencyClick: (agencyId: string) => void;
-  onRouteClick: (routeId: string) => void;
-  onStopClick: (stopId: string) => void;
+  onAgencyClick: (agency_id: string) => void;
+  onRouteClick: (route_id: string) => void;
+  onStopClick: (stop_id: string) => void;
   onTimetableClick: (
-    routeId: string,
-    serviceId: string,
-    directionId?: string
+    route_id: string,
+    service_id: string,
+    direction_id?: string
   ) => void;
 }
 
@@ -94,17 +94,17 @@ export class PageContentRenderer {
         case 'home':
           return await this.renderHome();
         case 'agency':
-          return await this.renderAgency(pageState.agencyId);
+          return await this.renderAgency(pageState.agency_id);
         case 'route':
-          return await this.renderRoute(pageState.routeId);
+          return await this.renderRoute(pageState.route_id);
         case 'timetable':
           return await this.renderTimetable(
-            pageState.routeId,
-            pageState.serviceId,
-            pageState.directionId
+            pageState.route_id,
+            pageState.service_id,
+            pageState.direction_id
           );
         case 'stop':
-          return await this.renderStop(pageState.stopId);
+          return await this.renderStop(pageState.stop_id);
         default:
           // TypeScript should prevent this, but fallback to home
           return await this.renderHome();
@@ -174,10 +174,10 @@ export class PageContentRenderer {
       agencies = agencies.filter((agency: unknown) => {
         const agencyData = agency as Record<string, unknown>;
         const agencyName = agencyData.agency_name as string | undefined;
-        const agencyId = agencyData.agency_id as string | undefined;
+        const agency_id = agencyData.agency_id as string | undefined;
         return (
           agencyName?.toLowerCase().includes(this.searchQuery) ||
-          agencyId?.toLowerCase().includes(this.searchQuery)
+          agency_id?.toLowerCase().includes(this.searchQuery)
         );
       });
     }
@@ -239,14 +239,14 @@ export class PageContentRenderer {
   /**
    * Render agency page (routes list)
    */
-  private async renderAgency(agencyId: string): Promise<string> {
+  private async renderAgency(agency_id: string): Promise<string> {
     const agency =
-      await this.dependencies.relationships.getAgencyAsync(agencyId);
+      await this.dependencies.relationships.getAgencyAsync(agency_id);
     let routes =
-      await this.dependencies.relationships.getRoutesForAgencyAsync(agencyId);
+      await this.dependencies.relationships.getRoutesForAgencyAsync(agency_id);
 
     // Update map to focus on this agency
-    this.dependencies.mapController.focusOnAgency(agencyId);
+    this.dependencies.mapController.focusOnAgency(agency_id);
 
     // Apply search filter
     if (this.searchQuery) {
@@ -254,17 +254,17 @@ export class PageContentRenderer {
         const routeData = route as Record<string, unknown>;
         const routeShortName = routeData.route_short_name as string | undefined;
         const routeLongName = routeData.route_long_name as string | undefined;
-        const routeId = routeData.route_id as string | undefined;
+        const route_id = routeData.route_id as string | undefined;
         return (
           routeShortName?.toLowerCase().includes(this.searchQuery) ||
           routeLongName?.toLowerCase().includes(this.searchQuery) ||
-          routeId?.toLowerCase().includes(this.searchQuery)
+          route_id?.toLowerCase().includes(this.searchQuery)
         );
       });
     }
 
     const agencyData = agency as Record<string, unknown> | null;
-    const agencyName = (agencyData?.agency_name as string) || agencyId;
+    const agencyName = (agencyData?.agency_name as string) || agency_id;
 
     const routeCards = routes
       .map((route: unknown) => {
@@ -290,7 +290,7 @@ export class PageContentRenderer {
 
         return `
         <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow cursor-pointer route-card"
-             data-agency-id="${agencyId}"
+             data-agency-id="${agency_id}"
              data-route-id="${routeData.route_id as string}">
           <div class="card-body p-4">
             <div class="flex items-center gap-3">
@@ -344,27 +344,27 @@ export class PageContentRenderer {
   /**
    * Render route page (trips/services list)
    */
-  private async renderRoute(routeId: string): Promise<string> {
-    console.log(`Rendering route ${routeId}`);
-    const route = await this.dependencies.relationships.getRouteAsync(routeId);
+  private async renderRoute(route_id: string): Promise<string> {
+    console.log(`Rendering route ${route_id}`);
+    const route = await this.dependencies.relationships.getRouteAsync(route_id);
     const trips =
-      await this.dependencies.relationships.getTripsForRouteAsync(routeId);
+      await this.dependencies.relationships.getTripsForRouteAsync(route_id);
     console.log('Route data:', route);
     console.log('Trips count:', trips.length);
     console.log('First few trips:', trips.slice(0, 3));
 
     // Update map to highlight this route
-    this.dependencies.mapController.highlightRoute(routeId);
+    this.dependencies.mapController.highlightRoute(route_id);
 
     // Group trips by service_id for timetable links
     const serviceGroups = trips.reduce(
       (groups: Record<string, unknown[]>, trip: unknown) => {
         const tripData = trip as Record<string, unknown>;
-        const serviceId = tripData.service_id as string;
-        if (!groups[serviceId]) {
-          groups[serviceId] = [];
+        const service_id = tripData.service_id as string;
+        if (!groups[service_id]) {
+          groups[service_id] = [];
         }
-        groups[serviceId].push(trip);
+        groups[service_id].push(trip);
         return groups;
       },
       {}
@@ -380,10 +380,10 @@ export class PageContentRenderer {
     const routeName =
       (routeData?.route_short_name as string) ||
       (routeData?.route_long_name as string) ||
-      routeId;
+      route_id;
 
     const serviceCards = Object.entries(serviceGroups)
-      .map(([serviceId, serviceTrips]: [string, unknown[]]) => {
+      .map(([service_id, serviceTrips]: [string, unknown[]]) => {
         const tripCount = serviceTrips.length;
         const directions = [
           ...new Set(
@@ -395,10 +395,10 @@ export class PageContentRenderer {
 
         return `
         <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow cursor-pointer service-card"
-             data-route-id="${routeId}"
-             data-service-id="${serviceId}">
+             data-route-id="${route_id}"
+             data-service-id="${service_id}">
           <div class="card-body p-4">
-            <h3 class="card-title text-base">Service ${serviceId}</h3>
+            <h3 class="card-title text-base">Service ${service_id}</h3>
             <div class="text-sm text-base-content/70">
               ${tripCount} trip${tripCount !== 1 ? 's' : ''}
               ${directions.length > 1 ? ' • Both directions' : ''}
@@ -438,16 +438,16 @@ export class PageContentRenderer {
    * Render timetable page
    */
   private async renderTimetable(
-    routeId: string,
-    serviceId: string,
-    directionId?: string
+    route_id: string,
+    service_id: string,
+    direction_id?: string
   ): Promise<string> {
     try {
       // Get the rendered schedule HTML directly
       return await this.dependencies.scheduleController.renderSchedule(
-        routeId,
-        serviceId,
-        directionId
+        route_id,
+        service_id,
+        direction_id
       );
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -459,18 +459,18 @@ export class PageContentRenderer {
   /**
    * Render stop page
    */
-  private async renderStop(stopId: string): Promise<string> {
-    const stop = await this.dependencies.relationships.getStopAsync(stopId);
+  private async renderStop(stop_id: string): Promise<string> {
+    const stop = await this.dependencies.relationships.getStopAsync(stop_id);
 
     if (!stop) {
       return this.renderError('Stop not found.');
     }
 
     // Update map to highlight this stop
-    this.dependencies.mapController.highlightStop(stopId);
+    this.dependencies.mapController.highlightStop(stop_id);
 
     const stopData = stop as Record<string, unknown>;
-    const stopName = (stopData.stop_name as string) || stopId;
+    const stopName = (stopData.stop_name as string) || stop_id;
     const stopCode = stopData.stop_code as string | undefined;
     const stopDesc = stopData.stop_desc as string | undefined;
     const coordinates =
@@ -487,7 +487,7 @@ export class PageContentRenderer {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
                 <div class="text-sm font-medium">Stop ID</div>
-                <div class="text-base-content/70">${stopId}</div>
+                <div class="text-base-content/70">${stop_id}</div>
               </div>
 
               ${
@@ -538,9 +538,9 @@ export class PageContentRenderer {
     const agencyCards = container.querySelectorAll('.agency-card');
     agencyCards.forEach((card) => {
       card.addEventListener('click', () => {
-        const agencyId = card.getAttribute('data-agency-id');
-        if (agencyId) {
-          this.dependencies.onAgencyClick(agencyId);
+        const agency_id = card.getAttribute('data-agency-id');
+        if (agency_id) {
+          this.dependencies.onAgencyClick(agency_id);
         }
       });
     });
@@ -549,9 +549,9 @@ export class PageContentRenderer {
     const routeCards = container.querySelectorAll('.route-card');
     routeCards.forEach((card) => {
       card.addEventListener('click', () => {
-        const routeId = card.getAttribute('data-route-id');
-        if (routeId) {
-          this.dependencies.onRouteClick(routeId);
+        const route_id = card.getAttribute('data-route-id');
+        if (route_id) {
+          this.dependencies.onRouteClick(route_id);
         }
       });
     });
@@ -560,10 +560,10 @@ export class PageContentRenderer {
     const serviceCards = container.querySelectorAll('.service-card');
     serviceCards.forEach((card) => {
       card.addEventListener('click', () => {
-        const routeId = card.getAttribute('data-route-id');
-        const serviceId = card.getAttribute('data-service-id');
-        if (routeId && serviceId) {
-          this.dependencies.onTimetableClick(routeId, serviceId);
+        const route_id = card.getAttribute('data-route-id');
+        const service_id = card.getAttribute('data-service-id');
+        if (route_id && service_id) {
+          this.dependencies.onTimetableClick(route_id, service_id);
         }
       });
     });

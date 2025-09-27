@@ -2,7 +2,13 @@ import { Map as MapLibreMap, LngLatBounds } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageStateManager } from './page-state-manager.js';
 import { GTFSDatabaseRecord } from './gtfs-database.js';
-import { Stops, Routes, Trips, StopTimes, Shapes } from '../types/gtfs-entities.js';
+import {
+  Stops,
+  Routes,
+  Trips,
+  StopTimes,
+  Shapes,
+} from '../types/gtfs-entities.js';
 
 export class MapController {
   private map: MapLibreMap | null;
@@ -10,14 +16,14 @@ export class MapController {
   private gtfsParser: {
     getFileDataSync: (filename: string) => GTFSDatabaseRecord[] | null;
     getFileDataSyncTyped: <T>(filename: string) => T[] | null;
-    getRoutesForStop: (stopId: string) => GTFSDatabaseRecord[];
+    getRoutesForStop: (stop_id: string) => GTFSDatabaseRecord[];
     getWheelchairText: (code: string) => string;
     getRouteTypeText: (typeCode: string) => string;
   } | null;
   private resizeTimeout: NodeJS.Timeout | null;
   private shapeToRouteMapping: Map<string, string[]> = new Map();
-  private onRouteSelectCallback: ((routeId: string) => void) | null = null;
-  private onStopSelectCallback: ((stopId: string) => void) | null = null;
+  private onRouteSelectCallback: ((route_id: string) => void) | null = null;
+  private onStopSelectCallback: ((stop_id: string) => void) | null = null;
   private pageStateManager: PageStateManager | null = null;
 
   constructor(mapElementId = 'map') {
@@ -314,21 +320,21 @@ export class MapController {
 
         if (stopFeature) {
           // Handle stop click
-          const stopId = stopFeature.properties.stop_id;
-          console.log('clicked on stop', stopId);
-          this.navigateToStop(stopId);
+          const stop_id = stopFeature.properties.stop_id;
+          console.log('clicked on stop', stop_id);
+          this.navigateToStop(stop_id);
         } else if (routeFeature) {
           // Handle route click
-          const routeId = routeFeature.properties.route_id;
-          console.log('clicked on route', routeId);
-          this.navigateToRoute(routeId);
+          const route_id = routeFeature.properties.route_id;
+          console.log('clicked on route', route_id);
+          this.navigateToRoute(route_id);
         }
       }
     });
   }
 
   // Deterministic color generation for routes
-  private getRouteColor(routeId: string, gtfsRouteColor?: string): string {
+  private getRouteColor(route_id: string, gtfsRouteColor?: string): string {
     // Use GTFS route_color if available and valid
     if (
       gtfsRouteColor &&
@@ -340,8 +346,8 @@ export class MapController {
 
     // Generate deterministic color from route ID
     let hash = 0;
-    for (let i = 0; i < routeId.length; i++) {
-      const char = routeId.charCodeAt(i);
+    for (let i = 0; i < route_id.length; i++) {
+      const char = route_id.charCodeAt(i);
       hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32bit integer
     }
@@ -365,24 +371,24 @@ export class MapController {
     const routeShapeStats = new Map();
 
     routes.forEach((route) => {
-      const routeId = route.route_id as string;
-      const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+      const route_id = route.route_id as string;
+      const routeTrips = trips.filter((trip) => trip.route_id === route_id);
       const tripsWithShapes = routeTrips.filter((trip) => trip.shape_id);
       const uniqueShapes = new Set(
         tripsWithShapes.map((trip) => trip.shape_id)
       );
 
-      routeShapeStats.set(routeId, {
+      routeShapeStats.set(route_id, {
         totalTrips: routeTrips.length,
         tripsWithShapes: tripsWithShapes.length,
         uniqueShapes: uniqueShapes.size,
-        shapeIds: Array.from(uniqueShapes),
-        routeName: route.route_short_name || route.route_long_name || routeId,
+        shape_ids: Array.from(uniqueShapes),
+        routeName: route.route_short_name || route.route_long_name || route_id,
       });
 
       if (uniqueShapes.size > 1) {
         console.warn(
-          `⚠️  Route ${routeId} (${route.route_short_name || route.route_long_name}) has ${uniqueShapes.size} different shapes:`,
+          `⚠️  Route ${route_id} (${route.route_short_name || route.route_long_name}) has ${uniqueShapes.size} different shapes:`,
           Array.from(uniqueShapes)
         );
       }
@@ -393,7 +399,7 @@ export class MapController {
     ).filter((stats) => stats.uniqueShapes > 1);
     const totalUsedShapes = new Set();
     routeShapeStats.forEach((stats) => {
-      stats.shapeIds.forEach((id) => totalUsedShapes.add(id));
+      stats.shape_ids.forEach((id) => totalUsedShapes.add(id));
     });
 
     console.log(
@@ -409,7 +415,7 @@ export class MapController {
           'Total Trips': stats.totalTrips,
           'Trips w/ Shapes': stats.tripsWithShapes,
           'Unique Shapes': stats.uniqueShapes,
-          'Shape IDs': stats.shapeIds.join(', '),
+          'Shape IDs': stats.shape_ids.join(', '),
         }))
       );
     }
@@ -431,36 +437,36 @@ export class MapController {
 
     trips.forEach((trip) => {
       if (trip.shape_id && trip.route_id) {
-        const shapeId = trip.shape_id as string;
-        const routeId = trip.route_id as string;
+        const shape_id = trip.shape_id as string;
+        const route_id = trip.route_id as string;
 
         // Initialize shape tracking
-        if (!shapeUsage.has(shapeId)) {
-          shapeUsage.set(shapeId, {
+        if (!shapeUsage.has(shape_id)) {
+          shapeUsage.set(shape_id, {
             routes: new Set(),
             tripCount: 0,
-            routeIds: [],
+            route_ids: [],
           });
         }
 
-        const usage = shapeUsage.get(shapeId);
-        usage.routes.add(routeId);
+        const usage = shapeUsage.get(shape_id);
+        usage.routes.add(route_id);
         usage.tripCount++;
 
         // Maintain backward compatibility with existing mapping
-        if (!this.shapeToRouteMapping.has(shapeId)) {
-          this.shapeToRouteMapping.set(shapeId, []);
+        if (!this.shapeToRouteMapping.has(shape_id)) {
+          this.shapeToRouteMapping.set(shape_id, []);
         }
-        const routeIds = this.shapeToRouteMapping.get(shapeId)!;
-        if (!routeIds.includes(routeId)) {
-          routeIds.push(routeId);
+        const route_ids = this.shapeToRouteMapping.get(shape_id)!;
+        if (!route_ids.includes(route_id)) {
+          route_ids.push(route_id);
         }
       }
     });
 
     // Convert enhanced mapping back to simple array format
-    shapeUsage.forEach((usage, shapeId) => {
-      this.shapeToRouteMapping.set(shapeId, Array.from(usage.routes));
+    shapeUsage.forEach((usage, shape_id) => {
+      this.shapeToRouteMapping.set(shape_id, Array.from(usage.routes));
     });
 
     console.log(
@@ -485,14 +491,14 @@ export class MapController {
     const routeFeatures = [];
 
     routes.forEach((route) => {
-      const routeId = route.route_id as string;
+      const route_id = route.route_id as string;
       const routeColor = this.getRouteColor(
-        routeId,
+        route_id,
         route.route_color as string
       );
 
       // Find trips for this route
-      const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+      const routeTrips = trips.filter((trip) => trip.route_id === route_id);
       if (routeTrips.length === 0) {
         return;
       }
@@ -507,8 +513,8 @@ export class MapController {
 
       // Create features for each unique shape
       if (uniqueShapes.size > 0 && shapes) {
-        Array.from(uniqueShapes).forEach((shapeId, index) => {
-          const geometry = this.createRouteGeometryFromShape(shapeId, shapes);
+        Array.from(uniqueShapes).forEach((shape_id, index) => {
+          const geometry = this.createRouteGeometryFromShape(shape_id, shapes);
 
           if (geometry) {
             hasValidGeometry = true;
@@ -518,15 +524,15 @@ export class MapController {
 
             // For multiple shapes, add a suffix to the ID to make each unique
             const featureId =
-              uniqueShapes.size > 1 ? `${routeId}_shape_${index}` : routeId;
+              uniqueShapes.size > 1 ? `${route_id}_shape_${index}` : route_id;
 
             routeFeatures.push({
               type: 'Feature',
               id: featureId,
               geometry,
               properties: {
-                route_id: routeId,
-                shape_id: shapeId,
+                route_id: route_id,
+                shape_id: shape_id,
                 shape_index: index,
                 total_shapes: uniqueShapes.size,
                 route_short_name: route.route_short_name || '',
@@ -557,10 +563,10 @@ export class MapController {
 
           routeFeatures.push({
             type: 'Feature',
-            id: routeId,
+            id: route_id,
             geometry,
             properties: {
-              route_id: routeId,
+              route_id: route_id,
               shape_id: null,
               shape_index: 0,
               total_shapes: 0,
@@ -658,11 +664,11 @@ export class MapController {
 
   // Create route geometry from shapes.txt
   private createRouteGeometryFromShape(
-    shapeId: string,
+    shape_id: string,
     shapes: Shapes[]
   ): GeoJSON.LineString | null {
     const shapePoints = shapes
-      .filter((point) => point.shape_id === shapeId)
+      .filter((point) => point.shape_id === shape_id)
       .map((point) => ({
         lat: parseFloat(point.shape_pt_lat as string),
         lon: parseFloat(point.shape_pt_lon as string),
@@ -673,7 +679,7 @@ export class MapController {
 
     if (shapePoints.length < 2) {
       console.warn(
-        `⚠️  Shape ${shapeId} has insufficient points (${shapePoints.length}), skipping`
+        `⚠️  Shape ${shape_id} has insufficient points (${shapePoints.length}), skipping`
       );
       return null;
     }
@@ -686,9 +692,10 @@ export class MapController {
 
   // Create route geometry from stop connections (fallback)
   private createRouteGeometryFromStops(
-    tripId: string
+    trip_id: string
   ): GeoJSON.LineString | null {
-    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt');
+    const stopTimes =
+      this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt');
     const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt');
 
     if (!stopTimes || !stops) {
@@ -708,7 +715,7 @@ export class MapController {
 
     // Get stops for this trip
     const tripStopTimes = stopTimes
-      .filter((st) => st.trip_id === tripId)
+      .filter((st) => st.trip_id === trip_id)
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
 
     const routePath = [];
@@ -737,9 +744,12 @@ export class MapController {
   }
 
   // Object highlighting methods for Objects navigation
-  highlightAgencyRoutes(agencyId) {
-    const routes = this.gtfsParser.getFileDataSyncTyped<Routes>('routes.txt') || [];
-    const agencyRoutes = routes.filter((route) => route.agency_id === agencyId);
+  highlightAgencyRoutes(agency_id) {
+    const routes =
+      this.gtfsParser.getFileDataSyncTyped<Routes>('routes.txt') || [];
+    const agencyRoutes = routes.filter(
+      (route) => route.agency_id === agency_id
+    );
 
     if (agencyRoutes.length === 0) {
       return;
@@ -757,16 +767,19 @@ export class MapController {
     this.fitToRoutes(agencyRoutes.map((r) => r.route_id));
   }
 
-  highlightRoute(routeId, color = '#ff6b35', weight = 6) {
-    const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
-    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
+  highlightRoute(route_id, color = '#ff6b35', weight = 6) {
+    const trips =
+      this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
+    const stopTimes =
+      this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
+    const stops =
+      this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
 
     // Find trips for this route
-    const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+    const routeTrips = trips.filter((trip) => trip.route_id === route_id);
     if (routeTrips.length === 0) {
       return;
     }
@@ -809,7 +822,7 @@ export class MapController {
               coordinates: routePath,
             },
             properties: {
-              route_id: routeId,
+              route_id: route_id,
             },
           },
         ],
@@ -838,9 +851,11 @@ export class MapController {
     }
   }
 
-  highlightTrip(tripId, color = '#e74c3c', weight = 5) {
-    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
+  highlightTrip(trip_id, color = '#e74c3c', weight = 5) {
+    const stopTimes =
+      this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
+    const stops =
+      this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
@@ -859,7 +874,7 @@ export class MapController {
 
     // Get stop times for this trip
     const tripStopTimes = stopTimes
-      .filter((st) => st.trip_id === tripId)
+      .filter((st) => st.trip_id === trip_id)
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
 
     const tripPath = [];
@@ -901,7 +916,7 @@ export class MapController {
               coordinates: tripPath,
             },
             properties: {
-              trip_id: tripId,
+              trip_id: trip_id,
             },
           },
         ],
@@ -980,13 +995,14 @@ export class MapController {
     }
   }
 
-  highlightStop(stopId, color = '#e74c3c', radius = 12) {
-    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
+  highlightStop(stop_id, color = '#e74c3c', radius = 12) {
+    const stops =
+      this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Clear existing highlights
     this.clearHighlights();
 
-    const stop = stops.find((s) => s.stop_id === stopId);
+    const stop = stops.find((s) => s.stop_id === stop_id);
     if (!stop || !stop.stop_lat || !stop.stop_lon) {
       return;
     }
@@ -1058,16 +1074,19 @@ export class MapController {
     });
   }
 
-  fitToRoutes(routeIds) {
-    const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
-    const stopTimes = this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
-    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
+  fitToRoutes(route_ids) {
+    const trips =
+      this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
+    const stopTimes =
+      this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
+    const stops =
+      this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
 
     // Find all stops for these routes
     const allStops = new Set();
 
-    routeIds.forEach((routeId) => {
-      const routeTrips = trips.filter((trip) => trip.route_id === routeId);
+    route_ids.forEach((route_id) => {
+      const routeTrips = trips.filter((trip) => trip.route_id === route_id);
       routeTrips.forEach((trip) => {
         const tripStopTimes = stopTimes.filter(
           (st) => st.trip_id === trip.trip_id
@@ -1149,14 +1168,14 @@ export class MapController {
   }
 
   // Stub methods for backward compatibility (no-op implementations)
-  focusRoute(routeId: string) {
+  focusRoute(route_id: string) {
     // No-op: Focus system removed, but keeping method for interface compatibility
-    console.log('focusRoute called (no-op):', routeId);
+    console.log('focusRoute called (no-op):', route_id);
   }
 
-  focusStop(stopId: string) {
+  focusStop(stop_id: string) {
     // No-op: Focus system removed, but keeping method for interface compatibility
-    console.log('focusStop called (no-op):', stopId);
+    console.log('focusStop called (no-op):', stop_id);
   }
 
   clearFocus() {
@@ -1165,32 +1184,32 @@ export class MapController {
   }
 
   // Callback setters for UI integration
-  setRouteSelectCallback(callback: (routeId: string) => void) {
+  setRouteSelectCallback(callback: (route_id: string) => void) {
     this.onRouteSelectCallback = callback;
   }
 
-  setStopSelectCallback(callback: (stopId: string) => void) {
+  setStopSelectCallback(callback: (stop_id: string) => void) {
     this.onStopSelectCallback = callback;
   }
 
   // State-based navigation methods (preferred approach)
-  private async navigateToRoute(routeId: string) {
+  private async navigateToRoute(route_id: string) {
     if (this.pageStateManager) {
-      await this.pageStateManager.setPageState({ type: 'route', routeId });
+      await this.pageStateManager.setPageState({ type: 'route', route_id });
     }
     // Keep legacy callback for backward compatibility
     if (this.onRouteSelectCallback) {
-      this.onRouteSelectCallback(routeId);
+      this.onRouteSelectCallback(route_id);
     }
   }
 
-  private async navigateToStop(stopId: string) {
+  private async navigateToStop(stop_id: string) {
     if (this.pageStateManager) {
-      await this.pageStateManager.setPageState({ type: 'stop', stopId });
+      await this.pageStateManager.setPageState({ type: 'stop', stop_id });
     }
     // Keep legacy callback for backward compatibility
     if (this.onStopSelectCallback) {
-      this.onStopSelectCallback(stopId);
+      this.onStopSelectCallback(stop_id);
     }
   }
 }

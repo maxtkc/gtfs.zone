@@ -612,7 +612,9 @@ class FallbackDatabase {
       return data.find((row) => row[keyPath] === key);
     } else {
       // Composite key lookup - key should be a composite key string
-      return data.find((row) => this.generateCompositeKey(tableName, row) === key);
+      return data.find(
+        (row) => this.generateCompositeKey(tableName, row) === key
+      );
     }
   }
 
@@ -630,7 +632,9 @@ class FallbackDatabase {
       index = tableData.findIndex((row) => row[keyPath] === key);
     } else {
       // Composite key lookup
-      index = tableData.findIndex((row) => this.generateCompositeKey(tableName, row) === key);
+      index = tableData.findIndex(
+        (row) => this.generateCompositeKey(tableName, row) === key
+      );
     }
 
     if (index >= 0) {
@@ -681,7 +685,10 @@ class FallbackDatabase {
   /**
    * Generate composite key for tables that need it (copied from GTFSDatabase)
    */
-  private generateCompositeKey(tableName: string, row: GTFSDatabaseRecord): string {
+  private generateCompositeKey(
+    tableName: string,
+    row: GTFSDatabaseRecord
+  ): string {
     switch (tableName) {
       case 'stop_times':
         return `${row.trip_id}:${row.stop_sequence}`;
@@ -693,10 +700,11 @@ class FallbackDatabase {
         return row.from_stop_id as string; // Simple key
       case 'feed_info':
         return 'project'; // Fixed key for single-record table
-      default:
+      default: {
         // For tables with simple natural keys, fall back to first meaningful field
         const keyPath = this.getNaturalKeyPath(tableName);
         return keyPath ? (row[keyPath] as string) : 'unknown';
+      }
     }
   }
 

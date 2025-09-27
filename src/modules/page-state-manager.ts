@@ -24,10 +24,10 @@ type NavigationEventHandler = (event: NavigationEvent) => void;
  * These will be injected to allow the manager to resolve object names
  */
 export interface BreadcrumbLookup {
-  getAgencyName: (agencyId: string) => Promise<string>;
-  getRouteName: (routeId: string) => Promise<string>;
-  getStopName: (stopId: string) => Promise<string>;
-  getAgencyIdForRoute: (routeId: string) => Promise<string>;
+  getAgencyName: (agency_id: string) => Promise<string>;
+  getRouteName: (route_id: string) => Promise<string>;
+  getStopName: (stop_id: string) => Promise<string>;
+  getAgencyIdForRoute: (route_id: string) => Promise<string>;
 }
 
 /**
@@ -223,7 +223,7 @@ export class PageStateManager {
         case 'agency': {
           const agencyName = await this.getObjectName(
             'agency',
-            pageState.agencyId
+            pageState.agency_id
           );
           breadcrumbs.push({
             label: 'Home',
@@ -231,20 +231,22 @@ export class PageStateManager {
           });
           breadcrumbs.push({
             label: agencyName,
-            pageState: { type: 'agency', agencyId: pageState.agencyId },
+            pageState: { type: 'agency', agency_id: pageState.agency_id },
           });
           break;
         }
 
         case 'route': {
           // Look up the agency for this route
-          const agencyId = this.breadcrumbLookup
-            ? await this.breadcrumbLookup.getAgencyIdForRoute(pageState.routeId)
+          const agency_id = this.breadcrumbLookup
+            ? await this.breadcrumbLookup.getAgencyIdForRoute(
+                pageState.route_id
+              )
             : 'unknown';
-          const agencyName = await this.getObjectName('agency', agencyId);
+          const agencyName = await this.getObjectName('agency', agency_id);
           const routeName = await this.getObjectName(
             'route',
-            pageState.routeId
+            pageState.route_id
           );
 
           breadcrumbs.push({
@@ -253,28 +255,30 @@ export class PageStateManager {
           });
           breadcrumbs.push({
             label: agencyName,
-            pageState: { type: 'agency', agencyId },
+            pageState: { type: 'agency', agency_id },
           });
           breadcrumbs.push({
             label: routeName,
-            pageState: { type: 'route', routeId: pageState.routeId },
+            pageState: { type: 'route', route_id: pageState.route_id },
           });
           break;
         }
 
         case 'timetable': {
           // Look up the agency for this route
-          const agencyId = this.breadcrumbLookup
-            ? await this.breadcrumbLookup.getAgencyIdForRoute(pageState.routeId)
+          const agency_id = this.breadcrumbLookup
+            ? await this.breadcrumbLookup.getAgencyIdForRoute(
+                pageState.route_id
+              )
             : 'unknown';
-          const agencyName = await this.getObjectName('agency', agencyId);
+          const agencyName = await this.getObjectName('agency', agency_id);
           const routeName = await this.getObjectName(
             'route',
-            pageState.routeId
+            pageState.route_id
           );
           const serviceName = await this.getObjectName(
             'service',
-            pageState.serviceId
+            pageState.service_id
           );
 
           breadcrumbs.push({
@@ -283,15 +287,15 @@ export class PageStateManager {
           });
           breadcrumbs.push({
             label: agencyName,
-            pageState: { type: 'agency', agencyId },
+            pageState: { type: 'agency', agency_id },
           });
           breadcrumbs.push({
             label: routeName,
-            pageState: { type: 'route', routeId: pageState.routeId },
+            pageState: { type: 'route', route_id: pageState.route_id },
           });
 
-          const timetableLabel = pageState.directionId
-            ? `${serviceName} (Direction ${pageState.directionId})`
+          const timetableLabel = pageState.direction_id
+            ? `${serviceName} (Direction ${pageState.direction_id})`
             : serviceName;
 
           breadcrumbs.push({
@@ -302,7 +306,7 @@ export class PageStateManager {
         }
 
         case 'stop': {
-          const stopName = await this.getObjectName('stop', pageState.stopId);
+          const stopName = await this.getObjectName('stop', pageState.stop_id);
 
           breadcrumbs.push({
             label: 'Home',
@@ -310,7 +314,7 @@ export class PageStateManager {
           });
           breadcrumbs.push({
             label: stopName,
-            pageState: { type: 'stop', stopId: pageState.stopId },
+            pageState: { type: 'stop', stop_id: pageState.stop_id },
           });
           break;
         }
@@ -377,25 +381,25 @@ export class PageStateManager {
         return '/';
 
       case 'agency':
-        params.set('agency', pageState.agencyId);
+        params.set('agency', pageState.agency_id);
         return `/?${params.toString()}`;
 
       case 'route':
-        params.set('agency', pageState.agencyId);
-        params.set('route', pageState.routeId);
+        params.set('agency', pageState.agency_id);
+        params.set('route', pageState.route_id);
         return `/?${params.toString()}`;
 
       case 'timetable':
-        params.set('agency', pageState.agencyId);
-        params.set('route', pageState.routeId);
-        params.set('service', pageState.serviceId);
-        if (pageState.directionId) {
-          params.set('direction', pageState.directionId);
+        params.set('agency', pageState.agency_id);
+        params.set('route', pageState.route_id);
+        params.set('service', pageState.service_id);
+        if (pageState.direction_id) {
+          params.set('direction', pageState.direction_id);
         }
         return `/?${params.toString()}`;
 
       case 'stop':
-        params.set('stop', pageState.stopId);
+        params.set('stop', pageState.stop_id);
         return `/?${params.toString()}`;
 
       default:
@@ -415,39 +419,39 @@ export class PageStateManager {
       if (params.has('stop')) {
         return {
           type: 'stop',
-          stopId: params.get('stop')!,
+          stop_id: params.get('stop')!,
         };
       }
 
       if (params.has('agency')) {
-        const agencyId = params.get('agency')!;
+        const agency_id = params.get('agency')!;
 
         if (params.has('route')) {
-          const routeId = params.get('route')!;
+          const route_id = params.get('route')!;
 
           if (params.has('service')) {
-            const serviceId = params.get('service')!;
-            const directionId = params.get('direction') || undefined;
+            const service_id = params.get('service')!;
+            const direction_id = params.get('direction') || undefined;
 
             return {
               type: 'timetable',
-              agencyId,
-              routeId,
-              serviceId,
-              ...(directionId && { directionId }),
+              agency_id,
+              route_id,
+              service_id,
+              ...(direction_id && { direction_id }),
             };
           }
 
           return {
             type: 'route',
-            agencyId,
-            routeId,
+            agency_id,
+            route_id,
           };
         }
 
         return {
           type: 'agency',
-          agencyId,
+          agency_id,
         };
       }
 

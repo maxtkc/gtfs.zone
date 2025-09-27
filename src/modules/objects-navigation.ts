@@ -24,53 +24,53 @@ export class ObjectsNavigation {
     hasDataAsync: () => Promise<boolean>;
     getAgenciesAsync: () => Promise<Record<string, unknown>[]>;
     getRoutesForAgencyAsync: (
-      agencyId: string
+      agency_id: string
     ) => Promise<Record<string, unknown>[]>;
     getTripsForRouteAsync: (
-      routeId: string
+      route_id: string
     ) => Promise<Record<string, unknown>[]>;
     getStopTimesForTripAsync: (
-      tripId: string
+      trip_id: string
     ) => Promise<Record<string, unknown>[]>;
     getStopByIdAsync: (
-      stopId: string
+      stop_id: string
     ) => Promise<Record<string, unknown> | null>;
     getServicesForRouteByDirectionAsync: (
-      routeId: string
+      route_id: string
     ) => Promise<Record<string, unknown>[]>;
     getRouteByIdAsync: (
-      routeId: string
+      route_id: string
     ) => Promise<Record<string, unknown> | null>;
     getTripByIdAsync: (
-      tripId: string
+      trip_id: string
     ) => Promise<Record<string, unknown> | null>;
     getCalendarForServiceAsync: (
-      serviceId: string
+      service_id: string
     ) => Promise<Record<string, unknown> | null>;
     getAgencyByIdAsync?: (
-      agencyId: string
+      agency_id: string
     ) => Promise<Record<string, unknown> | null>;
   };
   private mapController: {
-    highlightTrip: (tripId: string) => void;
-    highlightStop: (stopId: string) => void;
+    highlightTrip: (trip_id: string) => void;
+    highlightStop: (stop_id: string) => void;
     clearHighlights: () => void;
-    highlightRoute: (routeId: string) => void;
-    fitToRoutes: (routeIds: string[]) => void;
-    focusRoute: (routeId: string) => void;
-    focusStop: (stopId: string) => void;
+    highlightRoute: (route_id: string) => void;
+    fitToRoutes: (route_ids: string[]) => void;
+    focusRoute: (route_id: string) => void;
+    focusStop: (stop_id: string) => void;
     clearFocus: () => void;
-    setRouteSelectCallback: (callback: (routeId: string) => void) => void;
-    setStopSelectCallback: (callback: (stopId: string) => void) => void;
+    setRouteSelectCallback: (callback: (route_id: string) => void) => void;
+    setStopSelectCallback: (callback: (stop_id: string) => void) => void;
   };
   public uiController: {
     showFileInEditor: (filename: string, rowId?: string) => void;
   } | null = null; // Will be set after initialization
   public scheduleController: {
     renderSchedule: (
-      routeId: string,
-      serviceId: string,
-      directionId?: string
+      route_id: string,
+      service_id: string,
+      direction_id?: string
     ) => Promise<string>;
   } | null = null; // Will be set after initialization
   private container: HTMLElement | null = null;
@@ -84,50 +84,50 @@ export class ObjectsNavigation {
       hasDataAsync: () => Promise<boolean>;
       getAgenciesAsync: () => Promise<Record<string, unknown>[]>;
       getRoutesForAgencyAsync: (
-        agencyId: string
+        agency_id: string
       ) => Promise<Record<string, unknown>[]>;
       getTripsForRouteAsync: (
-        routeId: string
+        route_id: string
       ) => Promise<Record<string, unknown>[]>;
       getStopTimesForTripAsync: (
-        tripId: string
+        trip_id: string
       ) => Promise<Record<string, unknown>[]>;
       getStopByIdAsync: (
-        stopId: string
+        stop_id: string
       ) => Promise<Record<string, unknown> | null>;
       getServicesForRouteByDirectionAsync: (
-        routeId: string
+        route_id: string
       ) => Promise<Record<string, unknown>[]>;
       getRouteByIdAsync: (
-        routeId: string
+        route_id: string
       ) => Promise<Record<string, unknown> | null>;
       getTripByIdAsync: (
-        tripId: string
+        trip_id: string
       ) => Promise<Record<string, unknown> | null>;
       getCalendarForServiceAsync: (
-        serviceId: string
+        service_id: string
       ) => Promise<Record<string, unknown> | null>;
       getAgencyByIdAsync?: (
-        agencyId: string
+        agency_id: string
       ) => Promise<Record<string, unknown> | null>;
     },
     mapController: {
-      highlightTrip: (tripId: string) => void;
-      highlightStop: (stopId: string) => void;
+      highlightTrip: (trip_id: string) => void;
+      highlightStop: (stop_id: string) => void;
       clearHighlights: () => void;
-      highlightRoute: (routeId: string) => void;
-      fitToRoutes: (routeIds: string[]) => void;
-      focusRoute: (routeId: string) => void;
-      focusStop: (stopId: string) => void;
+      highlightRoute: (route_id: string) => void;
+      fitToRoutes: (route_ids: string[]) => void;
+      focusRoute: (route_id: string) => void;
+      focusStop: (stop_id: string) => void;
       clearFocus: () => void;
-      setRouteSelectCallback: (callback: (routeId: string) => void) => void;
-      setStopSelectCallback: (callback: (stopId: string) => void) => void;
+      setRouteSelectCallback: (callback: (route_id: string) => void) => void;
+      setStopSelectCallback: (callback: (stop_id: string) => void) => void;
     },
     scheduleController?: {
       renderSchedule: (
-        routeId: string,
-        serviceId: string,
-        directionId?: string
+        route_id: string,
+        service_id: string,
+        direction_id?: string
       ) => Promise<string>;
     }
   ) {
@@ -163,41 +163,41 @@ export class ObjectsNavigation {
       relationships: {
         hasDataAsync: () => this.relationships.hasDataAsync(),
         getAgenciesAsync: () => this.relationships.getAgenciesAsync(),
-        getRoutesForAgencyAsync: (agencyId: string) =>
-          this.relationships.getRoutesForAgencyAsync(agencyId),
-        getTripsForRouteAsync: (routeId: string) =>
-          this.relationships.getTripsForRouteAsync(routeId),
-        getStopTimesForTripAsync: (tripId: string) =>
-          this.relationships.getStopTimesForTripAsync(tripId),
-        getStopAsync: (stopId: string) =>
-          this.relationships.getStopByIdAsync(stopId),
-        getAgencyAsync: (agencyId: string) =>
-          this.relationships.getAgencyByIdAsync?.(agencyId) ||
+        getRoutesForAgencyAsync: (agency_id: string) =>
+          this.relationships.getRoutesForAgencyAsync(agency_id),
+        getTripsForRouteAsync: (route_id: string) =>
+          this.relationships.getTripsForRouteAsync(route_id),
+        getStopTimesForTripAsync: (trip_id: string) =>
+          this.relationships.getStopTimesForTripAsync(trip_id),
+        getStopAsync: (stop_id: string) =>
+          this.relationships.getStopByIdAsync(stop_id),
+        getAgencyAsync: (agency_id: string) =>
+          this.relationships.getAgencyByIdAsync?.(agency_id) ||
           Promise.resolve(null),
-        getRouteAsync: (routeId: string) =>
-          this.relationships.getRouteByIdAsync(routeId),
+        getRouteAsync: (route_id: string) =>
+          this.relationships.getRouteByIdAsync(route_id),
       },
       scheduleController: this.scheduleController || {
         renderSchedule: () =>
           Promise.resolve('<div>Schedule not available</div>'),
       },
       mapController: {
-        highlightRoute: (routeId: string) =>
-          this.mapController.highlightRoute?.(routeId),
-        highlightStop: (stopId: string) =>
-          this.mapController.highlightStop(stopId),
+        highlightRoute: (route_id: string) =>
+          this.mapController.highlightRoute?.(route_id),
+        highlightStop: (stop_id: string) =>
+          this.mapController.highlightStop(stop_id),
         clearHighlights: () => this.mapController.clearHighlights(),
-        focusOnAgency: (agencyId: string) =>
-          this.highlightAgencyOnMap(agencyId),
+        focusOnAgency: (agency_id: string) =>
+          this.highlightAgencyOnMap(agency_id),
       },
-      onAgencyClick: (agencyId: string) => navigateToAgency(agencyId),
-      onRouteClick: (routeId: string) => navigateToRoute(routeId),
-      onStopClick: (stopId: string) => navigateToStop(stopId),
+      onAgencyClick: (agency_id: string) => navigateToAgency(agency_id),
+      onRouteClick: (route_id: string) => navigateToRoute(route_id),
+      onStopClick: (stop_id: string) => navigateToStop(stop_id),
       onTimetableClick: (
-        routeId: string,
-        serviceId: string,
-        directionId?: string
-      ) => navigateToTimetable(routeId, serviceId, directionId),
+        route_id: string,
+        service_id: string,
+        direction_id?: string
+      ) => navigateToTimetable(route_id, service_id, direction_id),
     };
 
     this.contentRenderer = new PageContentRenderer(dependencies);
@@ -211,12 +211,12 @@ export class ObjectsNavigation {
     console.log('Map callbacks set up to use PageStateManager navigation');
   }
 
-  private async navigateToRouteById(routeId: string): Promise<void> {
+  private async navigateToRouteById(route_id: string): Promise<void> {
     // Get the route to find its agency
-    const route = await this.relationships.getRouteByIdAsync(routeId);
+    const route = await this.relationships.getRouteByIdAsync(route_id);
     if (route) {
-      const agencyId = route.agencyId || route.agency_id || 'default';
-      navigateToRoute(agencyId, routeId);
+      const agency_id = route.agency_id || route.agency_id || 'default';
+      navigateToRoute(agency_id, route_id);
     }
   }
 
@@ -425,28 +425,28 @@ export class ObjectsNavigation {
   }
 
   // Map highlighting methods
-  highlightAgencyOnMap(agencyId) {
+  highlightAgencyOnMap(agency_id) {
     if (this.mapController && this.mapController.highlightAgencyRoutes) {
-      this.mapController.highlightAgencyRoutes(agencyId);
+      this.mapController.highlightAgencyRoutes(agency_id);
     }
   }
 
-  highlightRouteOnMap(routeId) {
+  highlightRouteOnMap(route_id) {
     if (this.mapController && this.mapController.focusRoute) {
       // Use new focus method instead of old highlight method
-      this.mapController.focusRoute(routeId);
+      this.mapController.focusRoute(route_id);
     }
   }
 
-  highlightTripOnMap(tripId) {
+  highlightTripOnMap(trip_id) {
     if (this.mapController && this.mapController.highlightTrip) {
-      this.mapController.highlightTrip(tripId);
+      this.mapController.highlightTrip(trip_id);
     }
   }
 
-  highlightStopOnMap(stopId) {
+  highlightStopOnMap(stop_id) {
     if (this.mapController && this.mapController.highlightStop) {
-      this.mapController.highlightStop(stopId);
+      this.mapController.highlightStop(stop_id);
     }
   }
 

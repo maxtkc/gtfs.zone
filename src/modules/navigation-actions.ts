@@ -19,56 +19,56 @@ export async function navigateToHome(): Promise<void> {
 
 /**
  * Navigate to agency details page
- * @param agencyId - The agency ID to display
+ * @param agency_id - The agency ID to display
  */
-export async function navigateToAgency(agencyId: string): Promise<void> {
+export async function navigateToAgency(agency_id: string): Promise<void> {
   const pageState: PageState = {
     type: 'agency',
-    agencyId,
+    agency_id: agency_id,
   };
   await getPageStateManager().navigateTo(pageState);
 }
 
 /**
  * Navigate to route details page
- * @param routeId - The route ID to display
+ * @param route_id - The route ID to display
  */
-export async function navigateToRoute(routeId: string): Promise<void> {
+export async function navigateToRoute(route_id: string): Promise<void> {
   const pageState: PageState = {
     type: 'route',
-    routeId,
+    route_id: route_id,
   };
   await getPageStateManager().navigateTo(pageState);
 }
 
 /**
  * Navigate to timetable view for a route service
- * @param routeId - The route ID
- * @param serviceId - The service ID for the timetable
- * @param directionId - Optional direction ID (0 or 1)
+ * @param route_id - The route ID
+ * @param service_id - The service ID for the timetable
+ * @param direction_id - Optional direction ID (0 or 1)
  */
 export async function navigateToTimetable(
-  routeId: string,
-  serviceId: string,
-  directionId?: string
+  route_id: string,
+  service_id: string,
+  direction_id?: string
 ): Promise<void> {
   const pageState: PageState = {
     type: 'timetable',
-    routeId,
-    serviceId,
-    ...(directionId && { directionId }),
+    route_id: route_id,
+    service_id: service_id,
+    ...(direction_id && { direction_id: direction_id }),
   };
   await getPageStateManager().navigateTo(pageState);
 }
 
 /**
  * Navigate to stop details page
- * @param stopId - The stop ID to display
+ * @param stop_id - The stop ID to display
  */
-export async function navigateToStop(stopId: string): Promise<void> {
+export async function navigateToStop(stop_id: string): Promise<void> {
   const pageState: PageState = {
     type: 'stop',
-    stopId,
+    stop_id: stop_id,
   };
   await getPageStateManager().navigateTo(pageState);
 }
@@ -113,26 +113,26 @@ export function canNavigateBack(): boolean {
 
 /**
  * Navigate from agency to one of its routes
- * @param routeId - The route ID to navigate to
+ * @param route_id - The route ID to navigate to
  */
 export async function navigateToRouteFromAgency(
-  routeId: string
+  route_id: string
 ): Promise<void> {
-  await navigateToRoute(routeId);
+  await navigateToRoute(route_id);
 }
 
 /**
  * Navigate from route to one of its timetables
- * @param serviceId - The service ID for the timetable
- * @param directionId - Optional direction ID
+ * @param service_id - The service ID for the timetable
+ * @param direction_id - Optional direction ID
  */
 export async function navigateToTimetableFromRoute(
-  serviceId: string,
-  directionId?: string
+  service_id: string,
+  direction_id?: string
 ): Promise<void> {
   const currentState = getCurrentPageState();
   if (currentState.type === 'route') {
-    await navigateToTimetable(currentState.routeId, serviceId, directionId);
+    await navigateToTimetable(currentState.route_id, service_id, direction_id);
   } else {
     throw new Error('Can only navigate to timetable from route page');
   }
@@ -168,14 +168,14 @@ export async function navigateToObject(
   objectId: string,
   context?: {
     type?: 'agency' | 'route' | 'stop';
-    agencyId?: string;
-    routeId?: string;
+    agency_id?: string;
+    route_id?: string;
   }
 ): Promise<void> {
   if (context?.type === 'agency') {
     await navigateToAgency(objectId);
-  } else if (context?.type === 'route' && context.agencyId) {
-    await navigateToRoute(context.agencyId, objectId);
+  } else if (context?.type === 'route' && context.agency_id) {
+    await navigateToRoute(context.agency_id, objectId);
   } else if (context?.type === 'stop') {
     await navigateToStop(objectId);
   } else {
@@ -184,11 +184,11 @@ export async function navigateToObject(
 
     if (currentState.type === 'agency') {
       // Assume it's a route within this agency
-      await navigateToRoute(currentState.agencyId, objectId);
+      await navigateToRoute(currentState.agency_id, objectId);
     } else if (currentState.type === 'route') {
       // Could be a service for timetable - this would need more context
       // For now, just navigate to the route's agency
-      await navigateToAgency(currentState.agencyId);
+      await navigateToAgency(currentState.agency_id);
     } else {
       // Default to stop navigation
       await navigateToStop(objectId);

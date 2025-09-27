@@ -16,27 +16,27 @@ import {
   CalendarDates,
   Trips,
   StopTimes,
+  GTFSTableMap,
 } from '../types/gtfs-entities.js';
 import { notifications } from './notification-system';
 
 export interface EditableStopTime {
-  stopId: string;
-  arrivalTime: string | null;
-  departureTime: string | null;
+  stop_id: string;
+  arrival_time: string | null;
+  departure_time: string | null;
   isSkipped: boolean;
   originalArrivalTime?: string;
   originalDepartureTime?: string;
 }
 
 export interface AlignedTrip {
-  tripId: string;
+  trip_id: string;
   headsign: string;
   stopTimes: Map<number, string>; // position -> time (departure or arrival), null for gaps
-  arrivalTimes?: Map<number, string>; // position -> arrival time, null for gaps
-  departureTimes?: Map<number, string>; // position -> departure time, null for gaps
+  arrival_times?: Map<number, string>; // position -> arrival time, null for gaps
+  departure_times?: Map<number, string>; // position -> departure time, null for gaps
   editableStopTimes?: Map<number, EditableStopTime>;
 }
-
 
 export interface DirectionInfo {
   id: string;
@@ -47,15 +47,14 @@ export interface DirectionInfo {
 export interface TimetableData {
   route: Routes;
   service: Calendar | CalendarDates;
-  stops: Stops[];
+  stops: EnhancedStop[];
   trips: AlignedTrip[];
-  directionId?: string;
+  direction_id?: string;
   directionName?: string;
   availableDirections?: DirectionInfo[];
   selectedDirectionId?: string;
   showArrivalDeparture?: boolean; // Whether to show separate arrival/departure columns
 }
-
 
 // Validation schemas for editable fields
 export const TimeValidationSchema = z
@@ -84,9 +83,9 @@ export const ServiceDateSchema = z
   }, 'Invalid date');
 
 export const ServicePropertiesSchema = z.object({
-  serviceId: z.string().min(1, 'Service ID is required'),
-  startDate: ServiceDateSchema.optional(),
-  endDate: ServiceDateSchema.optional(),
+  service_id: z.string().min(1, 'Service ID is required'),
+  start_date: ServiceDateSchema.optional(),
+  end_date: ServiceDateSchema.optional(),
   monday: z.boolean().optional(),
   tuesday: z.boolean().optional(),
   wednesday: z.boolean().optional(),
@@ -98,9 +97,9 @@ export const ServicePropertiesSchema = z.object({
 
 export const EditableStopTimeSchema = z
   .object({
-    stopId: z.string().min(1, 'Stop ID is required'),
-    arrivalTime: TimeValidationSchema.nullable(),
-    departureTime: TimeValidationSchema.nullable(),
+    stop_id: z.string().min(1, 'Stop ID is required'),
+    arrival_time: TimeValidationSchema.nullable(),
+    departure_time: TimeValidationSchema.nullable(),
     isSkipped: z.boolean(),
     originalArrivalTime: z.string().optional(),
     originalDepartureTime: z.string().optional(),
@@ -108,7 +107,7 @@ export const EditableStopTimeSchema = z
   .refine(
     (data) => {
       // At least one time should be specified
-      return data.arrivalTime || data.departureTime;
+      return data.arrival_time || data.departure_time;
     },
     {
       message: 'Either arrival time or departure time must be specified',
@@ -117,32 +116,81 @@ export const EditableStopTimeSchema = z
   .refine(
     (data) => {
       // If both times are specified, arrival should be <= departure
-      if (data.arrivalTime && data.departureTime) {
-        return data.arrivalTime <= data.departureTime;
+      if (data.arrival_time && data.departure_time) {
+        return data.arrival_time <= data.departure_time;
       }
       return true;
     },
     {
       message: 'Arrival time must be before or equal to departure time',
-      path: ['departureTime'],
+      path: ['departure_time'],
     }
   );
 
+// Enhanced GTFS interfaces with both original properties and shorthand convenience properties
+interface EnhancedStop {
+  // Shorthand properties
+  id: string;
+  name: string;
+  // Original GTFS properties
+  stop_id: string;
+  stop_name: string;
+  stop_code?: string;
+  stop_desc?: string;
+  stop_lat?: number;
+  stop_lon?: number;
+  zone_id?: string;
+  stop_url?: string;
+  location_type?: string;
+  parent_station?: string;
+  stop_timezone?: string;
+  wheelchair_boarding?: string;
+  level_id?: string;
+  platform_code?: string;
+}
+
+interface EnhancedTrip {
+  // Shorthand properties
+  id: string;
+  headsign?: string;
+  shortName?: string;
+  // Original GTFS properties
+  trip_id: string;
+  route_id: string;
+  service_id: string;
+  trip_headsign?: string;
+  trip_short_name?: string;
+  direction_id?: string;
+  block_id?: string;
+  shape_id?: string;
+  wheelchair_accessible?: string;
+}
+
 interface GTFSParserInterface {
-  getFileDataSync(filename: string): any[];
+  getFileDataSync<T extends keyof GTFSTableMap>(filename: T): GTFSTableMap[T][];
   gtfsDatabase: {
-    queryRows(tableName: string, filter: any): Promise<any[]>;
-    updateRow(tableName: string, key: string, data: any): Promise<void>;
-    generateKey(tableName: string, data: any): string;
+    queryRows<T extends keyof GTFSTableMap>(
+      tableName: T,
+      filter?: { [key: string]: string | number | boolean }
+    ): Promise<GTFSTableMap[T][]>;
+    updateRow<T extends keyof GTFSTableMap>(
+      tableName: T,
+      key: string,
+      data: Partial<GTFSTableMap[T]>
+    ): Promise<void>;
+    generateKey<T extends keyof GTFSTableMap>(
+      tableName: T,
+      data: GTFSTableMap[T]
+    ): string;
   };
 }
 
 interface GTFSRelationships {
-  getCalendarForService(serviceId: string): Calendar | CalendarDates | null;
-  getTripsForRoute(routeId: string): Trips[];
-  getStopTimesForTrip(tripId: string): StopTimes[];
-  getStopById(stopId: string): Stops | null;
-  getStopByIdAsync(stopId: string): Promise<Stops | null>;
+  getCalendarForService(service_id: string): Calendar | CalendarDates | null;
+  getTripsForRoute(route_id: string): EnhancedTrip[];
+  getStopTimesForTrip(trip_id: string): StopTimes[];
+  getStopById(stop_id: string): EnhancedStop | null;
+  getStopByIdAsync(stop_id: string): Promise<EnhancedStop | null>;
 }
 
 export class ScheduleController {
@@ -157,16 +205,6 @@ export class ScheduleController {
     this.gtfsParser = gtfsParser;
   }
 
-
-
-
-
-
-
-
-
-
-
   // ===== PUBLIC EDITING METHODS =====
 
   /**
@@ -176,7 +214,11 @@ export class ScheduleController {
     const trimmed = timeInput.trim();
 
     // If already in HH:MM:SS format, return as-is
-    if (/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$|^(2[4-9]|[3-9]\d):[0-5]\d:[0-5]\d$/.test(trimmed)) {
+    if (
+      /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$|^(2[4-9]|[3-9]\d):[0-5]\d:[0-5]\d$/.test(
+        trimmed
+      )
+    ) {
       return trimmed;
     }
 
@@ -193,7 +235,9 @@ export class ScheduleController {
     // If in H:M format, pad both and append :00
     if (/^\d:\d$/.test(trimmed)) {
       const parts = trimmed.split(':');
-      return parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0') + ':00';
+      return (
+        parts[0].padStart(2, '0') + ':' + parts[1].padStart(2, '0') + ':00'
+      );
     }
 
     // Return original if no casting possible
@@ -204,8 +248,8 @@ export class ScheduleController {
    * Update time for a specific stop in a trip
    */
   public async updateTime(
-    tripId: string,
-    stopId: string,
+    trip_id: string,
+    stop_id: string,
     newTime: string
   ): Promise<void> {
     try {
@@ -215,23 +259,28 @@ export class ScheduleController {
       // Validate time format
       const validationResult = TimeValidationSchema.safeParse(castedTime);
       if (!validationResult.success) {
-        console.error('Invalid time format after casting:', validationResult.error);
+        console.error(
+          'Invalid time format after casting:',
+          validationResult.error
+        );
         // Show error feedback to user
         this.showTimeError(
-          tripId,
-          stopId,
+          trip_id,
+          stop_id,
           'Invalid time format. Use HH:MM (24-hour)'
         );
         return;
       }
 
       // Update database directly
-      await this.updateStopTimeInDatabase(tripId, stopId, castedTime);
+      await this.updateStopTimeInDatabase(trip_id, stop_id, castedTime);
 
-      console.log(`Updated time for ${tripId}/${stopId} from ${newTime} to ${castedTime}`);
+      console.log(
+        `Updated time for ${trip_id}/${stop_id} from ${newTime} to ${castedTime}`
+      );
     } catch (error) {
       console.error('Failed to update time:', error);
-      this.showTimeError(tripId, stopId, 'Failed to save time change');
+      this.showTimeError(trip_id, stop_id, 'Failed to save time change');
     }
   }
 
@@ -239,8 +288,8 @@ export class ScheduleController {
    * Update arrival or departure time for a specific stop in a trip
    */
   public async updateArrivalDepartureTime(
-    tripId: string,
-    stopId: string,
+    trip_id: string,
+    stop_id: string,
     timeType: 'arrival' | 'departure',
     newTime: string
   ): Promise<void> {
@@ -251,10 +300,13 @@ export class ScheduleController {
       // Validate time format
       const validationResult = TimeValidationSchema.safeParse(castedTime);
       if (!validationResult.success) {
-        console.error('Invalid time format after casting:', validationResult.error);
+        console.error(
+          'Invalid time format after casting:',
+          validationResult.error
+        );
         this.showTimeError(
-          tripId,
-          stopId,
+          trip_id,
+          stop_id,
           'Invalid time format. Use HH:MM (24-hour)'
         );
         return;
@@ -262,12 +314,12 @@ export class ScheduleController {
 
       // Get current times for validation
       const currentArrivalTime = await this.getCurrentArrivalTime(
-        tripId,
-        stopId
+        trip_id,
+        stop_id
       );
       const currentDepartureTime = await this.getCurrentDepartureTime(
-        tripId,
-        stopId
+        trip_id,
+        stop_id
       );
 
       // Validate arrival <= departure constraint if both are specified
@@ -277,8 +329,8 @@ export class ScheduleController {
         castedTime > currentDepartureTime
       ) {
         this.showTimeError(
-          tripId,
-          stopId,
+          trip_id,
+          stop_id,
           'Arrival time must be before or equal to departure time'
         );
         return;
@@ -289,36 +341,41 @@ export class ScheduleController {
         castedTime < currentArrivalTime
       ) {
         this.showTimeError(
-          tripId,
-          stopId,
+          trip_id,
+          stop_id,
           'Departure time must be after or equal to arrival time'
         );
         return;
       }
 
       // Update database directly
-      await this.updateStopTimeInDatabase(tripId, stopId, castedTime, timeType);
+      await this.updateStopTimeInDatabase(
+        trip_id,
+        stop_id,
+        castedTime,
+        timeType
+      );
 
       console.log(
-        `Updated ${timeType} time for ${tripId}/${stopId} from ${newTime} to ${castedTime}`
+        `Updated ${timeType} time for ${trip_id}/${stop_id} from ${newTime} to ${castedTime}`
       );
     } catch (error) {
       console.error('Failed to update arrival/departure time:', error);
-      this.showTimeError(tripId, stopId, 'Failed to save time change');
+      this.showTimeError(trip_id, stop_id, 'Failed to save time change');
     }
   }
 
   /**
    * Skip a stop for a trip
    */
-  public async skipStop(tripId: string, stopId: string): Promise<void> {
+  public async skipStop(trip_id: string, stop_id: string): Promise<void> {
     try {
       // Update database directly by setting times to null
-      await this.updateStopTimeInDatabase(tripId, stopId, null);
-      console.log(`Skipped stop ${stopId} for trip ${tripId}`);
+      await this.updateStopTimeInDatabase(trip_id, stop_id, null);
+      console.log(`Skipped stop ${stop_id} for trip ${trip_id}`);
 
       // Refresh the display
-      this.refreshTimetableCell(tripId, stopId);
+      this.refreshTimetableCell(trip_id, stop_id);
     } catch (error) {
       console.error('Failed to skip stop:', error);
     }
@@ -327,15 +384,15 @@ export class ScheduleController {
   /**
    * Unskip a stop for a trip
    */
-  public async unskipStop(tripId: string, stopId: string): Promise<void> {
+  public async unskipStop(trip_id: string, stop_id: string): Promise<void> {
     try {
       // TODO: Restore previous times or set to "00:00:00"
       // For now, set to "00:00:00" as a placeholder - user can edit
-      await this.updateStopTimeInDatabase(tripId, stopId, "00:00:00");
-      console.log(`Unskipped stop ${stopId} for trip ${tripId}`);
+      await this.updateStopTimeInDatabase(trip_id, stop_id, '00:00:00');
+      console.log(`Unskipped stop ${stop_id} for trip ${trip_id}`);
 
       // Refresh the display
-      this.refreshTimetableCell(tripId, stopId);
+      this.refreshTimetableCell(trip_id, stop_id);
     } catch (error) {
       console.error('Failed to unskip stop:', error);
     }
@@ -346,8 +403,8 @@ export class ScheduleController {
    */
   public handleTimeKeyDown(
     event: KeyboardEvent,
-    tripId: string,
-    stopId: string
+    trip_id: string,
+    stop_id: string
   ): void {
     const input = event.target as HTMLInputElement;
 
@@ -357,7 +414,7 @@ export class ScheduleController {
         break;
       case 'Enter':
         input.blur(); // Trigger onchange
-        this.focusNextTimeCell(tripId, stopId, event.shiftKey);
+        this.focusNextTimeCell(trip_id, stop_id, event.shiftKey);
         event.preventDefault();
         break;
       case 'Escape':
@@ -367,57 +424,55 @@ export class ScheduleController {
         event.preventDefault();
         break;
       case 'ArrowDown':
-        this.focusTimeCell(this.getNextStop(stopId), tripId);
+        this.focusTimeCell(this.getNextStop(stop_id), trip_id);
         event.preventDefault();
         break;
       case 'ArrowUp':
-        this.focusTimeCell(this.getPrevStop(stopId), tripId);
+        this.focusTimeCell(this.getPrevStop(stop_id), trip_id);
         event.preventDefault();
         break;
       case 'ArrowLeft':
         if (input.selectionStart === 0) {
-          this.focusPrevTimeCell(tripId, stopId);
+          this.focusPrevTimeCell(trip_id, stop_id);
           event.preventDefault();
         }
         break;
       case 'ArrowRight':
         if (input.selectionStart === input.value.length) {
-          this.focusNextTimeCell(tripId, stopId, false);
+          this.focusNextTimeCell(trip_id, stop_id, false);
           event.preventDefault();
         }
         break;
     }
   }
 
-
   // ===== PRIVATE HELPER METHODS =====
-
 
   /**
    * Get current time for a stop in a trip (legacy single time method)
    */
   private async getCurrentTime(
-    tripId: string,
-    stopId: string
+    trip_id: string,
+    stop_id: string
   ): Promise<string | null> {
     try {
-      const database = (this.gtfsParser as any).gtfsDatabase;
+      const database = this.gtfsParser.gtfsDatabase;
       if (!database) {
         return null;
       }
 
       const stopTimes = await database.queryRows('stop_times', {
-        trip_id: tripId,
-        stop_id: stopId
+        trip_id: trip_id,
+        stop_id: stop_id,
       });
 
       if (stopTimes.length === 0) {
         return null;
       }
 
-      // Return departureTime or fall back to arrivalTime
+      // Return departure_time or fall back to arrival_time
       const stopTime = stopTimes[0];
-      return ((stopTime as any).departureTime || (stopTime as any).arrivalTime) as string || null;
+      return stopTime.departure_time || stopTime.arrival_time || null;
     } catch (error) {
       console.error('Failed to get current time:', error);
       return null;
@@ -428,18 +483,18 @@ export class ScheduleController {
    * Get current arrival time for a stop in a trip
    */
   private async getCurrentArrivalTime(
-    tripId: string,
-    stopId: string
+    trip_id: string,
+    stop_id: string
   ): Promise<string | null> {
     try {
-      const database = (this.gtfsParser as any).gtfsDatabase;
+      const database = this.gtfsParser.gtfsDatabase;
       if (!database) {
         return null;
       }
 
       const stopTimes = await database.queryRows('stop_times', {
-        trip_id: tripId,
-        stop_id: stopId
+        trip_id: trip_id,
+        stop_id: stop_id,
       });
 
       if (stopTimes.length === 0) {
@@ -447,7 +502,7 @@ export class ScheduleController {
       }
 
       const stopTime = stopTimes[0];
-      return (stopTime as any).arrivalTime as string || null;
+      return stopTime.arrival_time || null;
     } catch (error) {
       console.error('Failed to get current arrival time:', error);
       return null;
@@ -458,18 +513,18 @@ export class ScheduleController {
    * Get current departure time for a stop in a trip
    */
   private async getCurrentDepartureTime(
-    tripId: string,
-    stopId: string
+    trip_id: string,
+    stop_id: string
   ): Promise<string | null> {
     try {
-      const database = (this.gtfsParser as any).gtfsDatabase;
+      const database = this.gtfsParser.gtfsDatabase;
       if (!database) {
         return null;
       }
 
       const stopTimes = await database.queryRows('stop_times', {
-        trip_id: tripId,
-        stop_id: stopId
+        trip_id: trip_id,
+        stop_id: stop_id,
       });
 
       if (stopTimes.length === 0) {
@@ -477,7 +532,7 @@ export class ScheduleController {
       }
 
       const stopTime = stopTimes[0];
-      return (stopTime as any).departureTime as string || null;
+      return stopTime.departure_time || null;
     } catch (error) {
       console.error('Failed to get current departure time:', error);
       return null;
@@ -488,29 +543,31 @@ export class ScheduleController {
    * Update stop_time in database (legacy single time method)
    */
   private async updateStopTimeInDatabase(
-    tripId: string,
-    stopId: string,
+    trip_id: string,
+    stop_id: string,
     newTime: string,
     timeType?: 'arrival' | 'departure'
   ): Promise<void> {
     try {
       // Access the database through gtfsParser
-      const database = (this.gtfsParser as any).gtfsDatabase;
+      const database = this.gtfsParser.gtfsDatabase;
       if (!database) {
         const error = 'Database connection not available';
         console.error(error);
-        notifications.showError('Unable to save changes - database connection lost');
+        notifications.showError(
+          'Unable to save changes - database connection lost'
+        );
         throw new Error(error);
       }
 
       // Find the stop_time record by trip_id and stop_id
       const stopTimes = await database.queryRows('stop_times', {
-        trip_id: tripId,
-        stop_id: stopId
+        trip_id: trip_id,
+        stop_id: stop_id,
       });
 
       if (stopTimes.length === 0) {
-        const error = `No stop_time found for trip ${tripId}, stop ${stopId}`;
+        const error = `No stop_time found for trip ${trip_id}, stop ${stop_id}`;
         console.error('Database update failed:', error);
         notifications.showError('Unable to find the schedule record to update');
         throw new Error(error);
@@ -522,34 +579,35 @@ export class ScheduleController {
       // Determine which field to update
       const field =
         timeType === 'arrival'
-          ? 'arrivalTime'
+          ? 'arrival_time'
           : timeType === 'departure'
-            ? 'departureTime'
-            : 'departureTime';
+            ? 'departure_time'
+            : 'departure_time';
 
       // Generate natural key for the stop_time record and update
       const naturalKey = database.generateKey('stop_times', stopTime);
       await database.updateRow('stop_times', naturalKey, {
-        [field]: newTime
+        [field]: newTime,
       });
 
       // Log success and show success notification
       console.log(
-        `Updated ${field} for trip ${tripId}, stop ${stopId} to ${newTime || 'null'}`
+        `Updated ${field} for trip ${trip_id}, stop ${stop_id} to ${newTime || 'null'}`
       );
-      notifications.showSuccess(
-        `Time updated to ${newTime || 'skipped'}`,
-        { duration: 2000 }
-      );
+      notifications.showSuccess(`Time updated to ${newTime || 'skipped'}`, {
+        duration: 2000,
+      });
 
       // Refresh the affected UI cell
-      this.refreshTimetableCell(tripId, stopId);
-
+      this.refreshTimetableCell(trip_id, stop_id);
     } catch (error) {
       console.error('Failed to update stop_time in database:', error);
 
       // Show user-friendly error message if not already shown
-      if (!error.message.includes('Database connection') && !error.message.includes('No stop_time found')) {
+      if (
+        !error.message.includes('Database connection') &&
+        !error.message.includes('No stop_time found')
+      ) {
         notifications.showError(
           'Failed to save time change - please try again',
           { duration: 6000 }
@@ -563,44 +621,55 @@ export class ScheduleController {
   /**
    * Show time validation error to user
    */
-  private showTimeError(tripId: string, stopId: string, message: string): void {
-    console.error(`Time error for ${tripId}/${stopId}: ${message}`);
-    notifications.showError(
-      `Invalid time format: ${message}`,
-      { duration: 5000 }
-    );
+  private showTimeError(
+    trip_id: string,
+    stop_id: string,
+    message: string
+  ): void {
+    console.error(`Time error for ${trip_id}/${stop_id}: ${message}`);
+    notifications.showError(`Invalid time format: ${message}`, {
+      duration: 5000,
+    });
   }
 
   /**
    * Refresh a single timetable cell
    */
-  private async refreshTimetableCell(tripId: string, stopId: string): Promise<void> {
+  private async refreshTimetableCell(
+    trip_id: string,
+    stop_id: string
+  ): Promise<void> {
     try {
       // Find the specific input element for this trip/stop combination
-      const cellSelector = `input[data-trip-id="${tripId}"][data-stop-id="${stopId}"]`;
-      const inputElement = document.querySelector(cellSelector) as HTMLInputElement;
+      const cellSelector = `input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"]`;
+      const inputElement = document.querySelector(
+        cellSelector
+      ) as HTMLInputElement;
 
       if (!inputElement) {
-        console.log(`Cell not found for refresh: ${tripId}, ${stopId}`);
+        console.log(`Cell not found for refresh: ${trip_id}, ${stop_id}`);
         return;
       }
 
       // Get the updated time from database
-      const database = (this.gtfsParser as any).gtfsDatabase;
+      const database = this.gtfsParser.gtfsDatabase;
       if (!database) {
         console.warn('Database not available for cell refresh');
         return;
       }
 
       const stopTimes = await database.queryRows('stop_times', {
-        trip_id: tripId,
-        stop_id: stopId
+        trip_id: trip_id,
+        stop_id: stop_id,
       });
 
       if (stopTimes.length > 0) {
         const stopTime = stopTimes[0];
         const timeType = inputElement.dataset.timeType || 'departure';
-        const newTime = timeType === 'arrival' ? (stopTime as any).arrivalTime : (stopTime as any).departureTime;
+        const newTime =
+          timeType === 'arrival'
+            ? stopTime.arrival_time
+            : stopTime.departure_time;
 
         // Update the input value without triggering change events
         inputElement.value = newTime || '';
@@ -614,10 +683,12 @@ export class ScheduleController {
           inputElement.placeholder = '';
         }
 
-        console.log(`Refreshed cell ${tripId}/${stopId}: ${newTime || 'skipped'}`);
+        console.log(
+          `Refreshed cell ${trip_id}/${stop_id}: ${newTime || 'skipped'}`
+        );
       }
     } catch (error) {
-      console.error(`Failed to refresh cell ${tripId}/${stopId}:`, error);
+      console.error(`Failed to refresh cell ${trip_id}/${stop_id}:`, error);
     }
   }
 
@@ -625,24 +696,26 @@ export class ScheduleController {
    * Focus navigation helpers
    */
   private focusNextTimeCell(
-    tripId: string,
-    stopId: string,
+    trip_id: string,
+    stop_id: string,
     reverse: boolean
   ): void {
     // TODO: Implement focus navigation
-    console.log(`focusNextTimeCell: ${tripId}, ${stopId}, reverse: ${reverse}`);
+    console.log(
+      `focusNextTimeCell: ${trip_id}, ${stop_id}, reverse: ${reverse}`
+    );
   }
 
-  private focusPrevTimeCell(tripId: string, stopId: string): void {
+  private focusPrevTimeCell(trip_id: string, stop_id: string): void {
     // TODO: Implement focus navigation
-    console.log(`focusPrevTimeCell: ${tripId}, ${stopId}`);
+    console.log(`focusPrevTimeCell: ${trip_id}, ${stop_id}`);
   }
 
-  private focusTimeCell(stopId: string | null, tripId: string): void {
-    if (!stopId) {
+  private focusTimeCell(stop_id: string | null, trip_id: string): void {
+    if (!stop_id) {
       return;
     }
-    const selector = `input[data-trip-id="${tripId}"][data-stop-id="${stopId}"]`;
+    const selector = `input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"]`;
     const input = document.querySelector(selector) as HTMLInputElement;
     if (input) {
       input.focus();
@@ -650,12 +723,12 @@ export class ScheduleController {
     }
   }
 
-  private getNextStop(_stopId: string): string | null {
+  private getNextStop(_stop_id: string): string | null {
     // TODO: Get next stop in sequence
     return null;
   }
 
-  private getPrevStop(_stopId: string): string | null {
+  private getPrevStop(_stop_id: string): string | null {
     // TODO: Get previous stop in sequence
     return null;
   }
@@ -664,29 +737,33 @@ export class ScheduleController {
    * Render schedule HTML for a specific route and service
    */
   async renderSchedule(
-    routeId: string,
-    serviceId: string,
-    directionId?: string
+    route_id: string,
+    service_id: string,
+    direction_id?: string
   ): Promise<string> {
     try {
-      console.log('DEBUG: renderSchedule called with:', { routeId, serviceId, directionId });
+      console.log('DEBUG: renderSchedule called with:', {
+        route_id,
+        service_id,
+        direction_id,
+      });
 
       // Get all available directions for this route and service
       const availableDirections = this.getAvailableDirections(
-        routeId,
-        serviceId
+        route_id,
+        service_id
       );
 
       // Use first available direction if none specified
       const selectedDirection =
-        directionId ||
+        direction_id ||
         (availableDirections.length > 0
           ? availableDirections[0].id
           : undefined);
 
       const timetableData = await this.generateTimetableData(
-        routeId,
-        serviceId,
+        route_id,
+        service_id,
         selectedDirection
       );
 
@@ -696,7 +773,7 @@ export class ScheduleController {
 
       console.log('DEBUG: Timetable data generated:', {
         tripsCount: timetableData.trips.length,
-        stopsCount: timetableData.stops.length
+        stopsCount: timetableData.stops.length,
       });
 
       return this.renderTimetableHTML(timetableData);
@@ -710,56 +787,55 @@ export class ScheduleController {
    * Generate timetable data for a route and service
    */
   private async generateTimetableData(
-    routeId: string,
-    serviceId: string,
-    directionId?: string
+    route_id: string,
+    service_id: string,
+    direction_id?: string
   ): Promise<TimetableData> {
     // Get route information
-    const routesData = this.gtfsParser.getFileDataSync('routes.txt') as Routes[] || [];
-    const route = routesData.find(
-      (r: Routes) => (r as any).route_id === routeId
-    );
+    const routesData =
+      (this.gtfsParser.getFileDataSync('routes.txt') as Routes[]) || [];
+    const route = routesData.find((r: Routes) => r.route_id === route_id);
     if (!route) {
-      throw new Error(`Route ${routeId} not found`);
+      throw new Error(`Route ${route_id} not found`);
     }
 
     // Get service information
-    const service = this.relationships.getCalendarForService(serviceId) || {
-      serviceId,
+    const service = this.relationships.getCalendarForService(service_id) || {
+      service_id,
     };
 
     // Get all trips for this route and service
-    const allTrips = this.relationships.getTripsForRoute(routeId);
+    const allTrips: EnhancedTrip[] =
+      this.relationships.getTripsForRoute(route_id);
     let trips = allTrips.filter(
-      (trip: Trips) => (trip as any).serviceId === serviceId
+      (trip: EnhancedTrip) => trip.service_id === service_id
     );
 
     // Filter by direction if specified
-    if (directionId !== undefined) {
+    if (direction_id !== undefined) {
       trips = trips.filter(
-        (trip: Trips) =>
-          ((trip as any).directionId || '0') === directionId
+        (trip: EnhancedTrip) => (trip.direction_id || '0') === direction_id
       );
     }
 
     if (trips.length === 0) {
       const directionFilter =
-        directionId !== undefined ? ` and direction ${directionId}` : '';
+        direction_id !== undefined ? ` and direction ${direction_id}` : '';
       throw new Error(
-        `No trips found for route ${routeId}, service ${serviceId}${directionFilter}`
+        `No trips found for route ${route_id}, service ${service_id}${directionFilter}`
       );
     }
 
     // Build stop sequences for each trip
     const tripSequences: string[][] = [];
-    trips.forEach((trip: Trips) => {
-      const stopTimes = this.relationships.getStopTimesForTrip((trip as any).id);
+    trips.forEach((trip: EnhancedTrip) => {
+      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
       const tripStops = stopTimes
         .sort(
           (a: StopTimes, b: StopTimes) =>
-            parseInt((a as any).stopSequence) - parseInt((b as any).stopSequence)
+            parseInt(a.stop_sequence) - parseInt(b.stop_sequence)
         )
-        .map((st: StopTimes) => (st as any).stopId);
+        .map((st: StopTimes) => st.stop_id);
       tripSequences.push(tripStops);
     });
 
@@ -768,60 +844,77 @@ export class ScheduleController {
     const scsHelper = new SCSResultHelper(scsResult);
 
     // Get stop details for the optimal sequence
-    const stops = await Promise.all(scsResult.supersequence.map(async (stopId) => {
-      const stop = await this.relationships.getStopByIdAsync(stopId);
-      if (!stop) {
-        const error = `Stop ${stopId} not found in stops.txt but referenced in stop_times.txt`;
-        console.error('GTFS Data Integrity Error:', error);
-        throw new Error(error);
-      }
-      return stop;
-    }));
+    const stops: EnhancedStop[] = await Promise.all(
+      scsResult.supersequence.map(async (stop_id) => {
+        const stop = await this.relationships.getStopByIdAsync(stop_id);
+        if (!stop) {
+          const error = `Stop ${stop_id} not found in stops.txt but referenced in stop_times.txt`;
+          console.error('GTFS Data Integrity Error:', error);
+          throw new Error(error);
+        }
+        return stop;
+      })
+    );
 
     // Align trips using the SCS result
     const alignedTrips = this.alignTripsWithSCS(trips, scsHelper);
 
     // Get direction name
     const directionName =
-      directionId !== undefined
-        ? this.getDirectionName(directionId, trips)
+      direction_id !== undefined
+        ? this.getDirectionName(direction_id, trips)
         : undefined;
 
     // Debug: Show what's being rendered
     console.log('=== TIMETABLE DEBUG ===');
-    console.log('Route:', (route as any).route_id, (route as any).route_short_name || (route as any).route_long_name);
-    console.log('Service:', service.serviceId);
+    console.log(
+      'Route:',
+      route.route_id,
+      route.route_short_name || route.route_long_name
+    );
+    console.log('Service:', service.service_id);
     console.log('Stops sequence:');
-    console.table(stops.map((stop, index) => ({
-      position: index,
-      stop_id: (stop as any).id,
-      stop_name: (stop as any).name
-    })));
+    console.table(
+      stops.map((stop, index) => ({
+        position: index,
+        stop_id: stop.id,
+        stop_name: stop.name,
+      }))
+    );
 
     console.log('Aligned trips data:');
-    console.table(alignedTrips.map(trip => {
-      const stopTimesArray = Array.from(trip.stopTimes.entries());
-      console.log(`DEBUG: Trip ${trip.tripId} stopTimes Map:`, trip.stopTimes);
-      console.log(`DEBUG: Trip ${trip.tripId} stopTimes entries:`, stopTimesArray);
+    console.table(
+      alignedTrips.map((trip) => {
+        const stopTimesArray = Array.from(trip.stopTimes.entries());
+        console.log(
+          `DEBUG: Trip ${trip.trip_id} stopTimes Map:`,
+          trip.stopTimes
+        );
+        console.log(
+          `DEBUG: Trip ${trip.trip_id} stopTimes entries:`,
+          stopTimesArray
+        );
 
-      return {
-        trip_id: trip.tripId,
-        headsign: trip.headsign,
-        stop_positions_with_times: stopTimesArray.length > 0
-          ? stopTimesArray.map(([pos, time]) => `${pos}:${time}`).join(', ')
-          : 'EMPTY - no stop times found',
-        total_stops: trip.stopTimes.size,
-        has_arrival_times: trip.arrivalTimes?.size || 0,
-        has_departure_times: trip.departureTimes?.size || 0
-      };
-    }));
+        return {
+          trip_id: trip.trip_id,
+          headsign: trip.headsign,
+          stop_positions_with_times:
+            stopTimesArray.length > 0
+              ? stopTimesArray.map(([pos, time]) => `${pos}:${time}`).join(', ')
+              : 'EMPTY - no stop times found',
+          total_stops: trip.stopTimes.size,
+          has_arrival_times: trip.arrival_times?.size || 0,
+          has_departure_times: trip.departure_times?.size || 0,
+        };
+      })
+    );
 
     return {
       route,
       service,
       stops,
       trips: alignedTrips,
-      directionId,
+      direction_id,
       directionName,
     };
   }
@@ -831,89 +924,107 @@ export class ScheduleController {
    * No manual alignment logic needed - everything is handled by SCS!
    */
   private alignTripsWithSCS(
-    trips: Trips[],
+    trips: EnhancedTrip[],
     scsHelper: SCSResultHelper<string>
   ): AlignedTrip[] {
     const alignedTrips: AlignedTrip[] = [];
 
     trips.forEach((trip, tripIndex) => {
-      const stopTimes = this.relationships.getStopTimesForTrip((trip as any).id);
+      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
       const stopTimeMap = new Map<number, string>();
-      const arrivalTimeMap = new Map<number, string>();
-      const departureTimeMap = new Map<number, string>();
+      const arrival_timeMap = new Map<number, string>();
+      const departure_timeMap = new Map<number, string>();
       const editableStopTimes = new Map<number, EditableStopTime>();
 
       // Sort stop times by sequence
       const sortedStopTimes = stopTimes.sort(
         (a: StopTimes, b: StopTimes) =>
-          parseInt((a as any).stopSequence) - parseInt((b as any).stopSequence)
+          parseInt(a.stop_sequence) - parseInt(b.stop_sequence)
       );
 
       // Use SCS alignment to map times to supersequence positions
       const positionMapping = scsHelper.getPositionMapping(tripIndex);
 
-      console.log(`DEBUG: Trip ${(trip as any).id} (index ${tripIndex}) position mapping:`, positionMapping);
-      console.log(`DEBUG: Trip ${(trip as any).id} has ${sortedStopTimes.length} stop times`);
+      console.log(
+        `DEBUG: Trip ${trip.id} (index ${tripIndex}) position mapping:`,
+        positionMapping
+      );
+      console.log(
+        `DEBUG: Trip ${trip.id} has ${sortedStopTimes.length} stop times`
+      );
 
       sortedStopTimes.forEach((st: StopTimes, inputPosition) => {
         const superPosition = positionMapping.get(inputPosition);
-        console.log(`DEBUG: Trip ${(trip as any).id} stop ${(st as any).stopId} - input pos ${inputPosition} -> super pos ${superPosition}`);
+        console.log(
+          `DEBUG: Trip ${trip.id} stop ${st.stop_id} - input pos ${inputPosition} -> super pos ${superPosition}`
+        );
 
         if (superPosition !== undefined) {
-          const arrivalTime = (st as any).arrivalTime as string | null;
-          const departureTime = (st as any).departureTime as string | null;
-          const displayTime = departureTime || arrivalTime; // Fallback for legacy display
+          const arrival_time = st.arrival_time;
+          const departure_time = st.departure_time;
+          const displayTime = departure_time || arrival_time; // Fallback for legacy display
 
-          console.log(`DEBUG: Trip ${(trip as any).id} at super position ${superPosition}:`, {
-            arrivalTime,
-            departureTime,
-            displayTime
-          });
+          console.log(
+            `DEBUG: Trip ${trip.id} at super position ${superPosition}:`,
+            {
+              arrival_time,
+              departure_time,
+              displayTime,
+            }
+          );
 
-          if (arrivalTime) {
-            arrivalTimeMap.set(superPosition, arrivalTime);
-            console.log(`DEBUG: Set arrival time ${arrivalTime} at position ${superPosition}`);
+          if (arrival_time) {
+            arrival_timeMap.set(superPosition, arrival_time);
+            console.log(
+              `DEBUG: Set arrival time ${arrival_time} at position ${superPosition}`
+            );
           }
-          if (departureTime) {
-            departureTimeMap.set(superPosition, departureTime);
-            console.log(`DEBUG: Set departure time ${departureTime} at position ${superPosition}`);
+          if (departure_time) {
+            departure_timeMap.set(superPosition, departure_time);
+            console.log(
+              `DEBUG: Set departure time ${departure_time} at position ${superPosition}`
+            );
           }
           if (displayTime) {
             stopTimeMap.set(superPosition, displayTime);
-            console.log(`DEBUG: Set display time ${displayTime} at position ${superPosition}`);
+            console.log(
+              `DEBUG: Set display time ${displayTime} at position ${superPosition}`
+            );
           }
 
           // Create editable stop time with both arrival and departure
-          if (arrivalTime || departureTime) {
+          if (arrival_time || departure_time) {
             editableStopTimes.set(superPosition, {
-              stopId: (st as any).stopId,
-              arrivalTime: arrivalTime,
-              departureTime: departureTime,
+              stop_id: st.stop_id,
+              arrival_time: arrival_time,
+              departure_time: departure_time,
               isSkipped: false,
-              originalArrivalTime: arrivalTime,
-              originalDepartureTime: departureTime,
+              originalArrivalTime: arrival_time,
+              originalDepartureTime: departure_time,
             });
           }
         }
       });
 
       alignedTrips.push({
-        tripId: (trip as any).id,
-        headsign: (trip as any).headsign || (trip as any).id,
+        trip_id: trip.id,
+        headsign: trip.headsign || trip.id,
         stopTimes: stopTimeMap,
-        arrivalTimes: arrivalTimeMap,
-        departureTimes: departureTimeMap,
+        arrival_times: arrival_timeMap,
+        departure_times: departure_timeMap,
         editableStopTimes,
       });
 
       // Debug: Show time mapping for this trip
-      console.log(`Trip ${(trip as any).id} time mapping:`);
-      console.table(Array.from(stopTimeMap.entries()).map(([position, time]) => ({
-        supersequence_position: position,
-        display_time: time,
-        arrival_time: arrivalTimeMap.get(position) || '-',
-        departure_time: departureTimeMap.get(position) || '-'
-      })));
+      console.log(`Trip ${trip.id} time mapping:`);
+      console.table(
+        Array.from(stopTimeMap.entries()).map(([position, time]) => ({
+          supersequence_position: position,
+          display_time: time,
+          arrival_time: arrival_timeMap.get(position) || '-',
+          departure_time: departure_timeMap.get(position) || '-',
+        }))
+      );
     });
 
     return alignedTrips;
@@ -941,11 +1052,11 @@ export class ScheduleController {
     route: Routes,
     service: Calendar | CalendarDates
   ): string {
-    const routeName = (route as any).route_short_name
-      ? `${(route as any).route_short_name}${(route as any).route_long_name ? ' - ' + (route as any).route_long_name : ''}`
-      : (route as any).route_long_name || (route as any).route_id;
+    const routeName = route.route_short_name
+      ? `${route.route_short_name}${route.route_long_name ? ' - ' + route.route_long_name : ''}`
+      : route.route_long_name || route.route_id;
 
-    const serviceName = service.serviceId;
+    const serviceName = service.service_id;
 
     return `
       <div class="border-b border-base-300">
@@ -985,9 +1096,9 @@ export class ScheduleController {
         <button
           class="tab ${isActive ? 'tab-active' : ''}"
           data-direction-id="${direction.id}"
-          data-route-id="${(data.route as any).route_id}"
-          data-service-id="${data.service.serviceId}"
-          onclick="gtfsEditor.navigateToTimetable('${(data.route as any).route_id}', '${data.service.serviceId}', '${direction.id}')"
+          data-route-id="${data.route.route_id}"
+          data-service-id="${data.service.service_id}"
+          onclick="gtfsEditor.navigateToTimetable('${data.route.route_id}', '${data.service.service_id}', '${direction.id}')"
         >
           <span class="flex items-center gap-2">
             ${directionIcon}
@@ -1011,8 +1122,8 @@ export class ScheduleController {
   /**
    * Get direction icon SVG
    */
-  private getDirectionIcon(directionId: string): string {
-    switch (directionId) {
+  private getDirectionIcon(direction_id: string): string {
+    switch (direction_id) {
       case '0': // Outbound
         return `
           <svg xmlns="http://www.w3.org/2000/svg" class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1043,15 +1154,15 @@ export class ScheduleController {
     }
 
     // Get routes that use this service to show the warning
-    const routesUsingService = this.getRoutesUsingService(service.serviceId);
+    const routesUsingService = this.getRoutesUsingService(service.service_id);
     const multipleRoutes = routesUsingService.length > 1;
 
     // Format start and end dates
-    const startDate = service.startDate
-      ? this.formatDate(service.startDate)
+    const startDate = service.start_date
+      ? this.formatDate(service.start_date)
       : 'Not specified';
-    const endDate = service.endDate
-      ? this.formatDate(service.endDate)
+    const endDate = service.end_date
+      ? this.formatDate(service.end_date)
       : 'Not specified';
 
     // Get day-of-week properties
@@ -1090,7 +1201,7 @@ export class ScheduleController {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Service Properties
-              <div class="badge badge-secondary badge-sm">${service.serviceId}</div>
+              <div class="badge badge-secondary badge-sm">${service.service_id}</div>
             </h3>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
@@ -1137,7 +1248,7 @@ export class ScheduleController {
                     .map(
                       (route) => `
                     <div class="badge badge-outline badge-sm">
-                      ${(route as any).route_short_name || (route as any).route_id}
+                      ${route.route_short_name || route.route_id}
                     </div>
                   `
                     )
@@ -1165,22 +1276,22 @@ export class ScheduleController {
   /**
    * Get routes that use a specific service
    */
-  private getRoutesUsingService(serviceId: string): Routes[] {
-    const allRoutes = this.gtfsParser.getFileDataSync('routes.txt') as Routes[] || [];
-    const allTrips = this.gtfsParser.getFileDataSync('trips.txt') as Trips[] || [];
+  private getRoutesUsingService(service_id: string): Routes[] {
+    const allRoutes =
+      (this.gtfsParser.getFileDataSync('routes.txt') as Routes[]) || [];
+    const allTrips =
+      (this.gtfsParser.getFileDataSync('trips.txt') as Trips[]) || [];
 
     // Get unique route IDs that have trips using this service
-    const routeIds = new Set();
+    const route_ids = new Set();
     allTrips.forEach((trip: Trips) => {
-      if ((trip as any).serviceId === serviceId) {
-        routeIds.add((trip as any).routeId); // This might be routeId in trips
+      if (trip.service_id === service_id) {
+        route_ids.add(trip.route_id);
       }
     });
 
     // Return route objects for these route IDs
-    return allRoutes.filter((route: Routes) =>
-      routeIds.has((route as any).route_id)
-    );
+    return allRoutes.filter((route: Routes) => route_ids.has(route.route_id));
   }
 
   /**
@@ -1230,7 +1341,7 @@ export class ScheduleController {
     console.log('DEBUG: renderTimetableContent called with:', {
       showArrivalDeparture,
       tripsCount: data.trips.length,
-      stopsCount: data.stops.length
+      stopsCount: data.stops.length,
     });
 
     return `
@@ -1249,14 +1360,14 @@ export class ScheduleController {
   private shouldShowSeparateArrivalDeparture(trips: AlignedTrip[]): boolean {
     // Show separate columns if any trip has different arrival and departure times
     return trips.some((trip) => {
-      if (!trip.arrivalTimes || !trip.departureTimes) {
+      if (!trip.arrival_times || !trip.departure_times) {
         return false;
       }
 
       // Check if any stop has different arrival and departure times
-      for (const [position, arrivalTime] of trip.arrivalTimes) {
-        const departureTime = trip.departureTimes.get(position);
-        if (arrivalTime && departureTime && arrivalTime !== departureTime) {
+      for (const [position, arrival_time] of trip.arrival_times) {
+        const departure_time = trip.departure_times.get(position);
+        if (arrival_time && departure_time && arrival_time !== departure_time) {
           return true;
         }
       }
@@ -1277,13 +1388,13 @@ export class ScheduleController {
           // Show two columns per trip: Arrival and Departure
           const arrivalHeader = `
             <th class="trip-header arrival-header p-2 text-center min-w-[70px] border-b border-base-300 bg-blue-50/50">
-              <div class="trip-id text-xs font-medium">${trip.tripId}</div>
+              <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
               <div class="time-type text-[10px] opacity-60 mt-1">ARR</div>
             </th>
           `;
           const departureHeader = `
             <th class="trip-header departure-header p-2 text-center min-w-[70px] border-b border-base-300 bg-orange-50/50 border-l border-base-200">
-              <div class="trip-id text-xs font-medium">${trip.tripId}</div>
+              <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
               <div class="time-type text-[10px] opacity-60 mt-1">DEP</div>
             </th>
           `;
@@ -1292,13 +1403,12 @@ export class ScheduleController {
           // Single column per trip (original behavior)
           return `
             <th class="trip-header p-2 text-center min-w-[80px] border-b border-base-300">
-              <div class="trip-id text-xs font-medium">${trip.tripId}</div>
+              <div class="trip-id text-xs font-medium">${trip.trip_id}</div>
             </th>
           `;
         }
       })
       .join('');
-
 
     return `
       <thead class="sticky top-0 bg-base-100 z-10">
@@ -1331,21 +1441,21 @@ export class ScheduleController {
 
             if (showArrivalDeparture) {
               // Render two cells per trip: arrival and departure
-              const arrivalTime = trip.arrivalTimes?.get(stopPosition);
-              const departureTime = trip.departureTimes?.get(stopPosition);
+              const arrival_time = trip.arrival_times?.get(stopPosition);
+              const departure_time = trip.departure_times?.get(stopPosition);
 
               const arrivalCell = this.renderEditableArrivalDepartureCell(
-                trip.tripId,
+                trip.trip_id,
                 stop.stop_id,
-                arrivalTime,
+                arrival_time,
                 'arrival',
                 editableStopTime
               );
 
               const departureCell = this.renderEditableArrivalDepartureCell(
-                trip.tripId,
+                trip.trip_id,
                 stop.stop_id,
-                departureTime,
+                departure_time,
                 'departure',
                 editableStopTime
               );
@@ -1356,7 +1466,7 @@ export class ScheduleController {
               const time = trip.stopTimes.get(stopPosition);
 
               return this.renderEditableTimeCell(
-                trip.tripId,
+                trip.trip_id,
                 stop.stop_id,
                 time,
                 editableStopTime
@@ -1368,8 +1478,8 @@ export class ScheduleController {
         return `
         <tr class="${rowClass}">
           <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
-            <div class="stop-name-text">${this.escapeHtml((stop as any).name || (stop as any).id)}</div>
-            <div class="stop-id text-xs opacity-70">${(stop as any).id}</div>
+            <div class="stop-name-text">${this.escapeHtml(stop.name || stop.id)}</div>
+            <div class="stop-id text-xs opacity-70">${stop.id}</div>
           </td>
           ${timeCells}
         </tr>
@@ -1406,8 +1516,8 @@ export class ScheduleController {
    * Render editable arrival/departure time cell
    */
   private renderEditableArrivalDepartureCell(
-    tripId: string,
-    stopId: string,
+    trip_id: string,
+    stop_id: string,
     time: string | null,
     timeType: 'arrival' | 'departure',
     editableStopTime?: EditableStopTime
@@ -1432,7 +1542,7 @@ export class ScheduleController {
             ${
               timeType === 'departure'
                 ? `
-              <button class="btn btn-ghost btn-xs ml-1" onclick="gtfsEditor.scheduleController.unskipStop('${tripId}', '${stopId}')" title="Unskip this stop">
+              <button class="btn btn-ghost btn-xs ml-1" onclick="gtfsEditor.scheduleController.unskipStop('${trip_id}', '${stop_id}')" title="Unskip this stop">
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
                 </svg>
@@ -1453,20 +1563,20 @@ export class ScheduleController {
             class="time-input input input-xs w-16 text-center font-mono bg-transparent border-none focus:outline-none focus:bg-base-200"
             value="${displayTime}"
             placeholder="--:--"
-            data-trip-id="${tripId}"
-            data-stop-id="${stopId}"
+            data-trip-id="${trip_id}"
+            data-stop-id="${stop_id}"
             data-time-type="${timeType}"
             pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]$"
             title="Enter time in HH:MM format (24-hour, may exceed 24:00)"
-            onchange="gtfsEditor.scheduleController.updateArrivalDepartureTime('${tripId}', '${stopId}', '${timeType}', this.value)"
-            onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${tripId}', '${stopId}')"
+            onchange="gtfsEditor.scheduleController.updateArrivalDepartureTime('${trip_id}', '${stop_id}', '${timeType}', this.value)"
+            onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${trip_id}', '${stop_id}')"
             onfocus="this.select()"
           />
           ${
             timeType === 'departure'
               ? `
             <div class="time-cell-actions opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 right-0">
-              <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.skipStop('${tripId}', '${stopId}')" title="Skip this stop">
+              <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.skipStop('${trip_id}', '${stop_id}')" title="Skip this stop">
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd"></path>
                 </svg>
@@ -1484,8 +1594,8 @@ export class ScheduleController {
    * Render editable time cell with input and validation (single column mode)
    */
   private renderEditableTimeCell(
-    tripId: string,
-    stopId: string,
+    trip_id: string,
+    stop_id: string,
     time: string | null,
     editableStopTime?: EditableStopTime
   ): string {
@@ -1505,7 +1615,7 @@ export class ScheduleController {
         <td class="${cellClass}">
           <div class="skipped-indicator">
             <span class="text-xs opacity-70">SKIP</span>
-            <button class="btn btn-ghost btn-xs ml-1" onclick="gtfsEditor.scheduleController.unskipStop('${tripId}', '${stopId}')" title="Unskip this stop">
+            <button class="btn btn-ghost btn-xs ml-1" onclick="gtfsEditor.scheduleController.unskipStop('${trip_id}', '${stop_id}')" title="Unskip this stop">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
               </svg>
@@ -1523,16 +1633,16 @@ export class ScheduleController {
             class="time-input input input-xs w-20 text-center font-mono bg-transparent border-none focus:outline-none focus:bg-base-200"
             value="${displayTime}"
             placeholder="--:--"
-            data-trip-id="${tripId}"
-            data-stop-id="${stopId}"
+            data-trip-id="${trip_id}"
+            data-stop-id="${stop_id}"
             pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]$"
             title="Enter time in HH:MM format (24-hour, may exceed 24:00)"
-            onchange="gtfsEditor.scheduleController.updateTime('${tripId}', '${stopId}', this.value)"
-            onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${tripId}', '${stopId}')"
+            onchange="gtfsEditor.scheduleController.updateTime('${trip_id}', '${stop_id}', this.value)"
+            onkeydown="gtfsEditor.scheduleController.handleTimeKeyDown(event, '${trip_id}', '${stop_id}')"
             onfocus="this.select()"
           />
           <div class="time-cell-actions opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 right-0">
-            <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.skipStop('${tripId}', '${stopId}')" title="Skip this stop">
+            <button class="btn btn-ghost btn-xs" onclick="gtfsEditor.scheduleController.skipStop('${trip_id}', '${stop_id}')" title="Skip this stop">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd"></path>
               </svg>
@@ -1597,19 +1707,19 @@ export class ScheduleController {
    * Get available directions for a route and service
    */
   private getAvailableDirections(
-    routeId: string,
-    serviceId: string
+    route_id: string,
+    service_id: string
   ): DirectionInfo[] {
     // Get all trips for this route and service
-    const allTrips = this.relationships.getTripsForRoute(routeId);
+    const allTrips = this.relationships.getTripsForRoute(route_id);
     const trips = allTrips.filter(
-      (trip: Trips) => (trip as any).serviceId === serviceId
+      (trip: EnhancedTrip) => trip.service_id === service_id
     );
 
     // Group trips by direction ID
     const directionMap = new Map<string, number>();
-    trips.forEach((trip: Trips) => {
-      const dirId = ((trip as any).directionId || '0').toString();
+    trips.forEach((trip: EnhancedTrip) => {
+      const dirId = (trip.direction_id || '0').toString();
       directionMap.set(dirId, (directionMap.get(dirId) || 0) + 1);
     });
 
@@ -1628,15 +1738,15 @@ export class ScheduleController {
   /**
    * Get a human-readable direction name
    */
-  private getDirectionName(directionId: string, _trips: Trips[]): string {
+  private getDirectionName(direction_id: string, _trips: Trips[]): string {
     // Use standard direction names
-    switch (directionId) {
+    switch (direction_id) {
       case '0':
         return 'Outbound';
       case '1':
         return 'Inbound';
       default:
-        return `Direction ${directionId}`;
+        return `Direction ${direction_id}`;
     }
   }
 

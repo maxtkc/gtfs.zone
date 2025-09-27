@@ -13,11 +13,11 @@ import {
 export class InfoDisplay {
   private relationships: {
     getAgencies: () => Record<string, unknown>[];
-    getRoutesForAgency: (agencyId: string) => Record<string, unknown>[];
-    getTripsForRoute: (routeId: string) => Record<string, unknown>[];
-    getStopTimesForTrip: (tripId: string) => Record<string, unknown>[];
-    getStopById: (stopId: string) => Record<string, unknown> | null;
-    getTripsForStop: (stopId: string) => Record<string, unknown>[];
+    getRoutesForAgency: (agency_id: string) => Record<string, unknown>[];
+    getTripsForRoute: (route_id: string) => Record<string, unknown>[];
+    getStopTimesForTrip: (trip_id: string) => Record<string, unknown>[];
+    getStopById: (stop_id: string) => Record<string, unknown> | null;
+    getTripsForStop: (stop_id: string) => Record<string, unknown>[];
     getStatistics: () => Record<string, unknown>;
     gtfsParser: {
       getFileDataSync: (filename: string) => Record<string, unknown>[];
@@ -27,11 +27,11 @@ export class InfoDisplay {
 
   constructor(gtfsRelationships: {
     getAgencies: () => Record<string, unknown>[];
-    getRoutesForAgency: (agencyId: string) => Record<string, unknown>[];
-    getTripsForRoute: (routeId: string) => Record<string, unknown>[];
-    getStopTimesForTrip: (tripId: string) => Record<string, unknown>[];
-    getStopById: (stopId: string) => Record<string, unknown> | null;
-    getTripsForStop: (stopId: string) => Record<string, unknown>[];
+    getRoutesForAgency: (agency_id: string) => Record<string, unknown>[];
+    getTripsForRoute: (route_id: string) => Record<string, unknown>[];
+    getStopTimesForTrip: (trip_id: string) => Record<string, unknown>[];
+    getStopById: (stop_id: string) => Record<string, unknown> | null;
+    getTripsForStop: (stop_id: string) => Record<string, unknown>[];
     getStatistics: () => Record<string, unknown>;
     gtfsParser: {
       getFileDataSync: (filename: string) => Record<string, unknown>[];
@@ -50,10 +50,10 @@ export class InfoDisplay {
     }
   }
 
-  showAgencyDetails(agencyId: string) {
+  showAgencyDetails(agency_id: string) {
     const agencies = this.relationships.getAgencies();
     const agency = agencies.find(
-      (a: Record<string, unknown>) => a.id === agencyId
+      (a: Record<string, unknown>) => a.id === agency_id
     );
 
     if (!agency) {
@@ -61,7 +61,7 @@ export class InfoDisplay {
       return;
     }
 
-    const routes = this.relationships.getRoutesForAgency(agencyId);
+    const routes = this.relationships.getRoutesForAgency(agency_id);
 
     if (!this.container) {
       return;
@@ -74,7 +74,7 @@ export class InfoDisplay {
             <h4 class="font-medium text-slate-800 mb-3">${this.escapeHtml(agency.name)}</h4>
             
             <div class="space-y-2 text-sm">
-              <div>${createTooltip('<strong>ID:</strong>', getAgencyFieldDescription('agencyId'))} ${agency.id}</div>
+              <div>${createTooltip('<strong>ID:</strong>', getAgencyFieldDescription('agency_id'))} ${agency.id}</div>
               ${agency.url ? `<div>${createTooltip('<strong>Website:</strong>', getAgencyFieldDescription('agencyUrl'))} <a href="${agency.url}" target="_blank" class="text-info hover:underline">${agency.url}</a></div>` : ''}
               ${agency.timezone ? `<div>${createTooltip('<strong>Timezone:</strong>', getAgencyFieldDescription('agencyTimezone'))} ${agency.timezone}</div>` : ''}
               ${agency.lang ? `<div>${createTooltip('<strong>Language:</strong>', getAgencyFieldDescription('agencyLang'))} ${agency.lang}</div>` : ''}
@@ -106,11 +106,11 @@ export class InfoDisplay {
     `;
   }
 
-  showRouteDetails(routeId: string) {
+  showRouteDetails(route_id: string) {
     const allRoutes =
       this.relationships.gtfsParser.getFileDataSync('routes.txt') || [];
     const route = allRoutes.find(
-      (r: Record<string, unknown>) => r.route_id === routeId
+      (r: Record<string, unknown>) => r.route_id === route_id
     );
 
     if (!route) {
@@ -118,7 +118,7 @@ export class InfoDisplay {
       return;
     }
 
-    const trips = this.relationships.getTripsForRoute(routeId);
+    const trips = this.relationships.getTripsForRoute(route_id);
     const agencies = this.relationships.getAgencies();
     const agency = agencies.find(
       (a: Record<string, unknown>) => a.id === route.agency_id
@@ -137,12 +137,12 @@ export class InfoDisplay {
             </h4>
             
             <div class="space-y-2 text-sm">
-              <div>${createTooltip('<strong>Route ID:</strong>', getRouteFieldDescription('routeId'))} ${route.route_id}</div>
+              <div>${createTooltip('<strong>Route ID:</strong>', getRouteFieldDescription('route_id'))} ${route.route_id}</div>
               ${route.route_short_name ? `<div>${createTooltip('<strong>Short Name:</strong>', getRouteFieldDescription('routeShortName'))} ${this.escapeHtml(route.route_short_name)}</div>` : ''}
               ${route.route_long_name ? `<div>${createTooltip('<strong>Long Name:</strong>', getRouteFieldDescription('routeLongName'))} ${this.escapeHtml(route.route_long_name)}</div>` : ''}
               ${route.route_desc ? `<div>${createTooltip('<strong>Description:</strong>', getRouteFieldDescription('routeDesc'))} ${this.escapeHtml(route.route_desc)}</div>` : ''}
               <div>${createTooltip('<strong>Type:</strong>', getRouteFieldDescription('routeType'))} ${this.getRouteTypeText(route.route_type)}</div>
-              ${agency ? `<div>${createTooltip('<strong>Agency:</strong>', getAgencyFieldDescription('agencyId'))} ${this.escapeHtml(agency.name)}</div>` : ''}
+              ${agency ? `<div>${createTooltip('<strong>Agency:</strong>', getAgencyFieldDescription('agency_id'))} ${this.escapeHtml(agency.name)}</div>` : ''}
               ${route.route_color ? `<div>${createTooltip('<strong>Color:</strong>', getRouteFieldDescription('routeColor'))} <span style="background: #${route.route_color}; color: #${route.route_text_color || 'ffffff'};" class="px-2 py-1 rounded">#${route.route_color}</span></div>` : ''}
               ${route.route_url ? `<div>${createTooltip('<strong>URL:</strong>', getRouteFieldDescription('routeUrl'))} <a href="${route.route_url}" target="_blank" class="text-info hover:underline">${route.route_url}</a></div>` : ''}
             </div>
@@ -159,7 +159,7 @@ export class InfoDisplay {
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">${trip.id}</div>
                 <div class="text-sm text-slate-500">Trip ID: ${trip.id}</div>
-                <div class="text-xs text-slate-400">Service: ${trip.serviceId}</div>
+                <div class="text-xs text-slate-400">Service: ${trip.service_id}</div>
               </div>
             `
               )
@@ -171,11 +171,11 @@ export class InfoDisplay {
     `;
   }
 
-  showTripDetails(tripId: string) {
+  showTripDetails(trip_id: string) {
     const allTrips =
       this.relationships.gtfsParser.getFileDataSync('trips.txt') || [];
     const trip = allTrips.find(
-      (t: Record<string, unknown>) => t.trip_id === tripId
+      (t: Record<string, unknown>) => t.trip_id === trip_id
     );
 
     if (!trip) {
@@ -183,7 +183,7 @@ export class InfoDisplay {
       return;
     }
 
-    const stopTimes = this.relationships.getStopTimesForTrip(tripId);
+    const stopTimes = this.relationships.getStopTimesForTrip(trip_id);
     const allRoutes =
       this.relationships.gtfsParser.getFileDataSync('routes.txt') || [];
     const route = allRoutes.find(
@@ -203,8 +203,8 @@ export class InfoDisplay {
             <div class="space-y-2 text-sm">
               <div>${createTooltip('<strong>Trip ID:</strong>', 'Identifies a trip.')} ${trip.trip_id}</div>
               ${trip.trip_short_name ? `<div>${createTooltip('<strong>Short Name:</strong>', 'Short name of a trip.')} ${this.escapeHtml(trip.trip_short_name)}</div>` : ''}
-              <div>${createTooltip('<strong>Route:</strong>', getRouteFieldDescription('routeId'))} ${route ? route.route_short_name || route.route_long_name || route.route_id : trip.route_id}</div>
-              <div>${createTooltip('<strong>Service ID:</strong>', getCalendarFieldDescription('serviceId'))} ${trip.service_id}</div>
+              <div>${createTooltip('<strong>Route:</strong>', getRouteFieldDescription('route_id'))} ${route ? route.route_short_name || route.route_long_name || route.route_id : trip.route_id}</div>
+              <div>${createTooltip('<strong>Service ID:</strong>', getCalendarFieldDescription('service_id'))} ${trip.service_id}</div>
               ${trip.direction_id ? `<div>${createTooltip('<strong>Direction:</strong>', 'Indicates the direction of travel for a trip.')} ${trip.direction_id}</div>` : ''}
               ${trip.block_id ? `<div>${createTooltip('<strong>Block ID:</strong>', 'Identifies the block to which the trip belongs.')} ${trip.block_id}</div>` : ''}
               ${trip.shape_id ? `<div>${createTooltip('<strong>Shape ID:</strong>', 'Identifies a geospatial shape that describes the vehicle travel path for a trip.')} ${trip.shape_id}</div>` : ''}
@@ -220,12 +220,12 @@ export class InfoDisplay {
                 (st: Record<string, unknown>, _index: number) => `
               <div class="bg-white border border-slate-200 rounded p-2 flex justify-between items-center">
                 <div class="flex-1">
-                  <div class="font-medium text-sm">${st.stop ? this.escapeHtml(st.stop.name) : st.stopId}</div>
-                  <div class="text-xs text-slate-500">Stop ${st.stopSequence}: ${st.stopId}</div>
+                  <div class="font-medium text-sm">${st.stop ? this.escapeHtml(st.stop.name) : st.stop_id}</div>
+                  <div class="text-xs text-slate-500">Stop ${st.stop_sequence}: ${st.stop_id}</div>
                 </div>
                 <div class="text-right">
-                  <div class="text-sm font-mono">${st.arrivalTime}</div>
-                  <div class="text-sm font-mono text-slate-500">${st.departureTime}</div>
+                  <div class="text-sm font-mono">${st.arrival_time}</div>
+                  <div class="text-sm font-mono text-slate-500">${st.departure_time}</div>
                 </div>
               </div>
             `
@@ -237,15 +237,15 @@ export class InfoDisplay {
     `;
   }
 
-  showStopDetails(stopId: string) {
-    const stop = this.relationships.getStopById(stopId);
+  showStopDetails(stop_id: string) {
+    const stop = this.relationships.getStopById(stop_id);
 
     if (!stop) {
       this.showError('Stop not found');
       return;
     }
 
-    const trips = this.relationships.getTripsForStop(stopId);
+    const trips = this.relationships.getTripsForStop(stop_id);
 
     if (!this.container) {
       return;
@@ -271,10 +271,10 @@ export class InfoDisplay {
               `
                   : ''
               }
-              ${stop.zoneId ? `<div><strong>Zone ID:</strong> ${stop.zoneId}</div>` : ''}
+              ${stop.zone_id ? `<div><strong>Zone ID:</strong> ${stop.zone_id}</div>` : ''}
               ${stop.url ? `<div><strong>URL:</strong> <a href="${stop.url}" target="_blank" class="text-info hover:underline">${stop.url}</a></div>` : ''}
               ${stop.locationType ? `<div><strong>Location Type:</strong> ${this.getLocationTypeText(stop.locationType)}</div>` : ''}
-              ${stop.parentStation ? `<div><strong>Parent Station:</strong> ${stop.parentStation}</div>` : ''}
+              ${stop.parent_station ? `<div><strong>Parent Station:</strong> ${stop.parent_station}</div>` : ''}
               ${stop.wheelchairBoarding ? `<div><strong>Wheelchair Boarding:</strong> ${this.getWheelchairText(stop.wheelchairBoarding)}</div>` : ''}
             </div>
           </div>
@@ -289,7 +289,7 @@ export class InfoDisplay {
                 (trip: Record<string, unknown>) => `
               <div class="bg-white border border-slate-200 rounded p-3">
                 <div class="font-medium text-slate-800">${trip.id}</div>
-                <div class="text-sm text-slate-500">Trip: ${trip.id} | Route: ${trip.routeId}</div>
+                <div class="text-sm text-slate-500">Trip: ${trip.id} | Route: ${trip.route_id}</div>
               </div>
             `
               )

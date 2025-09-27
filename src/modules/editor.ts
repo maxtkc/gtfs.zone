@@ -25,12 +25,16 @@ interface GTFSParser {
   updateFileInMemory(fileName: string, content: string): void;
   refreshRelatedTables(fileName: string): Promise<void>;
   getFileContent(fileName: string): string;
-  getFileData(fileName: string): Promise<any[]>;
+  getFileData(fileName: string): Promise<unknown[]>;
   updateFileContent(fileName: string, content: string): Promise<void>;
   gtfsDatabase: {
-    updateRow(tableName: string, key: string, data: any): Promise<void>;
+    updateRow(
+      tableName: string,
+      key: string,
+      data: Record<string, unknown>
+    ): Promise<void>;
     getNaturalKeyFields(tableName: string): string[];
-    generateKey(tableName: string, data: any): string;
+    generateKey(tableName: string, data: Record<string, unknown>): string;
   };
   // Add other methods as needed
 }

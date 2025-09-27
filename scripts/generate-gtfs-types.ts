@@ -218,8 +218,8 @@ function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: stri
 }
 
 function formatFieldName(fieldName: string): string {
-  // Convert snake_case to camelCase for TypeScript
-  return fieldName.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+  // Keep snake_case field names to match GTFS specification
+  return fieldName;
 }
 
 function generateInterfaceForFile(filename: string, fields: any[]): { interfaceName: string; interfaceCode: string } {
