@@ -54,11 +54,7 @@ export class TimetableCellRenderer {
     const isSkipped = !arrival_time && !departure_time;
 
     const cellClass = `time-cell p-2 text-center ${
-      isSkipped
-        ? 'no-time text-base-content/30'
-        : arrival_time || departure_time
-          ? 'has-time'
-          : 'no-time text-base-content/30'
+      isSkipped ? 'no-time' : 'has-time'
     }`;
 
     return `
@@ -71,7 +67,7 @@ export class TimetableCellRenderer {
             <div class="flex items-center gap-1">
               <input
                 type="text"
-                class="time-input input input-xs w-20 text-center font-mono bg-success-50/50 border-success-200 focus:bg-success-100"
+                class="input input-xs w-20 text-center font-mono bg-base-200 border-base-300 focus:bg-base-100 focus:border-primary"
                 value="${arrivalDisplay}"
                 placeholder="--:--:--"
                 data-trip-id="${trip_id}"
@@ -83,12 +79,12 @@ export class TimetableCellRenderer {
                 onfocus="this.select()"
               />
               <button
-                class="btn btn-primary btn-xs w-6 h-6 p-0"
+                class="btn btn-xs w-6 h-6 p-0 min-h-6"
                 onclick="gtfsEditor.scheduleController.toggleTimesLink('${trip_id}', '${stop_id}')"
                 title="Times are linked - click to unlink and add dwell time"
               >
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 5a3 3 0 100 6 3 3 0 000-6zM12 5a3 3 0 110 6V5zM8 17a3 3 0 100-6 3 3 0 000 6zM12 17a3 3 0 110-6v6z"/>
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
                 </svg>
               </button>
             </div>
@@ -98,10 +94,9 @@ export class TimetableCellRenderer {
             <div class="space-y-1">
               <!-- Arrival time -->
               <div class="flex items-center gap-1">
-                <span class="text-xs w-3 text-blue-600">A:</span>
                 <input
                   type="text"
-                  class="time-input input input-xs w-16 text-center font-mono bg-blue-50/50 border-blue-200 focus:bg-blue-100"
+                  class="input input-xs flex-1 text-center font-mono bg-base-200 border-base-300 focus:bg-base-100 focus:border-primary"
                   value="${arrivalDisplay}"
                   placeholder="--:--:--"
                   data-trip-id="${trip_id}"
@@ -112,13 +107,13 @@ export class TimetableCellRenderer {
                   onchange="gtfsEditor.scheduleController.updateArrivalTime('${trip_id}', '${stop_id}', this.value)"
                     onfocus="this.select()"
                 />
+                <div class="w-6"></div>
               </div>
               <!-- Departure time -->
               <div class="flex items-center gap-1">
-                <span class="text-xs w-3 text-orange-600">D:</span>
                 <input
                   type="text"
-                  class="time-input input input-xs w-16 text-center font-mono bg-orange-50/50 border-orange-200 focus:bg-orange-100"
+                  class="input input-xs flex-1 text-center font-mono bg-base-200 border-base-300 focus:bg-base-100 focus:border-primary"
                   value="${departureDisplay}"
                   placeholder="--:--:--"
                   data-trip-id="${trip_id}"
@@ -130,12 +125,12 @@ export class TimetableCellRenderer {
                     onfocus="this.select()"
                 />
                 <button
-                  class="btn btn-secondary btn-xs w-6 h-6 p-0"
+                  class="btn btn-xs w-6 h-6 p-0 min-h-6"
                   onclick="gtfsEditor.scheduleController.toggleTimesLink('${trip_id}', '${stop_id}')"
                   title="Times are separate - click to link arrival and departure"
                 >
-                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
                   </svg>
                 </button>
               </div>
@@ -165,7 +160,7 @@ export class TimetableCellRenderer {
   ): string {
     const displayTime = time ? TimeFormatter.formatTime(time) : '';
     const cellClass = `time-cell p-2 text-center ${
-      time ? 'has-time' : 'no-time text-base-content/30'
+      time ? 'has-time' : 'no-time'
     }`;
 
     return `
@@ -203,7 +198,7 @@ export class TimetableCellRenderer {
         ? 'skipped bg-warning/20 text-warning-content'
         : time
           ? 'has-time'
-          : 'no-time text-base-content/30'
+          : 'no-time'
     } ${
       timeType === 'arrival' ? 'bg-blue-50/30' : 'bg-orange-50/30'
     } ${timeType === 'departure' ? 'border-l border-base-200' : ''}`;
@@ -290,7 +285,7 @@ export class TimetableCellRenderer {
         ? 'skipped bg-warning/20 text-warning-content'
         : time
           ? 'has-time'
-          : 'no-time text-base-content/30'
+          : 'no-time'
     }`;
 
     if (isSkipped) {
@@ -358,7 +353,7 @@ export class TimetableCellRenderer {
     const input = document.createElement('input');
     input.type = 'text';
     input.className =
-      'time-input input input-xs w-20 text-center font-mono bg-success-50/50 border-success-200 focus:bg-success-100';
+      'input input-xs w-20 text-center font-mono bg-base-200 border-base-300 focus:bg-base-100 focus:border-primary';
     input.value = timeValue;
     input.placeholder = '--:--:--';
     input.setAttribute('data-trip-id', trip_id);
@@ -386,12 +381,12 @@ export class TimetableCellRenderer {
 
     // Add unlink button
     const unlinkButton = document.createElement('button');
-    unlinkButton.className = 'btn btn-primary btn-xs w-6 h-6 p-0';
+    unlinkButton.className = 'btn btn-xs w-6 h-6 p-0 min-h-6';
     unlinkButton.title =
       'Times are linked - click to unlink and add dwell time';
     unlinkButton.innerHTML = `
-      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M8 5a3 3 0 100 6 3 3 0 000-6zM12 5a3 3 0 110 6V5zM8 17a3 3 0 100-6 3 3 0 000 6zM12 17a3 3 0 110-6v6z"/>
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
       </svg>
     `;
 
@@ -433,14 +428,10 @@ export class TimetableCellRenderer {
     const arrivalDiv = document.createElement('div');
     arrivalDiv.className = 'flex items-center gap-1';
 
-    const arrivalLabel = document.createElement('span');
-    arrivalLabel.className = 'text-xs w-3 text-blue-600';
-    arrivalLabel.textContent = 'A:';
-
     const arrivalInput = document.createElement('input');
     arrivalInput.type = 'text';
     arrivalInput.className =
-      'time-input input input-xs w-16 text-center font-mono bg-blue-50/50 border-blue-200 focus:bg-blue-100';
+      'input input-xs flex-1 text-center font-mono bg-base-200 border-base-300 focus:bg-base-100 focus:border-primary';
     arrivalInput.value = arrivalTime;
     arrivalInput.placeholder = '--:--:--';
     arrivalInput.setAttribute('data-trip-id', trip_id);
@@ -462,21 +453,21 @@ export class TimetableCellRenderer {
       arrivalInput.select();
     });
 
-    arrivalDiv.appendChild(arrivalLabel);
+    // Add spacer to match button width in departure row
+    const arrivalSpacer = document.createElement('div');
+    arrivalSpacer.className = 'w-6';
+
     arrivalDiv.appendChild(arrivalInput);
+    arrivalDiv.appendChild(arrivalSpacer);
 
     // Departure input
     const departureDiv = document.createElement('div');
     departureDiv.className = 'flex items-center gap-1';
 
-    const departureLabel = document.createElement('span');
-    departureLabel.className = 'text-xs w-3 text-orange-600';
-    departureLabel.textContent = 'D:';
-
     const departureInput = document.createElement('input');
     departureInput.type = 'text';
     departureInput.className =
-      'time-input input input-xs w-16 text-center font-mono bg-orange-50/50 border-orange-200 focus:bg-orange-100';
+      'input input-xs flex-1 text-center font-mono bg-base-200 border-base-300 focus:bg-base-100 focus:border-primary';
     departureInput.value = departureTime;
     departureInput.placeholder = '--:--:--';
     departureInput.setAttribute('data-trip-id', trip_id);
@@ -498,17 +489,16 @@ export class TimetableCellRenderer {
       departureInput.select();
     });
 
-    departureDiv.appendChild(departureLabel);
     departureDiv.appendChild(departureInput);
 
     // Add link button next to departure input
     const linkButton = document.createElement('button');
-    linkButton.className = 'btn btn-secondary btn-xs w-6 h-6 p-0';
+    linkButton.className = 'btn btn-xs w-6 h-6 p-0 min-h-6';
     linkButton.title =
       'Times are separate - click to link arrival and departure';
     linkButton.innerHTML = `
-      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
       </svg>
     `;
 

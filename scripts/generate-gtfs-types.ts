@@ -4,25 +4,30 @@ import fs from 'fs/promises';
 import path from 'path';
 
 // Extract primary key mappings from GTFS spec
-function extractPrimaryKeys(): Record<string, string> {
-  const primaryKeys: Record<string, string> = {
-    'agency.txt': 'agencyId',
-    'stops.txt': 'stopId',
-    'routes.txt': 'routeId',
-    'trips.txt': 'tripId',
-    'stop_times.txt': 'tripId',
-    'pathways.txt': 'pathwayId',
-    'levels.txt': 'levelId',
-    'attributions.txt': 'attributionId',
-    'calendar.txt': 'serviceId',
-    'calendar_dates.txt': 'serviceId',
-    'fare_attributes.txt': 'fareId',
-    'fare_rules.txt': 'fareId',
-    'shapes.txt': 'shapeId',
-    'frequencies.txt': 'tripId',
-    'transfers.txt': 'fromStopId',
-    'feed_info.txt': 'feedPublisherName'
-  };
+function extractPrimaryKeys(gtfsSpec: any): Record<string, string> {
+  const primaryKeys: Record<string, string> = {};
+
+  for (const [filename, fields] of Object.entries(gtfsSpec.fieldDefinitions)) {
+    if (!fields || !Array.isArray(fields)) continue;
+
+    // Find the first field with type "Unique ID" or "ID" that's not optional
+    const primaryKeyField = fields.find(field =>
+      (field.type === 'Unique ID' || field.type === 'ID') &&
+      !field.presence?.toLowerCase().includes('optional')
+    );
+
+    // If no required unique ID found, find the first Unique ID (even if optional)
+    const fallbackKeyField = fields.find(field =>
+      field.type === 'Unique ID' || field.type === 'ID'
+    );
+
+    const keyField = primaryKeyField || fallbackKeyField;
+
+    if (keyField) {
+      // Keep the original snake_case field name to match GTFS specification
+      primaryKeys[filename] = keyField.fieldName;
+    }
+  }
 
   return primaryKeys;
 }
@@ -295,7 +300,7 @@ async function generateGTFSTypes(): Promise<string> {
     console.log(`Found ${relationships.length} foreign key relationships`);
 
     // Extract primary keys from the specification
-    const primaryKeys = extractPrimaryKeys();
+    const primaryKeys = extractPrimaryKeys(gtfsSpec);
     console.log(`Generated primary key mappings for ${Object.keys(primaryKeys).length} GTFS files`);
 
     let typeDefinitions = `/**

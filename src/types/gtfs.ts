@@ -2,7 +2,7 @@
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
  *
  * Generated from https://gtfs.org/documentation/schedule/reference
- * Scraped at: 2025-09-26T22:33:39.599Z
+ * Scraped at: 2025-09-28T10:09:56.395Z
  *
  * This file contains TypeScript interfaces and Zod schemas for all GTFS files and their fields.
  * Zod schemas include field descriptions accessible at runtime and foreign key validation.
@@ -499,18 +499,21 @@ export const GTFS_PRIMARY_KEYS = {
   'stops.txt': 'stop_id',
   'routes.txt': 'route_id',
   'trips.txt': 'trip_id',
-  'stop_times.txt': 'trip_id',
-  'pathways.txt': 'pathwayId',
-  'levels.txt': 'level_id',
-  'attributions.txt': 'attributionId',
   'calendar.txt': 'service_id',
-  'calendar_dates.txt': 'service_id',
-  'fare_attributes.txt': 'fareId',
-  'fare_rules.txt': 'fareId',
+  'fare_attributes.txt': 'fare_id',
+  'timeframes.txt': 'timeframe_group_id',
+  'rider_categories.txt': 'rider_category_id',
+  'fare_media.txt': 'fare_media_id',
+  'fare_products.txt': 'fare_product_id',
+  'fare_leg_rules.txt': 'leg_group_id',
+  'areas.txt': 'area_id',
+  'networks.txt': 'network_id',
   'shapes.txt': 'shape_id',
-  'frequencies.txt': 'trip_id',
-  'transfers.txt': 'fromStopId',
-  'feed_info.txt': 'feedPublisherName',
+  'pathways.txt': 'pathway_id',
+  'levels.txt': 'level_id',
+  'location_groups.txt': 'location_group_id',
+  'booking_rules.txt': 'booking_rule_id',
+  'attributions.txt': 'attribution_id',
 } as const;
 
 // Validation context interface for foreign key checking
