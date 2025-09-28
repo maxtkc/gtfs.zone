@@ -26,6 +26,7 @@ import {
   getPrimaryKeyFields,
   isCompositeKey,
 } from '../utils/gtfs-primary-keys.js';
+import { TimeFormatter } from '../utils/time-formatter.js';
 
 // Keep for backwards compatibility and dynamic operations
 export interface GTFSDatabaseRecord {
@@ -1245,13 +1246,13 @@ export class GTFSDatabase {
         // Apply time offset if specified
         if (timeOffset !== 0) {
           if (newStopTime.arrival_time) {
-            newStopTime.arrival_time = this.addMinutesToTime(
+            newStopTime.arrival_time = TimeFormatter.addMinutesToTime(
               newStopTime.arrival_time as string,
               timeOffset
             );
           }
           if (newStopTime.departure_time) {
-            newStopTime.departure_time = this.addMinutesToTime(
+            newStopTime.departure_time = TimeFormatter.addMinutesToTime(
               newStopTime.departure_time as string,
               timeOffset
             );
@@ -1430,18 +1431,6 @@ export class GTFSDatabase {
         blockingReferences: ['Error checking references'],
       };
     }
-  }
-
-  /**
-   * Utility: Add minutes to a time string (HH:MM:SS)
-   */
-  private addMinutesToTime(timeStr: string, minutes: number): string {
-    const [hours, mins, secs] = timeStr.split(':').map(Number);
-    const totalMinutes = hours * 60 + mins + minutes;
-    const newHours = Math.floor(totalMinutes / 60);
-    const newMins = totalMinutes % 60;
-
-    return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
   /**

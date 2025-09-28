@@ -294,9 +294,7 @@ export class PageStateManager {
             pageState: { type: 'route', route_id: pageState.route_id },
           });
 
-          const timetableLabel = pageState.direction_id
-            ? `${serviceName} (Direction ${pageState.direction_id})`
-            : serviceName;
+          const timetableLabel = serviceName;
 
           breadcrumbs.push({
             label: timetableLabel,

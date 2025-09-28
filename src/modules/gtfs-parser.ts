@@ -25,178 +25,105 @@ export class GTFSParser {
 
   async initialize(): Promise<void> {
     await this.gtfsDatabase.initialize();
+
+    // Check if there's existing data in IndexedDB and restore it to memory cache
+    await this.restoreDataFromDatabase();
+  }
+
+  /**
+   * Restore GTFS data from IndexedDB into memory cache
+   * This is needed when the page is refreshed and we lose the in-memory data
+   */
+  async restoreDataFromDatabase(): Promise<void> {
+    try {
+      const stats = await this.gtfsDatabase.getDatabaseStats();
+
+      // Check if stats is valid and has the expected structure
+      if (!stats || !stats.tables) {
+        console.log(
+          '[GTFSParser] No valid database stats found, keeping empty cache'
+        );
+        return;
+      }
+
+      const totalRecords = Object.values(stats.tables).reduce(
+        (sum, count) => sum + count,
+        0
+      );
+
+      // Only restore if there's data in the database
+      if (totalRecords === 0) {
+        console.log(
+          '[GTFSParser] No data found in IndexedDB, keeping empty cache'
+        );
+        return;
+      }
+
+      console.log(
+        '[GTFSParser] Restoring data from IndexedDB...',
+        stats.tables
+      );
+
+      this.gtfsData = {};
+
+      // Restore data for each table that has records
+      for (const [tableName, count] of Object.entries(stats.tables)) {
+        if (count > 0) {
+          const fileName = tableName.endsWith('.txt')
+            ? tableName
+            : `${tableName}.txt`;
+
+          try {
+            const data = await this.gtfsDatabase.getAllRows(tableName);
+
+            if (data && data.length > 0) {
+              // Generate CSV content from the data
+              const headers = Object.keys(data[0]);
+              const csvContent = [
+                headers.join(','),
+                ...data.map((row: GTFSDatabaseRecord) =>
+                  headers.map((header) => row[header] || '').join(',')
+                ),
+              ].join('\n');
+
+              this.gtfsData[fileName] = {
+                content: csvContent,
+                data: data,
+                errors: [],
+              };
+            }
+          } catch (tableError) {
+            console.warn(
+              `[GTFSParser] Failed to restore table ${tableName}:`,
+              tableError
+            );
+            // Continue with other tables
+          }
+        }
+      }
+
+      console.log(
+        '[GTFSParser] Data restored from IndexedDB:',
+        Object.keys(this.gtfsData)
+      );
+    } catch (error) {
+      console.error(
+        '[GTFSParser] Failed to restore data from IndexedDB:',
+        error
+      );
+      // Don't throw - continue with empty cache and let the user reload data
+    }
   }
 
   async initializeEmpty(): Promise<void> {
-    // Initialize with realistic sample GTFS structure
-    const sampleData = {
-      'agency.txt': [
-        {
-          agency_id: 'metro-transit',
-          agency_name: 'Metro Transit',
-          agency_url: 'https://metro.example.com',
-          agency_timezone: 'America/New_York',
-        },
-        {
-          agency_id: 'city-bus',
-          agency_name: 'City Bus',
-          agency_url: 'https://citybus.example.com',
-          agency_timezone: 'America/New_York',
-        },
-      ],
-      'routes.txt': [
-        {
-          route_id: 'metro-1',
-          agency_id: 'metro-transit',
-          route_short_name: '1',
-          route_long_name: 'Downtown Express',
-          route_type: '3',
-        },
-        {
-          route_id: 'metro-2',
-          agency_id: 'metro-transit',
-          route_short_name: '2',
-          route_long_name: 'Uptown Local',
-          route_type: '3',
-        },
-        {
-          route_id: 'city-a',
-          agency_id: 'city-bus',
-          route_short_name: 'A',
-          route_long_name: 'Airport Shuttle',
-          route_type: '3',
-        },
-        {
-          route_id: 'city-b',
-          agency_id: 'city-bus',
-          route_short_name: 'B',
-          route_long_name: 'Beach Route',
-          route_type: '3',
-        },
-      ],
-      'trips.txt': [
-        {
-          route_id: 'metro-1',
-          service_id: 'weekday',
-          trip_id: 'metro-1-downtown',
-          trip_headsign: 'Downtown',
-        },
-        {
-          route_id: 'metro-1',
-          service_id: 'weekday',
-          trip_id: 'metro-1-uptown',
-          trip_headsign: 'Uptown',
-        },
-        {
-          route_id: 'metro-2',
-          service_id: 'weekday',
-          trip_id: 'metro-2-local',
-          trip_headsign: 'Local Service',
-        },
-        {
-          route_id: 'city-a',
-          service_id: 'everyday',
-          trip_id: 'city-a-airport',
-          trip_headsign: 'Airport Terminal',
-        },
-      ],
-      'stops.txt': [
-        {
-          stop_id: 'downtown-station',
-          stop_name: 'Downtown Station',
-          stop_lat: '40.7128',
-          stop_lon: '-74.0060',
-        },
-        {
-          stop_id: 'main-street',
-          stop_name: 'Main Street & 5th Ave',
-          stop_lat: '40.7614',
-          stop_lon: '-73.9776',
-        },
-        {
-          stop_id: 'uptown-plaza',
-          stop_name: 'Uptown Plaza',
-          stop_lat: '40.7831',
-          stop_lon: '-73.9712',
-        },
-        {
-          stop_id: 'airport-terminal',
-          stop_name: 'Airport Terminal',
-          stop_lat: '40.6892',
-          stop_lon: '-74.1745',
-        },
-        {
-          stop_id: 'beach-pier',
-          stop_name: 'Beach Pier',
-          stop_lat: '40.5795',
-          stop_lon: '-73.8370',
-        },
-      ],
-      'stop_times.txt': [
-        // Metro Route 1 - Downtown
-        {
-          trip_id: 'metro-1-downtown',
-          arrival_time: '08:00:00',
-          departure_time: '08:00:00',
-          stop_id: 'uptown-plaza',
-          stop_sequence: '1',
-        },
-        {
-          trip_id: 'metro-1-downtown',
-          arrival_time: '08:15:00',
-          departure_time: '08:15:00',
-          stop_id: 'main-street',
-          stop_sequence: '2',
-        },
-        {
-          trip_id: 'metro-1-downtown',
-          arrival_time: '08:30:00',
-          departure_time: '08:30:00',
-          stop_id: 'downtown-station',
-          stop_sequence: '3',
-        },
-        // City Route A - Airport
-        {
-          trip_id: 'city-a-airport',
-          arrival_time: '09:00:00',
-          departure_time: '09:00:00',
-          stop_id: 'downtown-station',
-          stop_sequence: '1',
-        },
-        {
-          trip_id: 'city-a-airport',
-          arrival_time: '09:45:00',
-          departure_time: '09:45:00',
-          stop_id: 'airport-terminal',
-          stop_sequence: '2',
-        },
-      ],
-      'calendar.txt': [
-        {
-          service_id: 'weekday',
-          monday: '1',
-          tuesday: '1',
-          wednesday: '1',
-          thursday: '1',
-          friday: '1',
-          saturday: '0',
-          sunday: '0',
-          start_date: '20240101',
-          end_date: '20241231',
-        },
-        {
-          service_id: 'everyday',
-          monday: '1',
-          tuesday: '1',
-          wednesday: '1',
-          thursday: '1',
-          friday: '1',
-          saturday: '1',
-          sunday: '1',
-          start_date: '20240101',
-          end_date: '20241231',
-        },
-      ],
+    // Initialize with empty GTFS structure - no sample data for production
+    const emptyData = {
+      'agency.txt': [],
+      'routes.txt': [],
+      'trips.txt': [],
+      'stops.txt': [],
+      'stop_times.txt': [],
+      'calendar.txt': [],
     };
 
     // Clear existing data from database
@@ -204,7 +131,7 @@ export class GTFSParser {
 
     // Convert to expected format with content and data properties
     this.gtfsData = {};
-    for (const [fileName, data] of Object.entries(sampleData)) {
+    for (const [fileName, data] of Object.entries(emptyData)) {
       // Generate CSV content for each file
       if (data.length > 0) {
         const headers = Object.keys(data[0]);
@@ -230,14 +157,14 @@ export class GTFSParser {
 
     // Update project metadata
     await this.gtfsDatabase.updateProjectMetadata({
-      name: 'Sample GTFS Feed',
+      name: 'New GTFS Feed',
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString(),
-      fileCount: Object.keys(sampleData).length,
+      fileCount: Object.keys(emptyData).length,
     });
 
     // eslint-disable-next-line no-console
-    console.log('Initialized empty GTFS feed with sample data');
+    console.log('Initialized empty GTFS feed');
     // eslint-disable-next-line no-console
     console.log('Final gtfsData structure:', this.gtfsData);
   }

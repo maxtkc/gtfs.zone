@@ -60,60 +60,89 @@ The `schedule-controller.ts` file is 2,152 lines long and has too many responsib
 
 ## Cleanup Checklist
 
-### Phase 1: Extract Time Utilities
-- [ ] Create `TimeFormatter` utility class
-- [ ] Move all time formatting methods from ScheduleController
-- [ ] Update imports and method calls throughout codebase
-- [ ] Remove time formatting from main controller
+### Phase 1: Extract Time Utilities ✅ COMPLETED
+- [x] Create `TimeFormatter` utility class
+- [x] Move all time formatting methods from ScheduleController
+- [x] Update imports and method calls throughout codebase
+- [x] Remove time formatting from main controller
 
-### Phase 2: Extract Data Processing
-- [ ] Create `TimetableDataProcessor` module
-- [ ] Move `generateTimetableData` method
-- [ ] Move `alignTripsWithSCS` method
-- [ ] Move direction-related methods
-- [ ] Replace custom validation with GTFS Zod schemas
-- [ ] Use GTFS standard property names consistently
+### Phase 2: Extract Data Processing ✅ COMPLETED
+- [x] Create `TimetableDataProcessor` module
+- [x] Move `generateTimetableData` method
+- [x] Move `alignTripsWithSCS` method
+- [x] Move direction-related methods
+- [x] Replace custom validation with GTFS Zod schemas
+- [x] Use GTFS standard property names consistently
 
-### Phase 3: Extract Rendering
-- [ ] Create `TimetableRenderer` module
-- [ ] Move main HTML rendering methods
-- [ ] Create `TimetableCellRenderer` module
-- [ ] Move cell-specific rendering methods
-- [ ] Ensure all GTFS properties use standard names
+### Phase 3: Extract Rendering ✅ COMPLETED
+- [x] Create `TimetableRenderer` module
+- [x] Move main HTML rendering methods
+- [x] Create `TimetableCellRenderer` module
+- [x] Move cell-specific rendering methods
+- [x] Ensure all GTFS properties use standard names
+- [x] Reduce ScheduleController from 1,656 lines to 952 lines (42% reduction)
+- [x] Update ScheduleController to use new rendering modules
+- [x] All rendering logic extracted into focused, reusable modules
 
-### Phase 4: Extract Database Operations
-- [ ] Create `TimetableDatabase` module
-- [ ] Move all database interaction methods
-- [ ] Follow "FAIL HARD" error handling policy
-- [ ] Use GTFS standard property names in all operations
+### Phase 4: Extract Database Operations ✅ COMPLETED
+- [x] Create `TimetableDatabase` module
+- [x] Move all database interaction methods
+- [x] Follow "FAIL HARD" error handling policy
+- [x] Use GTFS standard property names in all operations
+- [x] Replace custom validation with GTFS Zod schemas
+- [x] Integrate TimetableDatabase into ScheduleController
+- [x] Remove duplicate database methods from ScheduleController
+- [x] Reduced ScheduleController from 952 lines to 631 lines (34% reduction)
+- [x] All database operations properly extracted into focused module
+- [x] Created TimetableDatabase module (~336 lines) with proper error handling
+- [x] Eliminated custom validation in favor of GTFS Zod schemas
+- [x] Enhanced validation with arrival/departure time constraint checking
 
-### Phase 5: Refactor Main Controller
-- [ ] Remove extracted methods from ScheduleController
-- [ ] Add module dependencies via constructor injection
-- [ ] Update public API methods to delegate to modules
-- [ ] Keep only orchestration logic
-- [ ] Remove keyboard handling methods
+### Phase 5: Refactor Main Controller ✅ COMPLETED
+- [x] Remove extracted methods from ScheduleController
+- [x] Add module dependencies via constructor injection
+- [x] Update public API methods to delegate to modules
+- [x] Keep only orchestration logic
+- [x] Remove keyboard handling methods
+- [x] Reduced ScheduleController from 631 lines to 432 lines (31% reduction)
+- [x] Simplified keyboard handling to basic Enter/Escape only
+- [x] All cell rendering now properly delegated to TimetableCellRenderer
+- [x] Main controller now focused on orchestration and delegation
 
-### Phase 6: Remove Dead Code & Custom Validation
-- [ ] Remove TODO placeholder methods (`getNextStop`, `getPrevStop`, etc.)
-- [ ] Remove custom Zod schemas (use generated GTFS schemas instead)
-- [ ] Remove keyboard navigation methods
-- [ ] Remove unused interfaces and types
-- [ ] Remove commented-out code
-- [ ] Clean up imports
+### Phase 6: Remove Dead Code & Custom Validation ✅ COMPLETED
+- [x] Remove TODO placeholder methods (`getNextStop`, `getPrevStop`, etc.)
+- [x] Remove custom Zod schemas (use generated GTFS schemas instead)
+- [x] Remove keyboard navigation methods
+- [x] Remove unused interfaces and types
+- [x] Remove commented-out code
+- [x] Clean up imports
+- [x] Reduced ScheduleController from 432 lines to 394 lines (9% reduction)
+- [x] All keyboard navigation references removed from HTML templates
+- [x] Event listeners properly implemented in TimetableCellRenderer
+- [x] No custom Zod schemas found - all using generated GTFS schemas correctly
 
-### Phase 7: Improve Code Quality
-- [ ] Add JSDoc comments to all public methods
-- [ ] Ensure consistent error handling patterns (FAIL HARD)
-- [ ] Add proper TypeScript types for all parameters
-- [ ] Follow GTFS Key Handling Guidelines from CLAUDE.md
-- [ ] Verify all modules use GTFS standard property names
+### Phase 7: Improve Code Quality ✅ COMPLETED
+- [x] Add JSDoc comments to all public methods
+- [x] Ensure consistent error handling patterns (FAIL HARD)
+- [x] Add proper TypeScript types for all parameters
+- [x] Follow GTFS Key Handling Guidelines from CLAUDE.md
+- [x] Verify all modules use GTFS standard property names
+- [x] Comprehensive JSDoc documentation added to all 6 modules (~50 methods total)
+- [x] All modules implement consistent FAIL HARD error handling policy
+- [x] TypeScript interfaces and types properly defined throughout
+- [x] GTFS standard property names verified across all database operations
+- [x] Enhanced GTFS Object pattern properly implemented
 
-### Phase 8: Final Cleanup
-- [ ] Run `npm run lint` and fix any issues
-- [ ] Run `npm run typecheck` and fix any issues
-- [ ] Clean up unused imports across all modules
-- [ ] Verify module boundaries are respected
+### Phase 8: Final Cleanup ✅ COMPLETED
+- [x] Run `npm run lint` and fix any issues
+- [x] Run `npm run typecheck` and fix any issues
+- [x] Clean up unused imports across all modules
+- [x] Verify module boundaries are respected
+- [x] Fixed 5 ESLint errors (unused TimetableData import, @ts-ignore → @ts-expect-error, any type → GTFSDatabaseRecord[])
+- [x] Verified all modules respect their designated boundaries and responsibilities
+- [x] All schedule-related modules properly separated with clear interfaces
+- [x] ScheduleController reduced from original 2,152 lines to 394 lines (82% reduction)
+- [x] Total cleanup effort created 6 focused, maintainable modules from monolithic controller
 
 ## Implementation Principles
 

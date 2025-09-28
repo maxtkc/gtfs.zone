@@ -1166,11 +1166,7 @@ export class UIController {
         this.loadGTFSFromURL(url);
       }
       // Future: support for base64, github, etc.
-    } else {
-      // Load Columbia County as default feed when no URL parameters
-      const defaultUrl =
-        'https://raw.githubusercontent.com/maxtkc/columbia-county-gtfs/refs/heads/main/columbia_county_gtfs.zip';
-      this.loadGTFSFromURL(defaultUrl);
     }
+    // Production: No default feed loading - page starts empty
   }
 }

@@ -89,8 +89,17 @@ export class GTFSEditor {
       // Initialize GTFSParser database
       await this.gtfsParser.initialize();
 
-      // Initialize empty GTFS feed
-      await this.gtfsParser.initializeEmpty();
+      // Check if there's existing data in IndexedDB, only create empty feed if none exists
+      const existingMetadata =
+        await this.gtfsParser.gtfsDatabase.getProjectMetadata();
+      const hasExistingData =
+        existingMetadata && this.gtfsParser.getAllFileNames().length > 0;
+
+      if (!hasExistingData) {
+        // Only initialize empty feed if no existing data found
+        await this.gtfsParser.initializeEmpty();
+      }
+      // If existing data exists, the parser will automatically work with it
 
       // Initialize all modules
       this.mapController.initialize(this.gtfsParser);
@@ -132,11 +141,8 @@ export class GTFSEditor {
       // Run initial validation and update InfoDisplay
       this.validateAndUpdateInfo();
 
-      // Hide welcome overlay since we always have a feed now
-      const overlay = document.getElementById('map-overlay');
-      if (overlay) {
-        overlay.style.display = 'none';
-      }
+      // Welcome overlay will be shown by default for empty state
+      // It will be hidden when a feed is loaded via map-controller
 
       // Initialize PageStateManager from URL
       await this.pageStateManager.initializeFromURL();
@@ -144,10 +150,30 @@ export class GTFSEditor {
       // Check for URL parameters (legacy support)
       this.uiController.checkURLParams();
 
-      // Show welcome notification
-      notifications.showInfo(
-        'Welcome to gtfs.zone! Create a new GTFS feed or upload an existing one to get started.'
-      );
+      // Show welcome notification only if no existing data
+      if (!hasExistingData) {
+        notifications.showInfo(
+          'Welcome to gtfs.zone! Create a new GTFS feed or upload an existing one to get started.'
+        );
+      } else {
+        // If we have existing data, update UI components and hide welcome overlay
+        this.uiController.updateFileList();
+        this.mapController.updateMap();
+        this.mapController.hideMapOverlay();
+
+        // Refresh Objects navigation if available
+        if (this.objectsNavigation) {
+          this.objectsNavigation.refresh();
+        }
+
+        // Enable export button
+        const exportBtn = document.getElementById(
+          'export-btn'
+        ) as HTMLButtonElement;
+        if (exportBtn) {
+          exportBtn.disabled = false;
+        }
+      }
     } catch (error) {
       console.error('Failed to initialize application:', error);
       notifications.showError(
