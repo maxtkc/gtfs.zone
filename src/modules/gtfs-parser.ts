@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { GTFSDatabase, GTFSDatabaseRecord } from './gtfs-database.js';
-import { GTFS_FILES, GTFSFilePresence } from '../types/gtfs.js';
+import { GTFS_FILES, GTFSFilePresence, GTFS_TABLES } from '../types/gtfs.js';
 import { loadingStateManager } from './loading-state-manager.js';
 import { GTFSTableMap } from '../types/gtfs-entities.js';
 
@@ -118,12 +118,12 @@ export class GTFSParser {
   async initializeEmpty(): Promise<void> {
     // Initialize with empty GTFS structure - no sample data for production
     const emptyData = {
-      'agency.txt': [],
-      'routes.txt': [],
-      'trips.txt': [],
-      'stops.txt': [],
-      'stop_times.txt': [],
-      'calendar.txt': [],
+      [GTFS_TABLES.AGENCY]: [],
+      [GTFS_TABLES.ROUTES]: [],
+      [GTFS_TABLES.TRIPS]: [],
+      [GTFS_TABLES.STOPS]: [],
+      [GTFS_TABLES.STOP_TIMES]: [],
+      [GTFS_TABLES.CALENDAR]: [],
     };
 
     // Clear existing data from database
@@ -540,9 +540,9 @@ export class GTFSParser {
   }
 
   getRoutesForStop(stop_id: string) {
-    const routes = this.getFileDataSyncTyped('routes.txt');
-    const trips = this.getFileDataSyncTyped('trips.txt');
-    const stopTimes = this.getFileDataSyncTyped('stop_times.txt');
+    const routes = this.getFileDataSyncTyped(GTFS_TABLES.ROUTES);
+    const trips = this.getFileDataSyncTyped(GTFS_TABLES.TRIPS);
+    const stopTimes = this.getFileDataSyncTyped(GTFS_TABLES.STOP_TIMES);
 
     if (!routes || !trips || !stopTimes) {
       return [];
@@ -594,7 +594,7 @@ export class GTFSParser {
 
   // Search functionality
   searchStops(query: string) {
-    const stops = this.getFileDataSyncTyped('stops.txt') || [];
+    const stops = this.getFileDataSyncTyped(GTFS_TABLES.STOPS) || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -616,7 +616,7 @@ export class GTFSParser {
   }
 
   searchRoutes(query: string) {
-    const routes = this.getFileDataSyncTyped('routes.txt') || [];
+    const routes = this.getFileDataSyncTyped(GTFS_TABLES.ROUTES) || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -652,7 +652,7 @@ export class GTFSParser {
 
   // Async versions of search methods that use IndexedDB
   async searchStopsAsync(query: string) {
-    const stops = (await this.getFileDataTyped('stops.txt')) || [];
+    const stops = (await this.getFileDataTyped(GTFS_TABLES.STOPS)) || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -674,7 +674,7 @@ export class GTFSParser {
   }
 
   async searchRoutesAsync(query: string) {
-    const routes = (await this.getFileDataTyped('routes.txt')) || [];
+    const routes = (await this.getFileDataTyped(GTFS_TABLES.ROUTES)) || [];
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -709,9 +709,9 @@ export class GTFSParser {
   }
 
   async getRoutesForStopAsync(stop_id: string) {
-    const routes = await this.getFileDataTyped('routes.txt');
-    const trips = await this.getFileDataTyped('trips.txt');
-    const stopTimes = await this.getFileDataTyped('stop_times.txt');
+    const routes = await this.getFileDataTyped(GTFS_TABLES.ROUTES);
+    const trips = await this.getFileDataTyped(GTFS_TABLES.TRIPS);
+    const stopTimes = await this.getFileDataTyped(GTFS_TABLES.STOP_TIMES);
 
     if (!routes || !trips || !stopTimes) {
       return [];

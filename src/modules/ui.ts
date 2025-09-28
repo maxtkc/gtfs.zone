@@ -7,6 +7,7 @@ import {
   getSchemaFieldName,
 } from '../utils/zod-tooltip-helper.js';
 import { navigateToTimetable } from './navigation-actions.js';
+import { GTFS_TABLES } from '../types/gtfs.js';
 
 export class UIController {
   constructor() {
@@ -450,7 +451,7 @@ export class UIController {
     await this.showFileEditor(fileName);
 
     // Update map if it's a spatial file
-    if (fileName === 'stops.txt' || fileName === 'shapes.txt') {
+    if (fileName === GTFS_TABLES.STOPS || fileName === GTFS_TABLES.SHAPES) {
       this.mapController.highlightFileData(fileName);
     }
   }

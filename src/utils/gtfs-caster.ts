@@ -10,6 +10,7 @@ import {
   GTFS_PRIMARY_KEYS,
   GTFSValidationContext,
   validateForeignKey,
+  GTFS_TABLES,
 } from '../types/gtfs.js';
 import { GTFSRelationshipResolver } from './gtfs-relationships.js';
 import { GTFSTableMap } from '../types/gtfs-entities.js';
@@ -339,11 +340,11 @@ export class GTFSCaster {
     }
 
     switch (filename) {
-      case 'stops.txt':
+      case GTFS_TABLES.STOPS:
         return this.relationshipResolver.enhanceStop(recordId);
-      case 'routes.txt':
+      case GTFS_TABLES.ROUTES:
         return this.relationshipResolver.enhanceRoute(recordId);
-      case 'trips.txt':
+      case GTFS_TABLES.TRIPS:
         return this.relationshipResolver.enhanceTrip(recordId);
       default:
         throw new Error(`Enhanced records not supported for ${filename}`);

@@ -1,5 +1,6 @@
 import { GTFSDatabaseRecord } from './gtfs-database.js';
-import { GTFSTableMap, GTFSTableName } from '../types/gtfs-entities.js';
+import { GTFSTableMap } from '../types/gtfs-entities.js';
+import { GTFS_TABLES, GTFSTableName } from '../types/gtfs.js';
 
 interface ValidationMessage {
   level: 'error' | 'warning' | 'info';
@@ -94,14 +95,14 @@ export class GTFSValidator {
 
   validateRequiredFiles() {
     const requiredFiles = [
-      'agency.txt',
-      'routes.txt',
-      'trips.txt',
-      'stops.txt',
-      'stop_times.txt',
+      GTFS_TABLES.AGENCY,
+      GTFS_TABLES.ROUTES,
+      GTFS_TABLES.TRIPS,
+      GTFS_TABLES.STOPS,
+      GTFS_TABLES.STOP_TIMES,
     ];
 
-    const calendarFiles = ['calendar.txt', 'calendar_dates.txt'];
+    const calendarFiles = [GTFS_TABLES.CALENDAR, GTFS_TABLES.CALENDAR_DATES];
     let hasCalendarFile = false;
 
     requiredFiles.forEach((fileName) => {
@@ -130,13 +131,13 @@ export class GTFSValidator {
   }
 
   validateAgencies() {
-    const agencies = this.gtfsParser.getFileDataSyncTyped('agency.txt');
+    const agencies = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.AGENCY);
     if (!agencies) {
       return;
     }
 
     if (agencies.length === 0) {
-      this.addError('agency.txt is empty', 'EMPTY_FILE', 'agency.txt');
+      this.addError('agency.txt is empty', 'EMPTY_FILE', GTFS_TABLES.AGENCY);
       return;
     }
 
@@ -150,7 +151,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: agency_name is required`,
           'MISSING_REQUIRED_FIELD',
-          'agency.txt',
+          GTFS_TABLES.AGENCY,
           rowNum
         );
       }
@@ -159,14 +160,14 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: agency_url is required`,
           'MISSING_REQUIRED_FIELD',
-          'agency.txt',
+          GTFS_TABLES.AGENCY,
           rowNum
         );
       } else if (!this.isValidUrl(agency.agency_url)) {
         this.addError(
           `Row ${rowNum}: agency_url is not a valid URL`,
           'INVALID_URL',
-          'agency.txt',
+          GTFS_TABLES.AGENCY,
           rowNum
         );
       }
@@ -175,7 +176,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: agency_timezone is required`,
           'MISSING_REQUIRED_FIELD',
-          'agency.txt',
+          GTFS_TABLES.AGENCY,
           rowNum
         );
       }
@@ -186,7 +187,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: Duplicate agency_id '${agency.agency_id}'`,
             'DUPLICATE_ID',
-            'agency.txt',
+            GTFS_TABLES.AGENCY,
             rowNum
           );
         }
@@ -195,7 +196,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: agency_id is required when multiple agencies exist`,
           'MISSING_REQUIRED_FIELD',
-          'agency.txt',
+          GTFS_TABLES.AGENCY,
           rowNum
         );
       }
@@ -205,15 +206,15 @@ export class GTFSValidator {
   }
 
   validateRoutes() {
-    const routes = this.gtfsParser.getFileDataSyncTyped('routes.txt');
-    const agencies = this.gtfsParser.getFileDataSyncTyped('agency.txt');
+    const routes = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.ROUTES);
+    const agencies = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.AGENCY);
 
     if (!routes) {
       return;
     }
 
     if (routes.length === 0) {
-      this.addError('routes.txt is empty', 'EMPTY_FILE', 'routes.txt');
+      this.addError('routes.txt is empty', 'EMPTY_FILE', GTFS_TABLES.ROUTES);
       return;
     }
 
@@ -228,7 +229,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: route_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'routes.txt',
+          GTFS_TABLES.ROUTES,
           rowNum
         );
       } else {
@@ -236,7 +237,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: Duplicate route_id '${route.route_id}'`,
             'DUPLICATE_ID',
-            'routes.txt',
+            GTFS_TABLES.ROUTES,
             rowNum
           );
         }
@@ -247,7 +248,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: Either route_short_name or route_long_name is required`,
           'MISSING_REQUIRED_FIELD',
-          'routes.txt',
+          GTFS_TABLES.ROUTES,
           rowNum
         );
       }
@@ -256,7 +257,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: route_type is required`,
           'MISSING_REQUIRED_FIELD',
-          'routes.txt',
+          GTFS_TABLES.ROUTES,
           rowNum
         );
       } else {
@@ -276,7 +277,7 @@ export class GTFSValidator {
           this.addWarning(
             `Row ${rowNum}: Unknown route_type '${route.route_type}'`,
             'UNKNOWN_ROUTE_TYPE',
-            'routes.txt',
+            GTFS_TABLES.ROUTES,
             rowNum
           );
         }
@@ -287,7 +288,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: agency_id '${route.agency_id}' not found in agency.txt`,
           'INVALID_REFERENCE',
-          'routes.txt',
+          GTFS_TABLES.ROUTES,
           rowNum
         );
       }
@@ -297,13 +298,13 @@ export class GTFSValidator {
   }
 
   validateStops() {
-    const stops = this.gtfsParser.getFileDataSyncTyped('stops.txt');
+    const stops = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.STOPS);
     if (!stops) {
       return;
     }
 
     if (stops.length === 0) {
-      this.addError('stops.txt is empty', 'EMPTY_FILE', 'stops.txt');
+      this.addError('stops.txt is empty', 'EMPTY_FILE', GTFS_TABLES.STOPS);
       return;
     }
 
@@ -317,7 +318,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: stop_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'stops.txt',
+          GTFS_TABLES.STOPS,
           rowNum
         );
       } else {
@@ -325,7 +326,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: Duplicate stop_id '${stop.stop_id}'`,
             'DUPLICATE_ID',
-            'stops.txt',
+            GTFS_TABLES.STOPS,
             rowNum
           );
         }
@@ -336,7 +337,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: stop_name is required`,
           'MISSING_REQUIRED_FIELD',
-          'stops.txt',
+          GTFS_TABLES.STOPS,
           rowNum
         );
       }
@@ -346,7 +347,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: stop_lat is required`,
           'MISSING_REQUIRED_FIELD',
-          'stops.txt',
+          GTFS_TABLES.STOPS,
           rowNum
         );
       } else {
@@ -355,7 +356,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: stop_lat must be between -90 and 90`,
             'INVALID_COORDINATE',
-            'stops.txt',
+            GTFS_TABLES.STOPS,
             rowNum
           );
         }
@@ -365,7 +366,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: stop_lon is required`,
           'MISSING_REQUIRED_FIELD',
-          'stops.txt',
+          GTFS_TABLES.STOPS,
           rowNum
         );
       } else {
@@ -374,7 +375,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: stop_lon must be between -180 and 180`,
             'INVALID_COORDINATE',
-            'stops.txt',
+            GTFS_TABLES.STOPS,
             rowNum
           );
         }
@@ -387,7 +388,7 @@ export class GTFSValidator {
           this.addWarning(
             `Row ${rowNum}: Unknown location_type '${stop.location_type}'`,
             'UNKNOWN_LOCATION_TYPE',
-            'stops.txt',
+            GTFS_TABLES.STOPS,
             rowNum
           );
         }
@@ -398,15 +399,15 @@ export class GTFSValidator {
   }
 
   validateTrips() {
-    const trips = this.gtfsParser.getFileDataSyncTyped('trips.txt');
-    const routes = this.gtfsParser.getFileDataSyncTyped('routes.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.TRIPS);
+    const routes = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.ROUTES);
 
     if (!trips) {
       return;
     }
 
     if (trips.length === 0) {
-      this.addError('trips.txt is empty', 'EMPTY_FILE', 'trips.txt');
+      this.addError('trips.txt is empty', 'EMPTY_FILE', GTFS_TABLES.TRIPS);
       return;
     }
 
@@ -421,7 +422,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: trip_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'trips.txt',
+          GTFS_TABLES.TRIPS,
           rowNum
         );
       } else {
@@ -429,7 +430,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: Duplicate trip_id '${trip.trip_id}'`,
             'DUPLICATE_ID',
-            'trips.txt',
+            GTFS_TABLES.TRIPS,
             rowNum
           );
         }
@@ -440,14 +441,14 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: route_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'trips.txt',
+          GTFS_TABLES.TRIPS,
           rowNum
         );
       } else if (!route_ids.has(trip.route_id)) {
         this.addError(
           `Row ${rowNum}: route_id '${trip.route_id}' not found in routes.txt`,
           'INVALID_REFERENCE',
-          'trips.txt',
+          GTFS_TABLES.TRIPS,
           rowNum
         );
       }
@@ -456,7 +457,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: service_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'trips.txt',
+          GTFS_TABLES.TRIPS,
           rowNum
         );
       }
@@ -466,16 +467,22 @@ export class GTFSValidator {
   }
 
   validateStopTimes() {
-    const stopTimes = this.gtfsParser.getFileDataSyncTyped('stop_times.txt');
-    const trips = this.gtfsParser.getFileDataSyncTyped('trips.txt');
-    const stops = this.gtfsParser.getFileDataSyncTyped('stops.txt');
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped(
+      GTFS_TABLES.STOP_TIMES
+    );
+    const trips = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.TRIPS);
+    const stops = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.STOPS);
 
     if (!stopTimes) {
       return;
     }
 
     if (stopTimes.length === 0) {
-      this.addError('stop_times.txt is empty', 'EMPTY_FILE', 'stop_times.txt');
+      this.addError(
+        'stop_times.txt is empty',
+        'EMPTY_FILE',
+        GTFS_TABLES.STOP_TIMES
+      );
       return;
     }
 
@@ -490,14 +497,14 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: trip_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       } else if (!trip_ids.has(stopTime.trip_id)) {
         this.addError(
           `Row ${rowNum}: trip_id '${stopTime.trip_id}' not found in trips.txt`,
           'INVALID_REFERENCE',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       }
@@ -506,14 +513,14 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: stop_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       } else if (!stop_ids.has(stopTime.stop_id)) {
         this.addError(
           `Row ${rowNum}: stop_id '${stopTime.stop_id}' not found in stops.txt`,
           'INVALID_REFERENCE',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       }
@@ -522,14 +529,14 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: stop_sequence is required`,
           'MISSING_REQUIRED_FIELD',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       } else if (isNaN(parseInt(stopTime.stop_sequence))) {
         this.addError(
           `Row ${rowNum}: stop_sequence must be a number`,
           'INVALID_NUMBER',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       }
@@ -539,7 +546,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: arrival_time format is invalid`,
           'INVALID_TIME_FORMAT',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       }
@@ -551,7 +558,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: departure_time format is invalid`,
           'INVALID_TIME_FORMAT',
-          'stop_times.txt',
+          GTFS_TABLES.STOP_TIMES,
           rowNum
         );
       }
@@ -561,9 +568,10 @@ export class GTFSValidator {
   }
 
   validateCalendar() {
-    const calendar = this.gtfsParser.getFileDataSyncTyped('calendar.txt');
-    const calendarDates =
-      this.gtfsParser.getFileDataSyncTyped('calendar_dates.txt');
+    const calendar = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.CALENDAR);
+    const calendarDates = this.gtfsParser.getFileDataSyncTyped(
+      GTFS_TABLES.CALENDAR_DATES
+    );
 
     if (calendar) {
       calendar.forEach((service, index: number) => {
@@ -573,7 +581,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: service_id is required`,
             'MISSING_REQUIRED_FIELD',
-            'calendar.txt',
+            GTFS_TABLES.CALENDAR,
             rowNum
           );
         }
@@ -583,7 +591,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: start_date format is invalid (should be YYYYMMDD)`,
             'INVALID_DATE_FORMAT',
-            'calendar.txt',
+            GTFS_TABLES.CALENDAR,
             rowNum
           );
         }
@@ -592,7 +600,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: end_date format is invalid (should be YYYYMMDD)`,
             'INVALID_DATE_FORMAT',
-            'calendar.txt',
+            GTFS_TABLES.CALENDAR,
             rowNum
           );
         }
@@ -607,7 +615,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: service_id is required`,
             'MISSING_REQUIRED_FIELD',
-            'calendar_dates.txt',
+            GTFS_TABLES.CALENDAR_DATES,
             rowNum
           );
         }
@@ -616,7 +624,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: date format is invalid (should be YYYYMMDD)`,
             'INVALID_DATE_FORMAT',
-            'calendar_dates.txt',
+            GTFS_TABLES.CALENDAR_DATES,
             rowNum
           );
         }
@@ -628,7 +636,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: exception_type must be 1 or 2`,
             'INVALID_EXCEPTION_TYPE',
-            'calendar_dates.txt',
+            GTFS_TABLES.CALENDAR_DATES,
             rowNum
           );
         }
@@ -637,7 +645,7 @@ export class GTFSValidator {
   }
 
   validateShapes() {
-    const shapes = this.gtfsParser.getFileDataSyncTyped('shapes.txt');
+    const shapes = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.SHAPES);
     if (!shapes) {
       return;
     }
@@ -649,7 +657,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: shape_id is required`,
           'MISSING_REQUIRED_FIELD',
-          'shapes.txt',
+          GTFS_TABLES.SHAPES,
           rowNum
         );
       }
@@ -659,7 +667,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: shape_pt_lat is required`,
           'MISSING_REQUIRED_FIELD',
-          'shapes.txt',
+          GTFS_TABLES.SHAPES,
           rowNum
         );
       } else {
@@ -668,7 +676,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: shape_pt_lat must be between -90 and 90`,
             'INVALID_COORDINATE',
-            'shapes.txt',
+            GTFS_TABLES.SHAPES,
             rowNum
           );
         }
@@ -678,7 +686,7 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: shape_pt_lon is required`,
           'MISSING_REQUIRED_FIELD',
-          'shapes.txt',
+          GTFS_TABLES.SHAPES,
           rowNum
         );
       } else {
@@ -687,7 +695,7 @@ export class GTFSValidator {
           this.addError(
             `Row ${rowNum}: shape_pt_lon must be between -180 and 180`,
             'INVALID_COORDINATE',
-            'shapes.txt',
+            GTFS_TABLES.SHAPES,
             rowNum
           );
         }
@@ -697,14 +705,14 @@ export class GTFSValidator {
         this.addError(
           `Row ${rowNum}: shape_pt_sequence is required`,
           'MISSING_REQUIRED_FIELD',
-          'shapes.txt',
+          GTFS_TABLES.SHAPES,
           rowNum
         );
       } else if (isNaN(parseInt(shape.shape_pt_sequence))) {
         this.addError(
           `Row ${rowNum}: shape_pt_sequence must be a number`,
           'INVALID_NUMBER',
-          'shapes.txt',
+          GTFS_TABLES.SHAPES,
           rowNum
         );
       }
@@ -715,8 +723,10 @@ export class GTFSValidator {
 
   validateReferences() {
     // Additional cross-reference validation
-    const trips = this.gtfsParser.getFileDataSyncTyped('trips.txt');
-    const stopTimes = this.gtfsParser.getFileDataSyncTyped('stop_times.txt');
+    const trips = this.gtfsParser.getFileDataSyncTyped(GTFS_TABLES.TRIPS);
+    const stopTimes = this.gtfsParser.getFileDataSyncTyped(
+      GTFS_TABLES.STOP_TIMES
+    );
 
     if (trips && stopTimes) {
       const trip_ids = new Set(trips.map((t) => t.trip_id));
@@ -728,7 +738,7 @@ export class GTFSValidator {
           this.addWarning(
             `Trip '${trip_id}' has no stop times`,
             'TRIP_WITHOUT_STOP_TIMES',
-            'trips.txt'
+            GTFS_TABLES.TRIPS
           );
         }
       });

@@ -12,6 +12,7 @@ import {
   StopTimesSchema,
   ShapesSchema,
   FeedInfoSchema,
+  GTFS_TABLES,
 } from '../types/gtfs.js';
 
 /**
@@ -117,7 +118,7 @@ export function getFeedInfoFieldDescription(fieldName: string): string {
 
 /**
  * Get field description for any GTFS file type
- * @param filename - The GTFS filename (e.g., 'agency.txt', 'routes.txt')
+ * @param filename - The GTFS filename (e.g., agency.txt, routes.txt)
  * @param fieldName - The field name to get description for
  * @returns Field description string
  */
@@ -127,15 +128,15 @@ export function getGTFSFieldDescription(
 ): string {
   // Map filenames to schema getter functions
   const schemaMap: Record<string, (fieldName: string) => string> = {
-    'agency.txt': getAgencyFieldDescription,
-    'routes.txt': getRouteFieldDescription,
-    'calendar.txt': getCalendarFieldDescription,
-    'calendar_dates.txt': getCalendarDatesFieldDescription,
-    'stops.txt': getStopsFieldDescription,
-    'trips.txt': getTripsFieldDescription,
-    'stop_times.txt': getStopTimesFieldDescription,
-    'shapes.txt': getShapesFieldDescription,
-    'feed_info.txt': getFeedInfoFieldDescription,
+    [GTFS_TABLES.AGENCY]: getAgencyFieldDescription,
+    [GTFS_TABLES.ROUTES]: getRouteFieldDescription,
+    [GTFS_TABLES.CALENDAR]: getCalendarFieldDescription,
+    [GTFS_TABLES.CALENDAR_DATES]: getCalendarDatesFieldDescription,
+    [GTFS_TABLES.STOPS]: getStopsFieldDescription,
+    [GTFS_TABLES.TRIPS]: getTripsFieldDescription,
+    [GTFS_TABLES.STOP_TIMES]: getStopTimesFieldDescription,
+    [GTFS_TABLES.SHAPES]: getShapesFieldDescription,
+    [GTFS_TABLES.FEED_INFO]: getFeedInfoFieldDescription,
   };
 
   const schemaGetter = schemaMap[filename];

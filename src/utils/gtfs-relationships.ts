@@ -14,10 +14,21 @@ import {
   Trips,
   GTFS_RELATIONSHIPS,
   GTFS_PRIMARY_KEYS,
+  GTFS_TABLES,
 } from '../types/gtfs';
 
 // Export the auto-generated relationships for backwards compatibility
 export { GTFS_RELATIONSHIPS };
+
+// Type for relationship objects
+export interface GTFSRelationship {
+  sourceFile: string;
+  sourceField: string;
+  targetFile: string;
+  targetField: string;
+  description: string;
+  optional: boolean;
+}
 
 // Enhanced types with resolved relationships
 export interface GTFSDatabase {
@@ -128,7 +139,7 @@ export class GTFSRelationshipResolver {
    * Enhance a stop with related data
    */
   public enhanceStop(stop_id: string): EnhancedStop | undefined {
-    const stop = this.database['stops.txt']?.get(stop_id);
+    const stop = this.database[GTFS_TABLES.STOPS]?.get(stop_id);
     if (!stop) {
       return undefined;
     }
@@ -138,7 +149,7 @@ export class GTFSRelationshipResolver {
     // Get parent station
     const parent_stationId = (stop as Record<string, unknown>).parent_station;
     if (parent_stationId) {
-      enhanced.parent_stationDetails = this.database['stops.txt']?.get(
+      enhanced.parent_stationDetails = this.database[GTFS_TABLES.STOPS]?.get(
         parent_stationId
       ) as Stops;
     }
@@ -146,20 +157,20 @@ export class GTFSRelationshipResolver {
     // Get child stops (if this is a station)
     enhanced.childStops = this.getReferencingRecords(
       stop_id,
-      'stops.txt',
+      GTFS_TABLES.STOPS,
       'parent_station'
     ) as Stops[];
 
     // Get level information
     const level_id = (stop as Record<string, unknown>).level_id;
     if (level_id) {
-      enhanced.level = this.database['levels.txt']?.get(level_id);
+      enhanced.level = this.database[GTFS_TABLES.LEVELS]?.get(level_id);
     }
 
     // Get routes serving this stop
     const stopTimes = this.getReferencingRecords(
       stop_id,
-      'stop_times.txt',
+      GTFS_TABLES.STOP_TIMES,
       'stop_id'
     );
 
@@ -171,14 +182,14 @@ export class GTFSRelationshipResolver {
     const route_ids = new Set<string>();
 
     for (const trip_id of trip_ids) {
-      const trip = this.database['trips.txt']?.get(trip_id);
+      const trip = this.database[GTFS_TABLES.TRIPS]?.get(trip_id);
       if (trip) {
         route_ids.add((trip as Record<string, unknown>).route_id);
       }
     }
 
     enhanced.routes = Array.from(route_ids)
-      .map((route_id) => this.database['routes.txt']?.get(route_id))
+      .map((route_id) => this.database[GTFS_TABLES.ROUTES]?.get(route_id))
       .filter(Boolean) as Routes[];
 
     return enhanced;
@@ -188,7 +199,7 @@ export class GTFSRelationshipResolver {
    * Enhance a route with related data
    */
   public enhanceRoute(route_id: string): EnhancedRoute | undefined {
-    const route = this.database['routes.txt']?.get(route_id);
+    const route = this.database[GTFS_TABLES.ROUTES]?.get(route_id);
     if (!route) {
       return undefined;
     }
@@ -198,13 +209,15 @@ export class GTFSRelationshipResolver {
     // Get agency
     const agency_id = (route as Record<string, unknown>).agency_id;
     if (agency_id) {
-      enhanced.agency = this.database['agency.txt']?.get(agency_id) as Agency;
+      enhanced.agency = this.database[GTFS_TABLES.AGENCY]?.get(
+        agency_id
+      ) as Agency;
     }
 
     // Get trips
     enhanced.trips = this.getReferencingRecords(
       route_id,
-      'trips.txt',
+      GTFS_TABLES.TRIPS,
       'route_id'
     ) as Trips[];
 
@@ -213,7 +226,7 @@ export class GTFSRelationshipResolver {
     for (const trip of enhanced.trips || []) {
       const tripStopTimes = this.getReferencingRecords(
         (trip as Record<string, unknown>).trip_id,
-        'stop_times.txt',
+        GTFS_TABLES.STOP_TIMES,
         'trip_id'
       );
       for (const stopTime of tripStopTimes) {
@@ -222,7 +235,7 @@ export class GTFSRelationshipResolver {
     }
 
     enhanced.stops = Array.from(stop_ids)
-      .map((stop_id) => this.database['stops.txt']?.get(stop_id))
+      .map((stop_id) => this.database[GTFS_TABLES.STOPS]?.get(stop_id))
       .filter(Boolean) as Stops[];
 
     return enhanced;
@@ -232,7 +245,7 @@ export class GTFSRelationshipResolver {
    * Enhance a trip with related data
    */
   public enhanceTrip(trip_id: string): EnhancedTrip | undefined {
-    const trip = this.database['trips.txt']?.get(trip_id);
+    const trip = this.database[GTFS_TABLES.TRIPS]?.get(trip_id);
     if (!trip) {
       return undefined;
     }
@@ -242,21 +255,23 @@ export class GTFSRelationshipResolver {
     // Get route
     const route_id = (trip as Record<string, unknown>).route_id;
     if (route_id) {
-      enhanced.route = this.database['routes.txt']?.get(route_id) as Routes;
+      enhanced.route = this.database[GTFS_TABLES.ROUTES]?.get(
+        route_id
+      ) as Routes;
     }
 
     // Get service pattern
     const service_id = (trip as Record<string, unknown>).service_id;
     if (service_id) {
       enhanced.servicePattern =
-        this.database['calendar.txt']?.get(service_id) ||
-        this.database['calendar_dates.txt']?.get(service_id);
+        this.database[GTFS_TABLES.CALENDAR]?.get(service_id) ||
+        this.database[GTFS_TABLES.CALENDAR_DATES]?.get(service_id);
     }
 
     // Get stop times
     enhanced.stopTimes = this.getReferencingRecords(
       trip_id,
-      'stop_times.txt',
+      GTFS_TABLES.STOP_TIMES,
       'trip_id'
     ).sort(
       (a, b) =>
@@ -269,7 +284,7 @@ export class GTFSRelationshipResolver {
     if (shape_id) {
       enhanced.shape = this.getReferencingRecords(
         shape_id,
-        'shapes.txt',
+        GTFS_TABLES.SHAPES,
         'shape_id'
       ).sort(
         (a, b) =>
@@ -281,7 +296,7 @@ export class GTFSRelationshipResolver {
     // Get frequencies
     enhanced.frequencies = this.getReferencingRecords(
       trip_id,
-      'frequencies.txt',
+      GTFS_TABLES.FREQUENCIES,
       'trip_id'
     );
 
