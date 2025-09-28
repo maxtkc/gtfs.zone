@@ -2,7 +2,7 @@
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
  *
  * Generated from https://gtfs.org/documentation/schedule/reference
- * Scraped at: 2025-09-28T10:09:56.395Z
+ * Scraped at: 2025-09-28T10:49:18.570Z
  *
  * This file contains TypeScript interfaces and Zod schemas for all GTFS files and their fields.
  * Zod schemas include field descriptions accessible at runtime and foreign key validation.
@@ -2266,6 +2266,45 @@ export const GTFS_FILE_TYPES = {
   'feed_info.txt': 'FeedInfo' as const,
   'attributions.txt': 'Attributions' as const,
 } as const;
+
+// GTFS table name constants for type-safe table references
+export const GTFS_TABLES = {
+  AGENCY: 'agency.txt',
+  STOPS: 'stops.txt',
+  ROUTES: 'routes.txt',
+  TRIPS: 'trips.txt',
+  STOP_TIMES: 'stop_times.txt',
+  CALENDAR: 'calendar.txt',
+  CALENDAR_DATES: 'calendar_dates.txt',
+  FARE_ATTRIBUTES: 'fare_attributes.txt',
+  FARE_RULES: 'fare_rules.txt',
+  TIMEFRAMES: 'timeframes.txt',
+  RIDER_CATEGORIES: 'rider_categories.txt',
+  FARE_MEDIA: 'fare_media.txt',
+  FARE_PRODUCTS: 'fare_products.txt',
+  FARE_LEG_RULES: 'fare_leg_rules.txt',
+  FARE_LEG_JOIN_RULES: 'fare_leg_join_rules.txt',
+  FARE_TRANSFER_RULES: 'fare_transfer_rules.txt',
+  AREAS: 'areas.txt',
+  STOP_AREAS: 'stop_areas.txt',
+  NETWORKS: 'networks.txt',
+  ROUTE_NETWORKS: 'route_networks.txt',
+  SHAPES: 'shapes.txt',
+  FREQUENCIES: 'frequencies.txt',
+  TRANSFERS: 'transfers.txt',
+  PATHWAYS: 'pathways.txt',
+  LEVELS: 'levels.txt',
+  LOCATION_GROUPS: 'location_groups.txt',
+  LOCATION_GROUP_STOPS: 'location_group_stops.txt',
+  LOCATIONS_GEOJSON: 'locations.geojson',
+  BOOKING_RULES: 'booking_rules.txt',
+  TRANSLATIONS: 'translations.txt',
+  FEED_INFO: 'feed_info.txt',
+  ATTRIBUTIONS: 'attributions.txt',
+} as const;
+
+// Union type for all GTFS table names
+export type GTFSTableName = (typeof GTFS_TABLES)[keyof typeof GTFS_TABLES];
 
 // Utility functions for accessing schema metadata
 export function getFieldDescription(

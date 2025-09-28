@@ -445,7 +445,25 @@ export function validateForeignKey(
       }
     }
     typeDefinitions += `} as const;\n\n`;
-    
+
+    // Generate GTFS table name constants
+    typeDefinitions += `// GTFS table name constants for type-safe table references\n`;
+    typeDefinitions += `export const GTFS_TABLES = {\n`;
+    for (const file of gtfsSpec.files) {
+      // Convert filename to constant name (e.g., 'agency.txt' -> 'AGENCY')
+      const constantName = file.filename
+        .replace('.txt', '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '_');
+
+      typeDefinitions += `  ${constantName}: '${file.filename}',\n`;
+    }
+    typeDefinitions += `} as const;\n\n`;
+
+    // Generate table name type
+    typeDefinitions += `// Union type for all GTFS table names\n`;
+    typeDefinitions += `export type GTFSTableName = typeof GTFS_TABLES[keyof typeof GTFS_TABLES];\n\n`;
+
     // Generate utility functions for accessing field descriptions
     typeDefinitions += `// Utility functions for accessing schema metadata\n`;
     typeDefinitions += `export function getFieldDescription(filename: string, fieldName: string): string | undefined {\n`;

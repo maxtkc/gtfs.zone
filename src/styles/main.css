@@ -195,7 +195,8 @@
     font-size: 0.75rem;
   }
 
-  .timetable .time-cell {
+  .timetable .time-cell,
+  .time-cell {
     text-align: center;
     font-family:
       ui-monospace, 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,
@@ -203,6 +204,29 @@
     font-size: 0.8rem;
     transition: background-color 0.15s ease;
     min-width: 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .timetable .time-cell input,
+  .timetable .time-cell button,
+  .timetable .time-cell *,
+  .time-cell input,
+  .time-cell button,
+  .time-cell * {
+    z-index: 1 !important;
+    position: relative;
+  }
+
+  .timetable .time-cell .stacked-time-container,
+  .time-cell .stacked-time-container {
+    z-index: 1;
+    position: relative;
+  }
+
+  /* Ensure stop-name has higher z-index */
+  .stop-name {
+    z-index: 10 !important;
   }
 
   .timetable .time-cell.has-time {
