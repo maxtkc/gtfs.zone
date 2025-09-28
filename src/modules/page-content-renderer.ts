@@ -100,7 +100,8 @@ export class PageContentRenderer {
         case 'timetable':
           return await this.renderTimetable(
             pageState.route_id,
-            pageState.service_id
+            pageState.service_id,
+            pageState.direction_id
           );
         case 'stop':
           return await this.renderStop(pageState.stop_id);
@@ -438,13 +439,15 @@ export class PageContentRenderer {
    */
   private async renderTimetable(
     route_id: string,
-    service_id: string
+    service_id: string,
+    direction_id?: string
   ): Promise<string> {
     try {
       // Get the rendered schedule HTML directly
       return await this.dependencies.scheduleController.renderSchedule(
         route_id,
-        service_id
+        service_id,
+        direction_id
       );
     } catch (error) {
       // eslint-disable-next-line no-console

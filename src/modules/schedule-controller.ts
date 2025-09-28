@@ -483,13 +483,19 @@ export class ScheduleController {
    *
    * @param route_id - GTFS route identifier
    * @param service_id - GTFS service identifier (calendar or calendar_dates)
+   * @param direction_id - Optional GTFS direction identifier for filtering
    * @returns Promise resolving to HTML string for the timetable
    */
-  async renderSchedule(route_id: string, service_id: string): Promise<string> {
+  async renderSchedule(
+    route_id: string,
+    service_id: string,
+    direction_id?: string
+  ): Promise<string> {
     try {
       console.log('DEBUG: renderSchedule called with:', {
         route_id,
         service_id,
+        direction_id,
       });
 
       // Get all available directions for this route and service
@@ -498,9 +504,12 @@ export class ScheduleController {
         service_id
       );
 
-      // Use first available direction if any exist
+      // Use provided direction_id or first available direction if any exist
       const selectedDirection =
-        availableDirections.length > 0 ? availableDirections[0].id : undefined;
+        direction_id ||
+        (availableDirections.length > 0
+          ? availableDirections[0].id
+          : undefined);
 
       const timetableData = await this.dataProcessor.generateTimetableData(
         route_id,

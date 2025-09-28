@@ -199,14 +199,17 @@ export class GTFSEditor {
     this.pageStateManager.addNavigationHandler((event) => {
       const { to } = event;
 
-      // Switch to Objects tab for route and stop navigation
-      if (to.type === 'route' || to.type === 'stop') {
+      // Switch to Objects tab for route, stop, and timetable navigation
+      if (
+        to.type === 'route' ||
+        to.type === 'stop' ||
+        to.type === 'timetable'
+      ) {
         this.tabManager.switchToTab('objects');
       }
       // Add other tab switching logic here if needed
       // For example:
       // - 'home' might switch to 'files' tab
-      // - 'timetable' might switch to 'schedule' tab
     });
   }
 

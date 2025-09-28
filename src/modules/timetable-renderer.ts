@@ -183,9 +183,7 @@ export class TimetableRenderer {
     const tripHeaders = trips
       .map((trip) => {
         const tripDisplayName =
-          trip.trip_headsign ||
-          trip.trip_short_name ||
-          trip.trip_id.substring(0, 8);
+          trip.trip_headsign || trip.trip_short_name || trip.trip_id;
 
         return `
           <th class="trip-header text-center min-w-[80px] p-2 text-xs"

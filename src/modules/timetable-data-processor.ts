@@ -14,10 +14,9 @@ import {
   Calendar,
   CalendarDates,
   StopTimes,
-  StopTimesSchema,
-  CalendarSchema,
-} from '../types/gtfs.ts';
-import { GTFSDatabaseRecord } from './gtfs-database.js';
+  GTFSTableMap,
+} from '../types/gtfs-entities.js';
+import { StopTimesSchema, CalendarSchema } from '../types/gtfs.js';
 
 /**
  * Editable stop time interface for timetable editing
@@ -99,7 +98,22 @@ interface GTFSRelationships {
 }
 
 interface GTFSParserInterface {
-  getFileDataSync(filename: string): GTFSDatabaseRecord[] | null;
+  getFileDataSync<T extends keyof GTFSTableMap>(filename: T): GTFSTableMap[T][];
+  gtfsDatabase: {
+    queryRows<T extends keyof GTFSTableMap>(
+      tableName: T,
+      filter?: { [key: string]: string | number | boolean }
+    ): Promise<GTFSTableMap[T][]>;
+    updateRow<T extends keyof GTFSTableMap>(
+      tableName: T,
+      key: string,
+      data: Partial<GTFSTableMap[T]>
+    ): Promise<void>;
+    generateKey<T extends keyof GTFSTableMap>(
+      tableName: T,
+      data: GTFSTableMap[T]
+    ): string;
+  };
 }
 
 /**
@@ -129,6 +143,25 @@ export class TimetableDataProcessor {
   ) {
     this.relationships = relationships;
     this.gtfsParser = gtfsParser;
+  }
+
+  /**
+   * Get stop times for a trip from the database (includes any edits)
+   *
+   * This method reads from the database instead of the cached relationships layer,
+   * ensuring that any user edits are reflected in the timetable rendering.
+   *
+   * @param trip_id - GTFS trip identifier
+   * @returns Promise resolving to array of stop times from database
+   */
+  private async getStopTimesFromDatabase(
+    trip_id: string
+  ): Promise<StopTimes[]> {
+    const stopTimes = await this.gtfsParser.gtfsDatabase.queryRows(
+      'stop_times',
+      { trip_id }
+    );
+    return stopTimes;
   }
 
   /**
@@ -216,16 +249,17 @@ export class TimetableDataProcessor {
 
     // Build stop sequences for each trip
     const tripSequences: string[][] = [];
-    trips.forEach((trip: EnhancedTrip) => {
-      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
+    for (const trip of trips) {
+      const stopTimes = await this.getStopTimesFromDatabase(trip.id);
       const tripStops = stopTimes
         .sort(
           (a: StopTimes, b: StopTimes) =>
-            parseInt(a.stop_sequence) - parseInt(b.stop_sequence)
+            parseInt(String(a.stop_sequence)) -
+            parseInt(String(b.stop_sequence))
         )
         .map((st: StopTimes) => st.stop_id);
       tripSequences.push(tripStops);
-    });
+    }
 
     // Use enhanced SCS to get both optimal sequence and alignments
     const scsResult = shortestCommonSupersequenceWithAlignments(tripSequences);
@@ -246,7 +280,7 @@ export class TimetableDataProcessor {
     );
 
     // Align trips using the SCS result
-    const alignedTrips = this.alignTripsWithSCS(trips, scsHelper);
+    const alignedTrips = await this.alignTripsWithSCS(trips, scsHelper);
 
     // Get direction name
     const directionName =
@@ -321,14 +355,15 @@ export class TimetableDataProcessor {
    * @param scsHelper - SCS result helper with position mappings
    * @returns Array of aligned trips with time mappings at supersequence positions
    */
-  alignTripsWithSCS(
+  async alignTripsWithSCS(
     trips: EnhancedTrip[],
     scsHelper: SCSResultHelper<string>
-  ): AlignedTrip[] {
+  ): Promise<AlignedTrip[]> {
     const alignedTrips: AlignedTrip[] = [];
 
-    trips.forEach((trip, tripIndex) => {
-      const stopTimes = this.relationships.getStopTimesForTrip(trip.id);
+    for (let tripIndex = 0; tripIndex < trips.length; tripIndex++) {
+      const trip = trips[tripIndex];
+      const stopTimes = await this.getStopTimesFromDatabase(trip.id);
       const stopTimeMap = new Map<number, string>();
       const arrival_timeMap = new Map<number, string>();
       const departure_timeMap = new Map<number, string>();
@@ -337,7 +372,7 @@ export class TimetableDataProcessor {
       // Sort stop times by sequence
       const sortedStopTimes = stopTimes.sort(
         (a: StopTimes, b: StopTimes) =>
-          parseInt(a.stop_sequence) - parseInt(b.stop_sequence)
+          parseInt(String(a.stop_sequence)) - parseInt(String(b.stop_sequence))
       );
 
       // Validate each stop time using GTFS schema
@@ -435,7 +470,7 @@ export class TimetableDataProcessor {
           departure_time: departure_timeMap.get(position) || '-',
         }))
       );
-    });
+    }
 
     return alignedTrips;
   }

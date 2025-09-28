@@ -352,6 +352,9 @@ export class TimetableCellRenderer {
     stop_id: string,
     timeValue: string
   ): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'flex items-center gap-1';
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className =
@@ -381,7 +384,27 @@ export class TimetableCellRenderer {
       input.select();
     });
 
-    return input;
+    // Add unlink button
+    const unlinkButton = document.createElement('button');
+    unlinkButton.className = 'btn btn-primary btn-xs w-6 h-6 p-0';
+    unlinkButton.title =
+      'Times are linked - click to unlink and add dwell time';
+    unlinkButton.innerHTML = `
+      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M8 5a3 3 0 100 6 3 3 0 000-6zM12 5a3 3 0 110 6V5zM8 17a3 3 0 100-6 3 3 0 000 6zM12 17a3 3 0 110-6v6z"/>
+      </svg>
+    `;
+
+    // Add event listener for unlink button
+    unlinkButton.addEventListener('click', () => {
+      // @ts-expect-error - gtfsEditor is available globally
+      gtfsEditor.scheduleController.toggleTimesLink(trip_id, stop_id);
+    });
+
+    container.appendChild(input);
+    container.appendChild(unlinkButton);
+
+    return container;
   }
 
   /**
@@ -477,6 +500,25 @@ export class TimetableCellRenderer {
 
     departureDiv.appendChild(departureLabel);
     departureDiv.appendChild(departureInput);
+
+    // Add link button next to departure input
+    const linkButton = document.createElement('button');
+    linkButton.className = 'btn btn-secondary btn-xs w-6 h-6 p-0';
+    linkButton.title =
+      'Times are separate - click to link arrival and departure';
+    linkButton.innerHTML = `
+      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+      </svg>
+    `;
+
+    // Add event listener for link button
+    linkButton.addEventListener('click', () => {
+      // @ts-expect-error - gtfsEditor is available globally
+      gtfsEditor.scheduleController.toggleTimesLink(trip_id, stop_id);
+    });
+
+    departureDiv.appendChild(linkButton);
 
     container.appendChild(arrivalDiv);
     container.appendChild(departureDiv);
