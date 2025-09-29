@@ -81,7 +81,6 @@ export class TimetableRenderer {
             Timetable View
           </p>
         </div>
-        ${this.renderServiceProperties(service)}
       </div>
     `;
   }
@@ -255,72 +254,6 @@ export class TimetableRenderer {
       .join('');
 
     return `<tbody>${rows}</tbody>`;
-  }
-
-  /**
-   * Render service properties
-   *
-   * Displays service-specific information below the header.
-   * For Calendar services: shows service days and date range.
-   * For CalendarDates services: shows exception-based indicator.
-   *
-   * @param service - Calendar or CalendarDates entity
-   * @returns HTML string for service properties section
-   */
-  private renderServiceProperties(service: Calendar | CalendarDates): string {
-    // Calendar properties
-    if ('monday' in service) {
-      const cal = service as Calendar;
-      return `
-        <div class="px-4 pb-4">
-          <div class="text-xs opacity-70">
-            <span class="font-medium">Service Days:</span>
-            ${this.renderServiceDays(cal)}
-            <span class="ml-4">Valid: ${cal.start_date} - ${cal.end_date}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    // Calendar dates - just show the service ID
-    return `
-      <div class="px-4 pb-4">
-        <div class="text-xs opacity-70">
-          <span class="font-medium">Exception-based service</span>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * Render service days for calendar
-   *
-   * Creates visual indicators for which days of the week are active.
-   * Uses badges to show active/inactive days with abbreviations.
-   *
-   * @param cal - Calendar entity with day-of-week flags
-   * @returns HTML string with day badges
-   */
-  private renderServiceDays(cal: Calendar): string {
-    const days = [
-      { key: 'monday', abbr: 'M' },
-      { key: 'tuesday', abbr: 'T' },
-      { key: 'wednesday', abbr: 'W' },
-      { key: 'thursday', abbr: 'T' },
-      { key: 'friday', abbr: 'F' },
-      { key: 'saturday', abbr: 'S' },
-      { key: 'sunday', abbr: 'S' },
-    ];
-
-    return days
-      .map((day) => {
-        const isActive = cal[day.key as keyof Calendar] === '1';
-        const className = isActive
-          ? 'badge badge-primary badge-xs'
-          : 'badge badge-ghost badge-xs opacity-30';
-        return `<span class="${className}">${day.abbr}</span>`;
-      })
-      .join(' ');
   }
 
   /**

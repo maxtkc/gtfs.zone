@@ -26,6 +26,7 @@ declare global {
   interface Window {
     gtfsEditor: GTFSEditor;
   }
+  const __APP_VERSION__: string;
 }
 
 export class GTFSEditor {
@@ -87,6 +88,9 @@ export class GTFSEditor {
 
   private async init(): Promise<void> {
     try {
+      // Display version in header
+      this.displayVersion();
+
       // Initialize notification system
       notifications.initialize();
 
@@ -215,6 +219,16 @@ export class GTFSEditor {
       // For example:
       // - 'home' might switch to 'files' tab
     });
+  }
+
+  /**
+   * Display version in header
+   */
+  private displayVersion(): void {
+    const versionElement = document.getElementById('app-version');
+    if (versionElement) {
+      versionElement.textContent = `v${__APP_VERSION__}`;
+    }
   }
 
   /**

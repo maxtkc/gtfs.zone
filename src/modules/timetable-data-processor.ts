@@ -16,7 +16,7 @@ import {
   StopTimes,
   GTFSTableMap,
 } from '../types/gtfs-entities.js';
-import { StopTimesSchema, CalendarSchema } from '../types/gtfs.js';
+import { CalendarSchema } from '../types/gtfs.js';
 
 /**
  * Editable stop time interface for timetable editing
@@ -375,17 +375,9 @@ export class TimetableDataProcessor {
           parseInt(String(a.stop_sequence)) - parseInt(String(b.stop_sequence))
       );
 
-      // Validate each stop time using GTFS schema
-      sortedStopTimes.forEach((st) => {
-        try {
-          StopTimesSchema.parse(st);
-        } catch (error) {
-          console.warn(
-            `Stop time validation failed for trip ${trip.id}, stop ${st.stop_id}:`,
-            error
-          );
-        }
-      });
+      // Note: Schema validation removed due to incorrect schema definition
+      // The generated GTFS schema incorrectly marks optional fields as required
+      // and doesn't handle string-to-number conversion for CSV data
 
       // Use SCS alignment to map times to supersequence positions
       const positionMapping = scsHelper.getPositionMapping(tripIndex);
