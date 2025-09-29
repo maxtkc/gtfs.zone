@@ -7,6 +7,10 @@
  */
 
 import { PageState } from '../types/page-state.js';
+import {
+  StopViewController,
+  StopViewDependencies,
+} from './stop-view-controller.js';
 
 /**
  * Interface for injected dependencies
@@ -24,6 +28,25 @@ export interface ContentRendererDependencies {
     getRouteAsync: (route_id: string) => Promise<unknown>;
   };
 
+  // GTFS database access for stop controller (optional)
+  gtfsDatabase?: {
+    queryRows: (
+      tableName: string,
+      filter?: Record<string, unknown>
+    ) => Promise<unknown[]>;
+    updateRow: (
+      tableName: string,
+      key: string,
+      data: Record<string, unknown>
+    ) => Promise<void>;
+  };
+
+  // GTFS relationships for stop controller (optional)
+  gtfsRelationships?: {
+    getAgenciesServingStop?: (stop_id: string) => Promise<unknown[]>;
+    getRoutesServingStop?: (stop_id: string) => Promise<unknown[]>;
+  };
+
   // Schedule controller for timetables
   scheduleController: {
     renderSchedule: (
@@ -31,6 +54,11 @@ export interface ContentRendererDependencies {
       service_id: string,
       direction_id?: string
     ) => Promise<string>;
+  };
+
+  // Service days controller for calendar editing
+  serviceDaysController: {
+    renderServiceEditor: (service_id: string) => Promise<string>;
   };
 
   // Map controller for visualization updates
@@ -58,9 +86,22 @@ export interface ContentRendererDependencies {
 export class PageContentRenderer {
   private dependencies: ContentRendererDependencies;
   private searchQuery: string = '';
+  private stopViewController: StopViewController;
 
   constructor(dependencies: ContentRendererDependencies) {
     this.dependencies = dependencies;
+
+    // Initialize StopViewController with fallback dependencies
+    const stopViewDependencies: StopViewDependencies = {
+      gtfsDatabase: dependencies.gtfsDatabase || {
+        queryRows: () => Promise.resolve([]),
+        updateRow: () => Promise.resolve(),
+      },
+      gtfsRelationships: dependencies.gtfsRelationships || {},
+      onAgencyClick: dependencies.onAgencyClick,
+      onRouteClick: dependencies.onRouteClick,
+    };
+    this.stopViewController = new StopViewController(stopViewDependencies);
   }
 
   /**
@@ -382,8 +423,9 @@ export class PageContentRenderer {
       (routeData?.route_long_name as string) ||
       route_id;
 
-    const serviceCards = Object.entries(serviceGroups)
-      .map(([service_id, serviceTrips]: [string, unknown[]]) => {
+    // Generate service cards with embedded service days editors
+    const serviceCardPromises = Object.entries(serviceGroups).map(
+      async ([service_id, serviceTrips]: [string, unknown[]]) => {
         const tripCount = serviceTrips.length;
         const directions = [
           ...new Set(
@@ -393,24 +435,43 @@ export class PageContentRenderer {
           ),
         ];
 
+        // Get the service days editor HTML
+        const serviceEditorHTML =
+          await this.dependencies.serviceDaysController.renderServiceEditor(
+            service_id
+          );
+
         return `
-        <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow cursor-pointer service-card"
-             data-route-id="${route_id}"
-             data-service-id="${service_id}">
+        <div class="card bg-base-100 shadow-sm border border-base-300 mb-6">
           <div class="card-body p-4">
-            <h3 class="card-title text-base">Service ${service_id}</h3>
-            <div class="text-sm text-base-content/70">
-              ${tripCount} trip${tripCount !== 1 ? 's' : ''}
-              ${directions.length > 1 ? ' • Both directions' : ''}
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="card-title text-lg">Service ${service_id}</h3>
+                <div class="text-sm text-base-content/70">
+                  ${tripCount} trip${tripCount !== 1 ? 's' : ''}
+                  ${directions.length > 1 ? ' • Both directions' : ''}
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="btn btn-sm btn-primary service-timetable-btn"
+                        data-route-id="${route_id}"
+                        data-service-id="${service_id}">
+                  View Timetable
+                </button>
+              </div>
             </div>
-            <div class="card-actions justify-end">
-              <button class="btn btn-sm btn-primary">View Timetable</button>
+
+            <!-- Service Days Editor -->
+            <div class="service-days-section mt-4">
+              ${serviceEditorHTML}
             </div>
           </div>
         </div>
-      `;
-      })
-      .join('');
+        `;
+      }
+    );
+
+    const serviceCards = (await Promise.all(serviceCardPromises)).join('');
 
     return `
       <div class="p-4">
@@ -426,7 +487,7 @@ export class PageContentRenderer {
             ? `<div class="text-center py-8 text-base-content/50">
             No services found for this route.
           </div>`
-            : `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            : `<div class="space-y-4">
             ${serviceCards}
           </div>`
         }
@@ -460,73 +521,11 @@ export class PageContentRenderer {
    * Render stop page
    */
   private async renderStop(stop_id: string): Promise<string> {
-    const stop = await this.dependencies.relationships.getStopAsync(stop_id);
-
-    if (!stop) {
-      return this.renderError('Stop not found.');
-    }
-
     // Update map to highlight this stop
     this.dependencies.mapController.highlightStop(stop_id);
 
-    const stopData = stop as Record<string, unknown>;
-    const stopName = (stopData.stop_name as string) || stop_id;
-    const stopCode = stopData.stop_code as string | undefined;
-    const stopDesc = stopData.stop_desc as string | undefined;
-    const coordinates =
-      stopData.stop_lat && stopData.stop_lon
-        ? `${stopData.stop_lat as string}, ${stopData.stop_lon as string}`
-        : '';
-
-    return `
-      <div class="p-4">
-        <div class="card bg-base-100 shadow-sm border border-base-300">
-          <div class="card-body">
-            <h2 class="card-title">${stopName}</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <div class="text-sm font-medium">Stop ID</div>
-                <div class="text-base-content/70">${stop_id}</div>
-              </div>
-
-              ${
-                stopCode
-                  ? `
-                <div>
-                  <div class="text-sm font-medium">Stop Code</div>
-                  <div class="text-base-content/70">${stopCode}</div>
-                </div>
-              `
-                  : ''
-              }
-
-              ${
-                coordinates
-                  ? `
-                <div>
-                  <div class="text-sm font-medium">Coordinates</div>
-                  <div class="text-base-content/70">${coordinates}</div>
-                </div>
-              `
-                  : ''
-              }
-
-              ${
-                stopDesc
-                  ? `
-                <div class="md:col-span-2">
-                  <div class="text-sm font-medium">Description</div>
-                  <div class="text-base-content/70">${stopDesc}</div>
-                </div>
-              `
-                  : ''
-              }
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    // Use the new StopViewController for comprehensive stop view
+    return await this.stopViewController.renderStopView(stop_id);
   }
 
   /**
@@ -556,12 +555,14 @@ export class PageContentRenderer {
       });
     });
 
-    // Service card clicks (for timetables)
-    const serviceCards = container.querySelectorAll('.service-card');
-    serviceCards.forEach((card) => {
-      card.addEventListener('click', () => {
-        const route_id = card.getAttribute('data-route-id');
-        const service_id = card.getAttribute('data-service-id');
+    // Service timetable button clicks
+    const timetableButtons = container.querySelectorAll(
+      '.service-timetable-btn'
+    );
+    timetableButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const route_id = button.getAttribute('data-route-id');
+        const service_id = button.getAttribute('data-service-id');
         if (route_id && service_id) {
           this.dependencies.onTimetableClick(route_id, service_id);
         }
@@ -590,5 +591,8 @@ export class PageContentRenderer {
         // Trigger re-render - this would need to be handled by the caller
       });
     }
+
+    // Add StopViewController event listeners
+    this.stopViewController.addEventListeners(container);
   }
 }

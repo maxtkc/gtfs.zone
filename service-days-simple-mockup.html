@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTFS Service Days Editor - Simple</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        .day-button.active {
+            transform: scale(1.05);
+        }
+
+        .exception-item {
+            transition: all 0.2s ease;
+        }
+
+        .exception-item:hover {
+            transform: translateX(4px);
+        }
+
+        .auto-save-indicator {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .auto-save-indicator.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-base-100">
+    <div class="container mx-auto p-6 max-w-5xl">
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold mb-2">Service: weekday_service</h1>
+                    <div class="breadcrumbs text-sm">
+                        <ul>
+                            <li><a>Objects</a></li>
+                            <li><a>Routes</a></li>
+                            <li><a>Route 1</a></li>
+                            <li class="font-semibold">Service Days</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="auto-save-indicator flex items-center gap-2 text-sm text-success">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span>Auto-saved</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="space-y-6">
+            <!-- Regular Schedule -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h2 class="card-title text-lg mb-4">
+                        <span class="badge badge-primary">calendar.txt</span>
+                        Regular Schedule
+                    </h2>
+
+                    <!-- Days of Week Selector -->
+                    <div class="mb-6">
+                        <label class="label">
+                            <span class="label-text font-semibold">Days of Operation</span>
+                        </label>
+                        <div class="grid grid-cols-7 gap-2">
+                            <button class="btn btn-outline day-button" data-day="sunday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">SUN</div>
+                                    <div class="font-bold">S</div>
+                                </div>
+                            </button>
+                            <button class="btn btn-primary active day-button" data-day="monday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">MON</div>
+                                    <div class="font-bold">M</div>
+                                </div>
+                            </button>
+                            <button class="btn btn-primary active day-button" data-day="tuesday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">TUE</div>
+                                    <div class="font-bold">T</div>
+                                </div>
+                            </button>
+                            <button class="btn btn-primary active day-button" data-day="wednesday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">WED</div>
+                                    <div class="font-bold">W</div>
+                                </div>
+                            </button>
+                            <button class="btn btn-primary active day-button" data-day="thursday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">THU</div>
+                                    <div class="font-bold">T</div>
+                                </div>
+                            </button>
+                            <button class="btn btn-primary active day-button" data-day="friday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">FRI</div>
+                                    <div class="font-bold">F</div>
+                                </div>
+                            </button>
+                            <button class="btn btn-outline day-button" data-day="saturday">
+                                <div class="text-center">
+                                    <div class="text-xs opacity-70">SAT</div>
+                                    <div class="font-bold">S</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="label">
+                                <span class="label-text font-semibold">Service Start Date</span>
+                            </label>
+                            <input type="date" class="input input-bordered w-full" value="2024-01-01" onchange="autoSave()">
+                        </div>
+                        <div>
+                            <label class="label">
+                                <span class="label-text font-semibold">Service End Date</span>
+                            </label>
+                            <input type="date" class="input input-bordered w-full" value="2024-12-31" onchange="autoSave()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Exceptions -->
+            <div class="card bg-base-200 shadow-lg">
+                <div class="card-body">
+                    <h2 class="card-title text-lg mb-4">
+                        <span class="badge badge-secondary">calendar_dates.txt</span>
+                        Service Exceptions
+                    </h2>
+
+                    <!-- Add Exception Form -->
+                    <div class="mb-6 p-3 bg-base-100 rounded-lg border border-dashed border-secondary">
+                        <h3 class="font-semibold mb-3">Add Exception</h3>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="label">
+                                        <span class="label-text text-sm">Date</span>
+                                    </label>
+                                    <input type="date" class="input input-bordered input-sm w-full" id="exception-date">
+                                </div>
+                                <div>
+                                    <label class="label">
+                                        <span class="label-text text-sm">Type</span>
+                                    </label>
+                                    <select class="select select-bordered select-sm w-full" id="exception-type">
+                                        <option value="2">Remove Service</option>
+                                        <option value="1">Add Service</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="addException()">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Add Exception
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Existing Exceptions -->
+                    <div class="space-y-2" id="exceptions-list">
+                        <h3 class="font-semibold mb-3">Current Exceptions</h3>
+
+                        <!-- Exception Item 1 -->
+                        <div class="exception-item p-3 bg-base-100 rounded-lg border flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="badge badge-error">Remove</div>
+                                <div>
+                                    <div class="font-semibold text-sm">2024-11-28</div>
+                                    <div class="text-xs opacity-70">Thanksgiving</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-ghost btn-sm text-error" onclick="removeException(this)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Exception Item 2 -->
+                        <div class="exception-item p-3 bg-base-100 rounded-lg border flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="badge badge-error">Remove</div>
+                                <div>
+                                    <div class="font-semibold text-sm">2024-12-25</div>
+                                    <div class="text-xs opacity-70">Christmas</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-ghost btn-sm text-error" onclick="removeException(this)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Exception Item 3 -->
+                        <div class="exception-item p-3 bg-base-100 rounded-lg border flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="badge badge-success">Add</div>
+                                <div>
+                                    <div class="font-semibold text-sm">2024-11-23</div>
+                                    <div class="text-xs opacity-70">Special Saturday</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-ghost btn-sm text-error" onclick="removeException(this)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Display -->
+        <div class="mt-6">
+            <div class="card bg-base-300 shadow-sm">
+                <div class="card-body py-4">
+                    <div class="text-center">
+                        <div class="text-sm opacity-70 mb-1">Service Summary</div>
+                        <div class="text-lg" id="service-summary">
+                            Monday-Friday service from Jan 1, 2024 to Dec 31, 2024 with 3 exceptions
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Interactive day selector with auto-save
+        document.querySelectorAll('.day-button').forEach(button => {
+            button.addEventListener('click', function() {
+                this.classList.toggle('btn-primary');
+                this.classList.toggle('btn-outline');
+                this.classList.toggle('active');
+
+                autoSave();
+                updateServiceSummary();
+            });
+        });
+
+        // Auto-save function that mimics timetable behavior
+        function autoSave() {
+            // Show saving indicator
+            const indicator = document.querySelector('.auto-save-indicator');
+            indicator.classList.add('show');
+
+            // Simulate API call delay
+            setTimeout(() => {
+                // Hide indicator after save
+                indicator.classList.remove('show');
+                console.log('Service data auto-saved');
+            }, 1000);
+        }
+
+        // Add exception with auto-save
+        function addException() {
+            const date = document.getElementById('exception-date').value;
+            const type = document.getElementById('exception-type').value;
+
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+
+            const exceptionsList = document.getElementById('exceptions-list');
+            const typeText = type === '1' ? 'Add' : 'Remove';
+            const badgeClass = type === '1' ? 'badge-success' : 'badge-error';
+
+            const exceptionItem = document.createElement('div');
+            exceptionItem.className = 'exception-item p-3 bg-base-100 rounded-lg border flex items-center justify-between';
+            exceptionItem.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="badge ${badgeClass}">${typeText}</div>
+                    <div>
+                        <div class="font-semibold text-sm">${date}</div>
+                        <div class="text-xs opacity-70">New exception</div>
+                    </div>
+                </div>
+                <button class="btn btn-ghost btn-sm text-error" onclick="removeException(this)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            `;
+
+            exceptionsList.appendChild(exceptionItem);
+
+            // Clear form
+            document.getElementById('exception-date').value = '';
+            document.getElementById('exception-type').value = '2';
+
+            autoSave();
+            updateServiceSummary();
+        }
+
+        // Remove exception with auto-save
+        function removeException(button) {
+            button.closest('.exception-item').remove();
+            autoSave();
+            updateServiceSummary();
+        }
+
+        // Update service summary
+        function updateServiceSummary() {
+            const activeDays = document.querySelectorAll('.day-button.active').length;
+            const exceptions = document.querySelectorAll('.exception-item').length;
+            const startDate = document.querySelector('input[type="date"]').value;
+            const endDate = document.querySelectorAll('input[type="date"]')[1].value;
+
+            let dayText = 'No service';
+            if (activeDays === 5) {
+                const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                const activeWeekdays = Array.from(document.querySelectorAll('.day-button.active')).every(btn =>
+                    weekdays.includes(btn.dataset.day)
+                );
+                if (activeWeekdays) dayText = 'Monday-Friday service';
+                else dayText = `${activeDays} days per week`;
+            } else if (activeDays === 7) {
+                dayText = 'Daily service';
+            } else if (activeDays > 0) {
+                dayText = `${activeDays} days per week`;
+            }
+
+            const startFormatted = new Date(startDate).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
+            const endFormatted = new Date(endDate).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
+
+            const exceptionText = exceptions > 0 ? ` with ${exceptions} exception${exceptions > 1 ? 's' : ''}` : '';
+
+            document.getElementById('service-summary').textContent =
+                `${dayText} from ${startFormatted} to ${endFormatted}${exceptionText}`;
+        }
+
+        // Theme toggle for demo
+        document.addEventListener('DOMContentLoaded', function() {
+            const htmlElement = document.documentElement;
+
+            // Add theme toggle button
+            const themeToggle = document.createElement('button');
+            themeToggle.className = 'btn btn-outline btn-sm fixed top-4 right-4';
+            themeToggle.innerHTML = '🌙';
+            themeToggle.onclick = function() {
+                const currentTheme = htmlElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                htmlElement.setAttribute('data-theme', newTheme);
+                themeToggle.innerHTML = newTheme === 'dark' ? '☀️' : '🌙';
+            };
+            document.body.appendChild(themeToggle);
+
+            // Initialize summary
+            updateServiceSummary();
+        });
+    </script>
+</body>
+</html>

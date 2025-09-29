@@ -11,6 +11,7 @@ import { GTFSValidator } from './modules/gtfs-validator';
 import { KeyboardShortcuts } from './modules/keyboard-shortcuts';
 import { FieldDescriptionsDisplay } from './modules/field-descriptions';
 import { ScheduleController } from './modules/schedule-controller';
+import { ServiceDaysController } from './modules/service-days-controller';
 import { ThemeController } from './modules/theme-controller';
 import { notifications } from './modules/notification-system';
 import {
@@ -41,6 +42,7 @@ export class GTFSEditor {
   public keyboardShortcuts: KeyboardShortcuts;
   public fieldDescriptions: FieldDescriptionsDisplay;
   public scheduleController: ScheduleController;
+  public serviceDaysController: ServiceDaysController;
   public themeController: ThemeController;
   public pageStateManager: PageStateManager;
 
@@ -56,10 +58,12 @@ export class GTFSEditor {
       this.relationships,
       this.gtfsParser
     );
+    this.serviceDaysController = new ServiceDaysController(this.gtfsParser);
     this.objectsNavigation = new ObjectsNavigation(
       this.relationships,
       this.mapController,
-      this.scheduleController
+      this.scheduleController,
+      this.serviceDaysController
     );
     this.searchController = new SearchController(
       this.gtfsParser,

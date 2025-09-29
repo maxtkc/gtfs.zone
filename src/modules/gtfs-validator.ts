@@ -343,7 +343,10 @@ export class GTFSValidator {
       }
 
       // Validate coordinates
-      if (!stop.stop_lat || stop.stop_lat.trim() === '') {
+      if (
+        !stop.stop_lat ||
+        (typeof stop.stop_lat === 'string' && stop.stop_lat.trim() === '')
+      ) {
         this.addError(
           `Row ${rowNum}: stop_lat is required`,
           'MISSING_REQUIRED_FIELD',
@@ -351,7 +354,10 @@ export class GTFSValidator {
           rowNum
         );
       } else {
-        const lat = parseFloat(stop.stop_lat);
+        const lat =
+          typeof stop.stop_lat === 'number'
+            ? stop.stop_lat
+            : parseFloat(stop.stop_lat);
         if (isNaN(lat) || lat < -90 || lat > 90) {
           this.addError(
             `Row ${rowNum}: stop_lat must be between -90 and 90`,
@@ -362,7 +368,10 @@ export class GTFSValidator {
         }
       }
 
-      if (!stop.stop_lon || stop.stop_lon.trim() === '') {
+      if (
+        !stop.stop_lon ||
+        (typeof stop.stop_lon === 'string' && stop.stop_lon.trim() === '')
+      ) {
         this.addError(
           `Row ${rowNum}: stop_lon is required`,
           'MISSING_REQUIRED_FIELD',
@@ -370,7 +379,10 @@ export class GTFSValidator {
           rowNum
         );
       } else {
-        const lon = parseFloat(stop.stop_lon);
+        const lon =
+          typeof stop.stop_lon === 'number'
+            ? stop.stop_lon
+            : parseFloat(stop.stop_lon);
         if (isNaN(lon) || lon < -180 || lon > 180) {
           this.addError(
             `Row ${rowNum}: stop_lon must be between -180 and 180`,

@@ -51,6 +51,7 @@ export class ObjectsNavigation {
       agency_id: string
     ) => Promise<Record<string, unknown> | null>;
   };
+  private gtfsRelationshipsInstance: import('./gtfs-relationships.js').GTFSRelationships; // The actual GTFSRelationships instance for database access
   private mapController: {
     highlightTrip: (trip_id: string) => void;
     highlightStop: (stop_id: string) => void;
@@ -72,6 +73,9 @@ export class ObjectsNavigation {
       service_id: string,
       direction_id?: string
     ) => Promise<string>;
+  } | null = null; // Will be set after initialization
+  public serviceDaysController: {
+    renderServiceEditor: (service_id: string) => Promise<string>;
   } | null = null; // Will be set after initialization
   private container: HTMLElement | null = null;
   private searchQuery: string = '';
@@ -129,11 +133,16 @@ export class ObjectsNavigation {
         service_id: string,
         direction_id?: string
       ) => Promise<string>;
+    },
+    serviceDaysController?: {
+      renderServiceEditor: (service_id: string) => Promise<string>;
     }
   ) {
     this.relationships = gtfsRelationships;
+    this.gtfsRelationshipsInstance = gtfsRelationships; // Store the actual instance for database access
     this.mapController = mapController;
     this.scheduleController = scheduleController;
+    this.serviceDaysController = serviceDaysController;
   }
 
   initialize(containerId: string): void {
@@ -177,9 +186,34 @@ export class ObjectsNavigation {
         getRouteAsync: (route_id: string) =>
           this.relationships.getRouteByIdAsync(route_id),
       },
+      // Provide access to the actual database for StopViewController
+      gtfsDatabase: this.gtfsRelationshipsInstance?.gtfsDatabase
+        ? {
+            queryRows: (tableName: string, filter?: Record<string, unknown>) =>
+              this.gtfsRelationshipsInstance.gtfsDatabase.queryRows(
+                tableName,
+                filter
+              ),
+            updateRow: (
+              tableName: string,
+              key: string,
+              data: Record<string, unknown>
+            ) =>
+              this.gtfsRelationshipsInstance.gtfsDatabase.updateRow(
+                tableName,
+                key,
+                data
+              ),
+          }
+        : undefined,
+      gtfsRelationships: this.gtfsRelationshipsInstance,
       scheduleController: this.scheduleController || {
         renderSchedule: () =>
           Promise.resolve('<div>Schedule not available</div>'),
+      },
+      serviceDaysController: this.serviceDaysController || {
+        renderServiceEditor: () =>
+          Promise.resolve('<div>Service days editor not available</div>'),
       },
       mapController: {
         highlightRoute: (route_id: string) =>

@@ -52,15 +52,8 @@ export function getBreadcrumbLookup(): GTFSBreadcrumbLookup | null {
  * Update breadcrumb lookup when GTFS data is reloaded
  */
 export function updateBreadcrumbLookup(_gtfsParser: GTFSParser): void {
-  if (globalBreadcrumbLookup) {
-    // Clear cache when data is reloaded
-    globalBreadcrumbLookup.clearCache();
-
-    // Optionally preload cache for better performance
-    globalBreadcrumbLookup.preloadCache().catch((error) => {
-      console.warn('Failed to preload breadcrumb cache:', error);
-    });
-  }
+  // No caching, so no need to clear cache or preload
+  // Data is always loaded fresh from the database
 }
 
 /**
