@@ -1,4 +1,4 @@
-import { Map as MapLibreMap, LngLatBounds } from 'maplibre-gl';
+import { Map as MapLibreMap, LngLatBounds, GeoJSONSource } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { PageStateManager } from './page-state-manager.js';
 import { GTFSDatabaseRecord } from './gtfs-database.js';
@@ -10,6 +10,38 @@ import {
   Shapes,
 } from '../types/gtfs-entities.js';
 
+// Map interaction modes
+export enum MapMode {
+  NAVIGATE = 'navigate',
+  ADD_STOP = 'add_stop',
+  EDIT_STOPS = 'edit_stops',
+}
+
+// Type definitions for internal map controller functions
+interface RouteData {
+  route_id: string;
+  route: Routes;
+  color: string;
+}
+
+interface RouteInfo {
+  route_id: string;
+  route: Routes;
+  color: string;
+  trip_id: string;
+}
+
+interface RouteSegment {
+  geometry: GeoJSON.LineString;
+  routes: RouteInfo[];
+  hasShapes: boolean;
+  segmentHash: string;
+  route_id?: string;
+  route?: Routes;
+  color?: string;
+  trip_id?: string;
+}
+
 export class MapController {
   private map: MapLibreMap | null;
   private mapElementId: string;
@@ -19,12 +51,20 @@ export class MapController {
     getRoutesForStop: (stop_id: string) => GTFSDatabaseRecord[];
     getWheelchairText: (code: string) => string;
     getRouteTypeText: (typeCode: string) => string;
+    createStop: (stop: GTFSDatabaseRecord) => Promise<void>;
+    updateStopCoordinates: (
+      stopId: string,
+      lat: number,
+      lng: number
+    ) => Promise<void>;
   } | null;
   private resizeTimeout: NodeJS.Timeout | null;
   private shapeToRouteMapping: Map<string, string[]> = new Map();
   private onRouteSelectCallback: ((route_id: string) => void) | null = null;
   private onStopSelectCallback: ((stop_id: string) => void) | null = null;
   private pageStateManager: PageStateManager | null = null;
+  private currentMode: MapMode = MapMode.NAVIGATE;
+  private onModeChangeCallback: ((mode: MapMode) => void) | null = null;
 
   constructor(mapElementId = 'map') {
     this.map = null;
@@ -114,7 +154,6 @@ export class MapController {
       'stops-background',
       'stops-clickarea',
       'stops-highlight',
-      'routes-highlight',
       'trip-highlight',
       // Legacy layers
       'stops',
@@ -125,7 +164,6 @@ export class MapController {
       'routes',
       'stops',
       'stops-highlight',
-      'routes-highlight',
       'trip-highlight',
     ];
 
@@ -303,8 +341,15 @@ export class MapController {
     // Remove any existing click handler to avoid duplicates
     this.map.off('click');
 
-    // Add single map click handler that queries all features and prioritizes stops
+    // Add single map click handler that respects current mode
     this.map.on('click', (e) => {
+      // Handle different modes
+      if (this.currentMode === MapMode.ADD_STOP) {
+        this.handleAddStopClick(e);
+        return;
+      }
+
+      // Default navigation mode - query features and prioritize stops
       const features = this.map.queryRenderedFeatures(e.point, {
         layers: ['stops-clickarea', 'routes-clickarea'],
       });
@@ -324,13 +369,270 @@ export class MapController {
           console.log('clicked on stop', stop_id);
           this.navigateToStop(stop_id);
         } else if (routeFeature) {
-          // Handle route click
-          const route_id = routeFeature.properties.route_id;
-          console.log('clicked on route', route_id);
+          // Handle route click - use primary route for navigation
+          const route_id =
+            routeFeature.properties.primary_route_id ||
+            routeFeature.properties.route_id;
+          console.log(
+            'clicked on route',
+            route_id,
+            'from feature with',
+            routeFeature.properties.route_ids?.length || 1,
+            'routes'
+          );
           this.navigateToRoute(route_id);
         }
       }
     });
+  }
+
+  private async handleAddStopClick(e) {
+    if (!this.gtfsParser) {
+      console.error('Cannot add stop: GTFSParser not initialized');
+      return;
+    }
+
+    const { lng, lat } = e.lngLat;
+
+    // Generate unique stop ID
+    const stops =
+      this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
+    const stopIds = stops.map((stop) => stop.stop_id);
+    let newStopId = `stop_${Date.now()}`;
+
+    // Ensure uniqueness
+    while (stopIds.includes(newStopId)) {
+      newStopId = `stop_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    }
+
+    // Create new stop object
+    const newStop: Stops = {
+      stop_id: newStopId,
+      stop_name: `New Stop ${stops.length + 1}`,
+      stop_lat: lat.toFixed(6),
+      stop_lon: lng.toFixed(6),
+      location_type: '0', // Default to stop/platform
+    };
+
+    console.log('Creating new stop:', newStop);
+
+    try {
+      // Add stop to data
+      await this.addStopToData(newStop);
+
+      // Switch back to navigation mode
+      this.setMapMode(MapMode.NAVIGATE);
+
+      // Refresh map to show new stop
+      this.updateMap();
+    } catch (error) {
+      console.error('Failed to create stop:', error);
+      // Keep in add mode if creation failed
+    }
+  }
+
+  // Hash geometry coordinates for deduplication
+  private hashGeometry(geometry: GeoJSON.LineString): string {
+    const coordString = geometry.coordinates
+      .map((coord) => `${coord[0].toFixed(6)},${coord[1].toFixed(6)}`)
+      .join('|');
+    return this.simpleHash(coordString);
+  }
+
+  // Simple hash function for coordinate strings
+  private simpleHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  // Select primary route based on trip frequency or route priority
+  private selectPrimaryRoute(
+    routeData: RouteData[],
+    trips: Trips[]
+  ): RouteData | null {
+    if (routeData.length === 0) {
+      return null;
+    }
+    if (routeData.length === 1) {
+      return routeData[0];
+    }
+
+    // Count trips per route to determine primary route
+    const routeTripCounts = routeData.map(({ route_id, route, color }) => {
+      const tripCount = trips.filter(
+        (trip) => trip.route_id === route_id
+      ).length;
+      return { route_id, route, color, tripCount };
+    });
+
+    // Sort by trip count (descending) and return the route with most trips
+    routeTripCounts.sort((a, b) => b.tripCount - a.tripCount);
+    return routeTripCounts[0];
+  }
+
+  // Build individual route segments for overlap analysis
+  private buildRouteSegments(
+    routes: Routes[],
+    trips: Trips[],
+    shapes: Shapes[],
+    stopTimes: StopTimes[],
+    stops: Stops[]
+  ): RouteSegment[] {
+    const segments = [];
+
+    routes.forEach((route) => {
+      const route_id = route.route_id as string;
+      const routeColor = this.getRouteColor(
+        route_id,
+        route.route_color as string
+      );
+
+      // Find trips for this route
+      const routeTrips = trips.filter((trip) => trip.route_id === route_id);
+      if (routeTrips.length === 0) {
+        return;
+      }
+
+      // Process each trip to build segments
+      routeTrips.forEach((trip) => {
+        let geometry = null;
+        let hasShapes = false;
+
+        // Try to use shape data first
+        if (trip.shape_id && shapes) {
+          geometry = this.createRouteGeometryFromShape(trip.shape_id, shapes);
+          hasShapes = !!geometry;
+        }
+
+        // Fall back to stop connections if no shape
+        if (!geometry && stopTimes && stops) {
+          geometry = this.createRouteGeometryFromStops(trip.trip_id);
+        }
+
+        if (geometry) {
+          // Break route into segments between consecutive coordinate pairs
+          const coords = geometry.coordinates;
+          for (let i = 0; i < coords.length - 1; i++) {
+            const segmentGeometry = {
+              type: 'LineString',
+              coordinates: [coords[i], coords[i + 1]],
+            };
+
+            segments.push({
+              route_id,
+              route,
+              color: routeColor,
+              trip_id: trip.trip_id,
+              geometry: segmentGeometry,
+              hasShapes,
+              segmentIndex: i,
+              segmentHash: this.hashGeometry(segmentGeometry),
+            });
+          }
+        }
+      });
+    });
+
+    return segments;
+  }
+
+  // Deduplicate overlapping segments and merge routes
+  private deduplicateOverlappingSegments(
+    segments: RouteSegment[]
+  ): RouteSegment[] {
+    const segmentMap = new Map(); // segmentHash -> merged segment data
+
+    segments.forEach((segment) => {
+      const hash = segment.segmentHash;
+
+      if (!segmentMap.has(hash)) {
+        // First occurrence of this segment
+        segmentMap.set(hash, {
+          geometry: segment.geometry,
+          routes: [
+            {
+              route_id: segment.route_id,
+              route: segment.route,
+              color: segment.color,
+              trip_id: segment.trip_id,
+            },
+          ],
+          hasShapes: segment.hasShapes,
+          segmentHash: hash,
+        });
+      } else {
+        // Segment already exists - add this route to it
+        const existing = segmentMap.get(hash);
+        const routeExists = existing.routes.some(
+          (r) => r.route_id === segment.route_id
+        );
+
+        if (!routeExists) {
+          existing.routes.push({
+            route_id: segment.route_id,
+            route: segment.route,
+            color: segment.color,
+            trip_id: segment.trip_id,
+          });
+        }
+      }
+    });
+
+    // Convert map to array and determine primary route for each segment
+    return Array.from(segmentMap.values()).map((segmentData) => {
+      // Select primary route based on frequency or priority
+      const primaryRoute = this.selectPrimaryRouteForSegment(
+        segmentData.routes
+      );
+
+      return {
+        ...segmentData,
+        primaryRoute,
+      };
+    });
+  }
+
+  // Select primary route for a segment (can be different logic than main route selection)
+  private selectPrimaryRouteForSegment(routes: RouteInfo[]): RouteInfo {
+    if (routes.length === 1) {
+      return routes[0];
+    }
+
+    // For segments, prioritize by route type (rail > BRT > bus) then by frequency
+    const routePriority = {
+      '0': 10, // Tram/Light Rail
+      '1': 10, // Subway/Metro
+      '2': 10, // Rail
+      '3': 8, // Bus (BRT-like)
+      '4': 6, // Ferry
+      '5': 5, // Cable Car
+      '6': 4, // Gondola
+      '7': 3, // Funicular
+      '11': 7, // Trolleybus
+      '12': 2, // Monorail
+    };
+
+    // Sort by route type priority, then by route name/ID as tiebreaker
+    routes.sort((a, b) => {
+      const priorityA = routePriority[a.route.route_type] || 1;
+      const priorityB = routePriority[b.route.route_type] || 1;
+
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA; // Higher priority first
+      }
+
+      // Tiebreaker: alphabetical by route short name or ID
+      const nameA = a.route.route_short_name || a.route_id;
+      const nameB = b.route.route_short_name || b.route_id;
+      return nameA.localeCompare(nameB);
+    });
+
+    return routes[0];
   }
 
   // Deterministic color generation for routes
@@ -474,11 +776,14 @@ export class MapController {
     );
   }
 
-  // Enhanced route rendering with focus states and proper layering
+  // Enhanced route rendering with segment-level deduplication to prevent opacity stacking
   private addEnhancedRoutesToMap(): void {
     const routes = this.gtfsParser.getFileDataSyncTyped<Routes>('routes.txt');
     const trips = this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt');
     const shapes = this.gtfsParser.getFileDataSyncTyped<Shapes>('shapes.txt');
+    const stopTimes =
+      this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt');
+    const stops = this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt');
 
     if (!routes || !trips) {
       return;
@@ -487,103 +792,43 @@ export class MapController {
     // Diagnostic logging for shape analysis
     this.analyzeShapeUsage(routes, trips, shapes);
 
-    // Create route features using all unique shapes per route
-    const routeFeatures = [];
+    // Build route segments and detect overlaps
+    const routeSegments = this.buildRouteSegments(
+      routes,
+      trips,
+      shapes,
+      stopTimes,
+      stops
+    );
+    const dedupedSegments = this.deduplicateOverlappingSegments(routeSegments);
 
-    routes.forEach((route) => {
-      const route_id = route.route_id as string;
-      const routeColor = this.getRouteColor(
-        route_id,
-        route.route_color as string
-      );
+    console.log(
+      `🎨 Created ${dedupedSegments.length} deduplicated route segments from ${routeSegments.length} original segments`
+    );
 
-      // Find trips for this route
-      const routeTrips = trips.filter((trip) => trip.route_id === route_id);
-      if (routeTrips.length === 0) {
-        return;
-      }
-
-      // Collect ALL unique shapes for this route
-      const tripsWithShapes = routeTrips.filter((trip) => trip.shape_id);
-      const uniqueShapes = new Set(
-        tripsWithShapes.map((trip) => trip.shape_id as string)
-      );
-
-      let hasValidGeometry = false;
-
-      // Create features for each unique shape
-      if (uniqueShapes.size > 0 && shapes) {
-        Array.from(uniqueShapes).forEach((shape_id, index) => {
-          const geometry = this.createRouteGeometryFromShape(shape_id, shapes);
-
-          if (geometry) {
-            hasValidGeometry = true;
-            const routeTypeText = this.gtfsParser.getRouteTypeText(
-              route.route_type as string
-            );
-
-            // For multiple shapes, add a suffix to the ID to make each unique
-            const featureId =
-              uniqueShapes.size > 1 ? `${route_id}_shape_${index}` : route_id;
-
-            routeFeatures.push({
-              type: 'Feature',
-              id: featureId,
-              geometry,
-              properties: {
-                route_id: route_id,
-                shape_id: shape_id,
-                shape_index: index,
-                total_shapes: uniqueShapes.size,
-                route_short_name: route.route_short_name || '',
-                route_long_name: route.route_long_name || '',
-                route_desc: route.route_desc || '',
-                route_type: route.route_type || '',
-                route_type_text: routeTypeText,
-                agency_id: route.agency_id || 'Default',
-                color: routeColor,
-                has_shapes: true,
-                is_multiple_shapes: uniqueShapes.size > 1,
-              },
-            });
-          }
-        });
-      }
-
-      // Fallback to stop connections only if no shapes worked
-      if (!hasValidGeometry) {
-        const geometry = this.createRouteGeometryFromStops(
-          routeTrips[0].trip_id as string
-        );
-
-        if (geometry) {
-          const routeTypeText = this.gtfsParser.getRouteTypeText(
-            route.route_type as string
-          );
-
-          routeFeatures.push({
-            type: 'Feature',
-            id: route_id,
-            geometry,
-            properties: {
-              route_id: route_id,
-              shape_id: null,
-              shape_index: 0,
-              total_shapes: 0,
-              route_short_name: route.route_short_name || '',
-              route_long_name: route.route_long_name || '',
-              route_desc: route.route_desc || '',
-              route_type: route.route_type || '',
-              route_type_text: routeTypeText,
-              agency_id: route.agency_id || 'Default',
-              color: routeColor,
-              has_shapes: false,
-              is_multiple_shapes: false,
-            },
-          });
-        }
-      }
-    });
+    // Convert deduplicated segments back to map features
+    const routeFeatures = dedupedSegments.map((segment, index) => ({
+      type: 'Feature',
+      id: `segment_${index}`,
+      geometry: segment.geometry,
+      properties: {
+        route_ids: segment.routes.map((r) => r.route_id),
+        primary_route_id: segment.primaryRoute.route_id,
+        route_short_name: segment.primaryRoute.route.route_short_name || '',
+        route_long_name: segment.primaryRoute.route.route_long_name || '',
+        route_desc: segment.primaryRoute.route.route_desc || '',
+        route_type: segment.primaryRoute.route.route_type || '',
+        route_type_text: this.gtfsParser.getRouteTypeText(
+          segment.primaryRoute.route.route_type as string
+        ),
+        agency_id: segment.primaryRoute.route.agency_id || 'Default',
+        color: segment.primaryRoute.color,
+        has_shapes: segment.hasShapes,
+        is_multiple_shapes: false,
+        segment_type: 'deduplicated',
+        routes_count: segment.routes.length,
+      },
+    }));
 
     if (routeFeatures.length > 0) {
       const routesGeoJSON = {
@@ -606,26 +851,11 @@ export class MapController {
           'line-color': ['get', 'color'],
           'line-width': [
             'case',
-            ['get', 'is_multiple_shapes'],
-            [
-              'case',
-              ['==', ['get', 'shape_index'], 0],
-              3.5, // Primary shape slightly thicker
-              2.5, // Secondary shapes slightly thinner
-            ],
-            3, // Single shape default
+            ['boolean', ['feature-state', 'focused'], false],
+            5, // Focused segment - thicker
+            3, // Default segment width
           ],
-          'line-opacity': [
-            'case',
-            ['get', 'is_multiple_shapes'],
-            [
-              'case',
-              ['==', ['get', 'shape_index'], 0],
-              0.8, // Primary shape more visible
-              0.6, // Secondary shapes more subtle
-            ],
-            0.7, // Single shape default
-          ],
+          'line-opacity': 0.8, // Consistent opacity for all routes
         },
         layout: {
           'line-cap': 'round',
@@ -760,95 +990,56 @@ export class MapController {
 
     // Highlight all routes for this agency
     agencyRoutes.forEach((route) => {
-      this.highlightRoute(route.route_id, '#ff6b35', 6); // Orange, thicker
+      this.highlightRoute(route.route_id);
     });
 
     // Fit map to show highlighted routes
     this.fitToRoutes(agencyRoutes.map((r) => r.route_id));
   }
 
-  highlightRoute(route_id, color = '#ff6b35', weight = 6) {
-    const trips =
-      this.gtfsParser.getFileDataSyncTyped<Trips>('trips.txt') || [];
-    const stopTimes =
-      this.gtfsParser.getFileDataSyncTyped<StopTimes>('stop_times.txt') || [];
-    const stops =
-      this.gtfsParser.getFileDataSyncTyped<Stops>('stops.txt') || [];
-
+  highlightRoute(route_id) {
     // Clear existing highlights
     this.clearHighlights();
 
-    // Find trips for this route
-    const routeTrips = trips.filter((trip) => trip.route_id === route_id);
-    if (routeTrips.length === 0) {
-      return;
+    let highlightedSegments = 0;
+
+    // Use feature state to increase line width for focused route
+    if (this.map.getSource('routes')) {
+      // Set feature state for all features with this route_id
+      const routesSource = this.map.getSource('routes');
+      if (routesSource && routesSource.type === 'geojson') {
+        const data = routesSource._data;
+        if (data && data.features) {
+          data.features.forEach((feature) => {
+            try {
+              // Check if this feature contains the route_id (supports deduplication)
+              const hasRoute =
+                feature.properties.primary_route_id === route_id ||
+                (feature.properties.route_ids &&
+                  feature.properties.route_ids.includes(route_id));
+
+              if (hasRoute && feature.id !== undefined) {
+                this.map.setFeatureState(
+                  { source: 'routes', id: feature.id },
+                  { focused: true }
+                );
+                highlightedSegments++;
+              }
+            } catch (error) {
+              console.debug(
+                'Could not set feature state for feature:',
+                feature.id,
+                error
+              );
+            }
+          });
+        }
+      }
     }
 
-    // Create stops lookup
-    const stopsLookup = {};
-    stops.forEach((stop) => {
-      if (stop.stop_lat && stop.stop_lon) {
-        stopsLookup[stop.stop_id] = {
-          lat: parseFloat(stop.stop_lat),
-          lon: parseFloat(stop.stop_lon),
-          name: stop.stop_name,
-        };
-      }
-    });
-
-    // Use first trip to create route path
-    const firstTrip = routeTrips[0];
-    const tripStopTimes = stopTimes
-      .filter((st) => st.trip_id === firstTrip.trip_id)
-      .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
-
-    const routePath = [];
-    tripStopTimes.forEach((st) => {
-      const stopCoords = stopsLookup[st.stop_id];
-      if (stopCoords) {
-        routePath.push([stopCoords.lon, stopCoords.lat]); // [lng, lat] for MapLibre
-      }
-    });
-
-    if (routePath.length >= 2) {
-      // Create highlight GeoJSON
-      const highlightGeoJSON = {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: routePath,
-            },
-            properties: {
-              route_id: route_id,
-            },
-          },
-        ],
-      };
-
-      // Add highlight source and layer
-      this.map.addSource('routes-highlight', {
-        type: 'geojson',
-        data: highlightGeoJSON,
-      });
-
-      this.map.addLayer({
-        id: 'routes-highlight',
-        type: 'line',
-        source: 'routes-highlight',
-        paint: {
-          'line-color': color,
-          'line-width': weight,
-          'line-opacity': 0.9,
-        },
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
-      });
-    }
+    console.log(
+      `🎯 Highlighted ${highlightedSegments} segments for route ${route_id}`
+    );
   }
 
   highlightTrip(trip_id, color = '#e74c3c', weight = 5) {
@@ -1057,12 +1248,42 @@ export class MapController {
   }
 
   clearHighlights() {
-    // Clear highlight layers
-    const highlightLayers = [
-      'routes-highlight',
-      'trip-highlight',
-      'stops-highlight',
-    ];
+    // Clear route feature states safely
+    if (this.map.getSource('routes')) {
+      const routesSource = this.map.getSource('routes');
+      if (routesSource && routesSource.type === 'geojson') {
+        const data = routesSource._data;
+        if (data && data.features) {
+          data.features.forEach((feature) => {
+            try {
+              // Check if feature has an ID and the feature state exists before removing
+              if (feature.id !== undefined) {
+                const featureState = this.map.getFeatureState({
+                  source: 'routes',
+                  id: feature.id,
+                });
+                if (featureState && featureState.focused) {
+                  this.map.removeFeatureState(
+                    { source: 'routes', id: feature.id },
+                    'focused'
+                  );
+                }
+              }
+            } catch (error) {
+              // Silently ignore errors for features that don't exist or have no state
+              console.debug(
+                'Could not clear feature state for feature:',
+                feature.id,
+                error
+              );
+            }
+          });
+        }
+      }
+    }
+
+    // Clear remaining highlight layers (for trips and stops)
+    const highlightLayers = ['trip-highlight', 'stops-highlight'];
 
     highlightLayers.forEach((layerId) => {
       if (this.map.getLayer(layerId)) {
@@ -1167,10 +1388,9 @@ export class MapController {
     }, 350);
   }
 
-  // Stub methods for backward compatibility (no-op implementations)
+  // Focus route using width-based highlighting
   focusRoute(route_id: string) {
-    // No-op: Focus system removed, but keeping method for interface compatibility
-    console.log('focusRoute called (no-op):', route_id);
+    this.highlightRoute(route_id);
   }
 
   focusStop(stop_id: string) {
@@ -1179,8 +1399,7 @@ export class MapController {
   }
 
   clearFocus() {
-    // No-op: Focus system removed, but keeping method for interface compatibility
-    console.log('clearFocus called (no-op)');
+    this.clearHighlights();
   }
 
   // Callback setters for UI integration
@@ -1211,5 +1430,382 @@ export class MapController {
     if (this.onStopSelectCallback) {
       this.onStopSelectCallback(stop_id);
     }
+  }
+
+  // Map mode management
+  setMapMode(mode: MapMode) {
+    if (this.currentMode === mode) {
+      return;
+    }
+
+    this.currentMode = mode;
+
+    // Update cursor based on mode
+    if (this.map) {
+      const canvas = this.map.getCanvas();
+      switch (mode) {
+        case MapMode.ADD_STOP:
+          canvas.style.cursor = 'crosshair';
+          break;
+        case MapMode.EDIT_STOPS:
+          canvas.style.cursor = 'move';
+          break;
+        case MapMode.NAVIGATE:
+        default:
+          canvas.style.cursor = '';
+          break;
+      }
+    }
+
+    // Update stop interactivity based on mode
+    this.updateStopInteractivity(mode);
+
+    // Notify UI of mode change
+    if (this.onModeChangeCallback) {
+      this.onModeChangeCallback(mode);
+    }
+  }
+
+  getCurrentMode(): MapMode {
+    return this.currentMode;
+  }
+
+  setModeChangeCallback(callback: (mode: MapMode) => void) {
+    this.onModeChangeCallback = callback;
+  }
+
+  // Add stop to GTFS data
+  private async addStopToData(stop: Stops) {
+    if (!this.gtfsParser) {
+      throw new Error('GTFSParser not initialized');
+    }
+
+    try {
+      await this.gtfsParser.createStop(stop as GTFSDatabaseRecord);
+      console.log('Stop added successfully:', stop.stop_id);
+    } catch (error) {
+      console.error('Failed to add stop:', error);
+      throw error;
+    }
+  }
+
+  // Toggle add stop mode
+  toggleAddStopMode() {
+    const newMode =
+      this.currentMode === MapMode.ADD_STOP
+        ? MapMode.NAVIGATE
+        : MapMode.ADD_STOP;
+    this.setMapMode(newMode);
+  }
+
+  // Toggle edit stops mode
+  toggleEditStopsMode() {
+    const newMode =
+      this.currentMode === MapMode.EDIT_STOPS
+        ? MapMode.NAVIGATE
+        : MapMode.EDIT_STOPS;
+    this.setMapMode(newMode);
+  }
+
+  // Update stop interactivity based on current mode
+  private updateStopInteractivity(mode: MapMode) {
+    if (!this.map || !this.map.getSource('stops')) {
+      return;
+    }
+
+    switch (mode) {
+      case MapMode.EDIT_STOPS:
+        console.log('Entering edit stops mode - stops will become draggable');
+        this.enableStopDragging();
+        break;
+      case MapMode.NAVIGATE:
+      case MapMode.ADD_STOP:
+      default:
+        console.log('Exiting edit stops mode - stops are no longer draggable');
+        this.disableStopDragging();
+        break;
+    }
+  }
+
+  // Enable draggable behavior for stops
+  private enableStopDragging() {
+    if (!this.map) {
+      return;
+    }
+
+    // Store drag state
+    let isDragging = false;
+    let draggedStopId: string | null = null;
+
+    // Update cursor for stop layers in edit mode
+    ['stops-background', 'stops-clickarea'].forEach((layerId) => {
+      this.map.on('mouseenter', layerId, () => {
+        if (this.currentMode === MapMode.EDIT_STOPS) {
+          this.map.getCanvas().style.cursor = 'grab';
+        }
+      });
+
+      this.map.on('mouseleave', layerId, () => {
+        if (this.currentMode === MapMode.EDIT_STOPS && !isDragging) {
+          this.map.getCanvas().style.cursor = 'move';
+        }
+      });
+    });
+
+    // Mouse down on stop - start dragging
+    this.map.on('mousedown', 'stops-clickarea', (e) => {
+      if (this.currentMode !== MapMode.EDIT_STOPS) {
+        return;
+      }
+
+      e.preventDefault();
+      const feature = e.features[0];
+      if (!feature) {
+        return;
+      }
+
+      draggedStopId = feature.properties.stop_id;
+      isDragging = true;
+      this.map.getCanvas().style.cursor = 'grabbing';
+
+      // Highlight the dragged stop
+      this.map.setFeatureState(
+        { source: 'stops', id: draggedStopId },
+        { dragging: true }
+      );
+
+      // Add visual feedback for dragging
+      this.updateStopDragStyles(true);
+    });
+
+    // Mouse move - update stop position
+    this.map.on('mousemove', (e) => {
+      if (
+        !isDragging ||
+        !draggedStopId ||
+        this.currentMode !== MapMode.EDIT_STOPS
+      ) {
+        return;
+      }
+
+      // Update the stop position in the GeoJSON source
+      const source = this.map.getSource('stops') as GeoJSONSource;
+      const data = (source as unknown as { _data: GeoJSON.FeatureCollection })
+        ._data;
+
+      // Find and update the feature coordinates
+      const featureIndex = data.features.findIndex(
+        (f) => f.properties && f.properties.stop_id === draggedStopId
+      );
+
+      if (featureIndex !== -1) {
+        (data.features[featureIndex].geometry as GeoJSON.Point).coordinates = [
+          e.lngLat.lng,
+          e.lngLat.lat,
+        ];
+        source.setData(data);
+      }
+    });
+
+    // Mouse up - finish dragging
+    this.map.on('mouseup', () => {
+      if (!isDragging || !draggedStopId) {
+        return;
+      }
+
+      const source = this.map.getSource('stops') as GeoJSONSource;
+      const data = (source as unknown as { _data: GeoJSON.FeatureCollection })
+        ._data;
+      const finalPosition = data.features.find(
+        (f) => f.properties && f.properties.stop_id === draggedStopId
+      );
+
+      if (finalPosition) {
+        const [lng, lat] = (finalPosition.geometry as GeoJSON.Point)
+          .coordinates;
+        console.log(`Stop ${draggedStopId} moved to: ${lat}, ${lng}`);
+
+        // Update the database with new coordinates
+        this.updateStopCoordinates(draggedStopId, lat, lng);
+      }
+
+      // Clean up drag state
+      this.map.setFeatureState(
+        { source: 'stops', id: draggedStopId },
+        { dragging: false }
+      );
+
+      draggedStopId = null;
+      isDragging = false;
+      this.map.getCanvas().style.cursor = 'move';
+
+      // Remove visual feedback for dragging
+      this.updateStopDragStyles(false);
+    });
+  }
+
+  // Disable draggable behavior for stops
+  private disableStopDragging() {
+    if (!this.map) {
+      return;
+    }
+
+    // Remove drag-specific event listeners
+    this.map.off('mousedown', 'stops-clickarea');
+    this.map.off('mousemove');
+    this.map.off('mouseup');
+
+    // Reset cursor behavior to default
+    ['stops-background', 'stops-clickarea'].forEach((layerId) => {
+      this.map.off('mouseenter', layerId);
+      this.map.off('mouseleave', layerId);
+
+      // Re-add original cursor behavior
+      this.map.on('mouseenter', layerId, () => {
+        this.map.getCanvas().style.cursor = 'pointer';
+      });
+
+      this.map.on('mouseleave', layerId, () => {
+        this.map.getCanvas().style.cursor = '';
+      });
+    });
+
+    // Clear any dragging states
+    const source = this.map.getSource('stops') as GeoJSONSource;
+    if (
+      source &&
+      (source as unknown as { _data: GeoJSON.FeatureCollection })._data
+    ) {
+      const data = (source as unknown as { _data: GeoJSON.FeatureCollection })
+        ._data;
+      data.features.forEach((feature) => {
+        if (feature.properties && feature.properties.stop_id) {
+          this.map.setFeatureState(
+            { source: 'stops', id: feature.properties.stop_id },
+            { dragging: false }
+          );
+        }
+      });
+    }
+
+    // Remove visual feedback for dragging
+    this.updateStopDragStyles(false);
+  }
+
+  // Update visual styles for dragging feedback
+  private updateStopDragStyles(isDragging: boolean) {
+    if (!this.map || !this.map.getLayer('stops-background')) {
+      return;
+    }
+
+    // Update the paint properties to show visual feedback
+    this.map.setPaintProperty('stops-background', 'circle-radius', [
+      'case',
+      ['boolean', ['feature-state', 'dragging'], false],
+      isDragging
+        ? [
+            'case',
+            ['==', ['get', 'location_type'], '1'],
+            15, // Station - larger when dragging
+            ['==', ['get', 'location_type'], '2'],
+            8, // Entrance/Exit
+            ['==', ['get', 'location_type'], '3'],
+            8, // Generic node
+            ['==', ['get', 'location_type'], '4'],
+            10, // Boarding area
+            10, // Default stop
+          ]
+        : [
+            'case',
+            ['==', ['get', 'location_type'], '1'],
+            10, // Station
+            ['==', ['get', 'location_type'], '2'],
+            5, // Entrance/Exit
+            ['==', ['get', 'location_type'], '3'],
+            5, // Generic node
+            ['==', ['get', 'location_type'], '4'],
+            7, // Boarding area
+            7, // Default stop
+          ],
+      // Default radius when not dragging
+      [
+        'case',
+        ['==', ['get', 'location_type'], '1'],
+        10, // Station
+        ['==', ['get', 'location_type'], '2'],
+        5, // Entrance/Exit
+        ['==', ['get', 'location_type'], '3'],
+        5, // Generic node
+        ['==', ['get', 'location_type'], '4'],
+        7, // Boarding area
+        7, // Default stop
+      ],
+    ]);
+
+    // Add shadow effect when dragging
+    this.map.setPaintProperty('stops-background', 'circle-opacity', [
+      'case',
+      ['boolean', ['feature-state', 'dragging'], false],
+      0.8,
+      1,
+    ]);
+  }
+
+  // Update stop coordinates in the database
+  private async updateStopCoordinates(
+    stopId: string,
+    lat: number,
+    lng: number
+  ) {
+    if (!this.gtfsParser || !this.gtfsParser.updateStopCoordinates) {
+      console.error('GTFSParser or updateStopCoordinates method not available');
+      return;
+    }
+
+    try {
+      await this.gtfsParser.updateStopCoordinates(stopId, lat, lng);
+      console.log(
+        `Successfully updated coordinates for stop ${stopId}: ${lat}, ${lng}`
+      );
+
+      // Show success notification
+      this.showNotification(`Stop ${stopId} coordinates updated`, 'success');
+    } catch (error) {
+      console.error(`Failed to update coordinates for stop ${stopId}:`, error);
+
+      // Show error notification
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.showNotification(
+        `Failed to update stop coordinates: ${errorMessage}`,
+        'error'
+      );
+
+      // Revert the visual change by refreshing the map
+      this.updateMap();
+    }
+  }
+
+  // Show notification to user (uses external notification system)
+  private showNotification(
+    message: string,
+    type: 'success' | 'error' | 'warning' = 'success'
+  ) {
+    // Import and use the notification system
+    import('./notification-system.js')
+      .then(({ notifications }) => {
+        if (type === 'success') {
+          notifications.showSuccess(message);
+        } else if (type === 'error') {
+          notifications.showError(message);
+        } else if (type === 'warning') {
+          notifications.showWarning(message);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load notification system:', err);
+        // Fallback to console
+        console.log(`${type.toUpperCase()}: ${message}`);
+      });
   }
 }

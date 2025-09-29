@@ -740,4 +740,120 @@ export class GTFSParser {
   getDatabase(): GTFSDatabase {
     return this.gtfsDatabase;
   }
+
+  /**
+   * Create a new stop and add it to the GTFS data
+   */
+  async createStop(stop: GTFSDatabaseRecord): Promise<void> {
+    const fileName = GTFS_TABLES.STOPS;
+    const tableName = this.getTableName(fileName);
+
+    // Ensure stops.txt file data exists
+    if (!this.gtfsData[fileName]) {
+      this.gtfsData[fileName] = {
+        content: '',
+        data: [],
+        errors: [],
+      };
+    }
+
+    // Add stop to in-memory data
+    this.gtfsData[fileName].data.push(stop);
+
+    // Insert into database
+    await this.gtfsDatabase.insertRows(tableName, [stop]);
+
+    // Update file content (regenerate CSV)
+    this.updateStopsFileContent();
+
+    console.log(`Stop ${stop.stop_id} created successfully`);
+  }
+
+  /**
+   * Update stop coordinates and persist changes
+   */
+  async updateStopCoordinates(
+    stopId: string,
+    lat: number,
+    lng: number
+  ): Promise<void> {
+    const fileName = GTFS_TABLES.STOPS;
+    const tableName = this.getTableName(fileName);
+
+    // Validate coordinates
+    if (isNaN(lat) || isNaN(lng)) {
+      throw new Error(`Invalid coordinates: lat=${lat}, lng=${lng}`);
+    }
+
+    // Validate coordinate ranges
+    if (lat < -90 || lat > 90) {
+      throw new Error(`Invalid latitude: ${lat}. Must be between -90 and 90`);
+    }
+
+    if (lng < -180 || lng > 180) {
+      throw new Error(
+        `Invalid longitude: ${lng}. Must be between -180 and 180`
+      );
+    }
+
+    // Update in-memory data
+    const stopsData = this.gtfsData[fileName];
+    if (stopsData && stopsData.data) {
+      const stopIndex = stopsData.data.findIndex(
+        (stop) => stop.stop_id === stopId
+      );
+      if (stopIndex !== -1) {
+        // Update coordinates in memory
+        stopsData.data[stopIndex].stop_lat = lat.toString();
+        stopsData.data[stopIndex].stop_lon = lng.toString();
+      } else {
+        throw new Error(`Stop ${stopId} not found in in-memory data`);
+      }
+    } else {
+      throw new Error('Stops data not available in memory');
+    }
+
+    // Update in database
+    const updateData = {
+      stop_lat: lat.toString(),
+      stop_lon: lng.toString(),
+    };
+
+    await this.gtfsDatabase.updateRow(tableName, stopId, updateData);
+
+    // Update file content (regenerate CSV)
+    this.updateStopsFileContent();
+
+    console.log(
+      `Stop ${stopId} coordinates updated successfully: ${lat}, ${lng}`
+    );
+  }
+
+  /**
+   * Update the stops.txt file content from in-memory data
+   */
+  private updateStopsFileContent(): void {
+    const fileName = GTFS_TABLES.STOPS;
+    const stopsData = this.gtfsData[fileName];
+
+    if (!stopsData || !stopsData.data.length) {
+      return;
+    }
+
+    // Get all unique field names from the data
+    const allFields = new Set<string>();
+    stopsData.data.forEach((stop) => {
+      Object.keys(stop).forEach((field) => allFields.add(field));
+    });
+
+    // Convert to CSV
+    const fieldNames = Array.from(allFields);
+    const csvContent = Papa.unparse({
+      fields: fieldNames,
+      data: stopsData.data,
+    });
+
+    // Update in-memory content
+    stopsData.content = csvContent;
+  }
 }

@@ -88,6 +88,40 @@
 }
 
 @layer components {
+  /* Map controls styling */
+  #map-controls .btn {
+    transition: all 0.2s ease;
+  }
+
+  #map-controls .btn.btn-active {
+    background-color: oklch(var(--p));
+    border-color: oklch(var(--p));
+    color: oklch(var(--pc));
+    box-shadow: 0 0 0 2px oklch(var(--p) / 0.2);
+  }
+
+  #map-controls .btn:hover:not(.btn-active) {
+    background-color: oklch(var(--b3));
+  }
+
+  #map-controls .btn svg {
+    transition: transform 0.2s ease;
+  }
+
+  /* Better tooltip positioning for map controls */
+  #map-controls .tooltip {
+    --tooltip-offset: 0.75rem;
+  }
+
+  /* Square button improvements */
+  #map-controls .btn-square {
+    min-height: 2.5rem;
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+}
+
+@layer components {
   /* CodeMirror overrides */
   .cm-editor {
     height: 100%;

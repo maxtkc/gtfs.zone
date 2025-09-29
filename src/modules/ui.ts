@@ -8,6 +8,7 @@ import {
 } from '../utils/zod-tooltip-helper.js';
 import { navigateToTimetable } from './navigation-actions.js';
 import { GTFS_TABLES } from '../types/gtfs.js';
+import { MapMode } from './map-controller.js';
 
 export class UIController {
   constructor() {
@@ -35,6 +36,7 @@ export class UIController {
     this.validateCallback = validateCallback;
     this.setupEventListeners();
     this.initializeTabs();
+    this.setupMapCallbacks();
   }
 
   setupEventListeners() {
@@ -79,6 +81,16 @@ export class UIController {
     // Export button
     document.getElementById('export-btn').addEventListener('click', () => {
       this.exportGTFS();
+    });
+
+    // Add Stop button
+    document.getElementById('add-stop-btn')?.addEventListener('click', () => {
+      this.toggleAddStopMode();
+    });
+
+    // Edit Stops button
+    document.getElementById('edit-stops-btn')?.addEventListener('click', () => {
+      this.toggleEditStopsMode();
     });
 
     // Back to files button
@@ -229,6 +241,9 @@ export class UIController {
 
       // Enable export button
       document.getElementById('export-btn').disabled = false;
+      // Update map tool button states
+      this.updateAddStopButtonState();
+      this.updateEditStopsButtonState();
 
       // Remove loading notification and show success
       if (loadingNotificationId) {
@@ -298,6 +313,9 @@ export class UIController {
 
       // Enable export button
       document.getElementById('export-btn').disabled = false;
+      // Update map tool button states
+      this.updateAddStopButtonState();
+      this.updateEditStopsButtonState();
 
       // Remove loading notification and show success
       if (loadingNotificationId) {
@@ -1169,5 +1187,121 @@ export class UIController {
       // Future: support for base64, github, etc.
     }
     // Production: No default feed loading - page starts empty
+  }
+
+  /**
+   * Set up map controller callbacks
+   */
+  setupMapCallbacks() {
+    if (this.mapController) {
+      // Set up mode change callback to update UI
+      this.mapController.setModeChangeCallback(() => {
+        this.updateAddStopButtonState();
+        this.updateEditStopsButtonState();
+      });
+    }
+  }
+
+  /**
+   * Toggle add stop mode on the map
+   */
+  toggleAddStopMode() {
+    if (!this.mapController) {
+      console.warn('Map controller not initialized');
+      return;
+    }
+
+    // Check if GTFS data is loaded
+    if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt')) {
+      notifications.show('Load GTFS data first before adding stops', 'warning');
+      return;
+    }
+
+    // Toggle the mode
+    this.mapController.toggleAddStopMode();
+
+    // Update button state
+    this.updateAddStopButtonState();
+  }
+
+  /**
+   * Update the Add Stop button state based on current map mode
+   */
+  updateAddStopButtonState() {
+    if (!this.mapController) {
+      return;
+    }
+
+    const addStopBtn = document.getElementById('add-stop-btn');
+    if (!addStopBtn) {
+      return;
+    }
+
+    const currentMode = this.mapController.getCurrentMode();
+    const isAddMode = currentMode === MapMode.ADD_STOP;
+
+    // Update button appearance
+    if (isAddMode) {
+      addStopBtn.classList.add('btn-active');
+      addStopBtn.querySelector('svg').style.transform = 'rotate(45deg)';
+      addStopBtn.setAttribute('data-tip', 'Exit add stop mode');
+    } else {
+      addStopBtn.classList.remove('btn-active');
+      addStopBtn.querySelector('svg').style.transform = '';
+      addStopBtn.setAttribute('data-tip', 'Add stop');
+    }
+  }
+
+  /**
+   * Toggle edit stops mode on the map
+   */
+  toggleEditStopsMode() {
+    if (!this.mapController) {
+      console.warn('Map controller not initialized');
+      return;
+    }
+
+    // Check if GTFS data is loaded
+    if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt')) {
+      notifications.show(
+        'Load GTFS data first before editing stops',
+        'warning'
+      );
+      return;
+    }
+
+    // Toggle the mode
+    this.mapController.toggleEditStopsMode();
+
+    // Update button state
+    this.updateEditStopsButtonState();
+  }
+
+  /**
+   * Update the Edit Stops button state based on current map mode
+   */
+  updateEditStopsButtonState() {
+    if (!this.mapController) {
+      return;
+    }
+
+    const editStopsBtn = document.getElementById('edit-stops-btn');
+    if (!editStopsBtn) {
+      return;
+    }
+
+    const currentMode = this.mapController.getCurrentMode();
+    const isEditMode = currentMode === MapMode.EDIT_STOPS;
+
+    // Update button appearance
+    if (isEditMode) {
+      editStopsBtn.classList.add('btn-active');
+      editStopsBtn.querySelector('svg').style.transform = 'scale(1.1)';
+      editStopsBtn.setAttribute('data-tip', 'Exit edit stops mode');
+    } else {
+      editStopsBtn.classList.remove('btn-active');
+      editStopsBtn.querySelector('svg').style.transform = '';
+      editStopsBtn.setAttribute('data-tip', 'Edit stops');
+    }
   }
 }
