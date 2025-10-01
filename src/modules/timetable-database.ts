@@ -223,10 +223,49 @@ export class TimetableDatabase {
     });
 
     if (stopTimes.length === 0) {
-      const error = `No stop_time found for trip ${trip_id}, stop ${stop_id}`;
-      console.error('Database update failed:', error);
-      notifications.showError('Unable to find the schedule record to update');
-      throw new Error(error);
+      // This trip doesn't have this stop yet - INSERT new stop_time record
+      const allStopTimesForTrip = await database.queryRows('stop_times', {
+        trip_id: trip_id,
+      });
+
+      // Create new stop_time record with only the specified time field
+      const field = timeType === 'arrival' ? 'arrival_time' : 'departure_time';
+      const newStopTime: Record<string, string | null> = {
+        trip_id: trip_id,
+        stop_id: stop_id,
+        stop_sequence: '1', // Temporary, will be renumbered
+        arrival_time: null,
+        departure_time: null,
+      };
+      newStopTime[field] = newTime;
+
+      // ATOMIC: Add new record and renumber all in single transaction
+      // Combine existing + new, sort by time, and replace all at once
+      const allStopTimes = [...allStopTimesForTrip, newStopTime];
+
+      // Sort by time
+      const sortedStopTimes = allStopTimes.sort((a, b) => {
+        const timeA = a.arrival_time || a.departure_time || '99:99:99';
+        const timeB = b.arrival_time || b.departure_time || '99:99:99';
+        return timeA.localeCompare(timeB);
+      });
+
+      // Renumber sequences
+      const renumberedStopTimes = sortedStopTimes.map((st, index) => ({
+        ...st,
+        stop_sequence: String(index + 1),
+      }));
+
+      // Get old keys for deletion (only existing records, not the new one)
+      const oldKeys = allStopTimesForTrip.map((st) =>
+        generateCompositeKeyFromRecord('stop_times', st)
+      );
+
+      // Replace all in single transaction (delete old, insert new + renumbered)
+      await database.replaceRows('stop_times', oldKeys, renumberedStopTimes);
+
+      notifications.showSuccess(`Added stop to trip`, { duration: 2000 });
+      return;
     }
 
     // Use the first matching record (there should be only one)
@@ -246,10 +285,6 @@ export class TimetableDatabase {
       [field]: newTime,
     });
 
-    // Log success and show success notification
-    console.log(
-      `Updated ${field} for trip ${trip_id}, stop ${stop_id} to ${newTime || 'null'}`
-    );
     notifications.showSuccess(`Time updated to ${newTime || 'skipped'}`, {
       duration: 2000,
     });
@@ -302,10 +337,47 @@ export class TimetableDatabase {
     });
 
     if (stopTimes.length === 0) {
-      const error = `No stop_time found for trip ${trip_id}, stop ${stop_id}`;
-      console.error('Database update failed:', error);
-      notifications.showError('Unable to find the schedule record to update');
-      throw new Error(error);
+      // This trip doesn't have this stop yet - INSERT new stop_time record
+      const allStopTimesForTrip = await database.queryRows('stop_times', {
+        trip_id: trip_id,
+      });
+
+      // Create new stop_time record (sequence will be determined after sorting)
+      const newStopTime = {
+        trip_id: trip_id,
+        stop_id: stop_id,
+        stop_sequence: '1', // Temporary, will be renumbered
+        arrival_time: newTime,
+        departure_time: newTime,
+      };
+
+      // ATOMIC: Add new record and renumber all in single transaction
+      // Combine existing + new, sort by time, and replace all at once
+      const allStopTimes = [...allStopTimesForTrip, newStopTime];
+
+      // Sort by time (using newTime for records without times)
+      const sortedStopTimes = allStopTimes.sort((a, b) => {
+        const timeA = a.arrival_time || a.departure_time || '99:99:99';
+        const timeB = b.arrival_time || b.departure_time || '99:99:99';
+        return timeA.localeCompare(timeB);
+      });
+
+      // Renumber sequences
+      const renumberedStopTimes = sortedStopTimes.map((st, index) => ({
+        ...st,
+        stop_sequence: String(index + 1),
+      }));
+
+      // Get old keys for deletion (only existing records, not the new one)
+      const oldKeys = allStopTimesForTrip.map((st) =>
+        generateCompositeKeyFromRecord('stop_times', st)
+      );
+
+      // Replace all in single transaction (delete old, insert new + renumbered)
+      await database.replaceRows('stop_times', oldKeys, renumberedStopTimes);
+
+      notifications.showSuccess(`Added stop to trip`, { duration: 2000 });
+      return;
     }
 
     const stopTime = stopTimes[0];
@@ -317,19 +389,10 @@ export class TimetableDatabase {
       departure_time: newTime,
     });
 
-    console.log(
-      `Updated linked times for trip ${trip_id}, stop ${stop_id} to ${newTime || 'null'}`
-    );
-
-    if (newTime) {
-      notifications.showSuccess(`Linked time updated to ${newTime}`, {
-        duration: 2000,
-      });
-    } else {
-      notifications.showSuccess('Linked times cleared', {
-        duration: 2000,
-      });
-    }
+    const message = newTime
+      ? `Linked time updated to ${newTime}`
+      : 'Linked times cleared';
+    notifications.showSuccess(message, { duration: 2000 });
   }
 
   /**
@@ -419,5 +482,97 @@ export class TimetableDatabase {
     }
 
     return { isValid: true };
+  }
+
+  /**
+   * Rebuild stop_times for a trip from the rendered table (source of truth)
+   *
+   * Scans the DOM table to find all time inputs for this trip, builds a fresh
+   * stop_times list, and replaces all database records. This ensures the database
+   * matches exactly what's shown in the table.
+   *
+   * - Table is source of truth (WYSIWYG)
+   * - Skipped stops have no database entry (gaps are preserved)
+   * - Stop sequence determined by time order
+   * - Handles add/remove/edit cases atomically
+   *
+   * @param trip_id - GTFS trip identifier
+   * @throws {Error} When database connection unavailable or updates fail
+   */
+  async rebuildStopTimesFromTable(trip_id: string): Promise<void> {
+    const database = this.gtfsParser.gtfsDatabase;
+    if (!database) {
+      const error = 'Database connection not available';
+      console.error(error);
+      notifications.showError('Database connection lost');
+      throw new Error(error);
+    }
+
+    // Find all time inputs for this trip in the rendered table
+    const inputs = document.querySelectorAll(
+      `input[data-trip-id="${trip_id}"]`
+    ) as NodeListOf<HTMLInputElement>;
+
+    const stopTimesFromTable: Partial<StopTimes>[] = [];
+
+    inputs.forEach((input: HTMLInputElement) => {
+      const stop_id = input.dataset.stopId;
+      const timeType = input.dataset.timeType; // 'linked', 'arrival', or 'departure'
+      const timeValue = input.value.trim();
+
+      if (!stop_id || !timeValue) {
+        return; // Skip empty times
+      }
+
+      // Find or create stop_time entry for this stop
+      let stopTime = stopTimesFromTable.find((st) => st.stop_id === stop_id);
+      if (!stopTime) {
+        stopTime = {
+          trip_id,
+          stop_id,
+          stop_sequence: '1', // Temporary, will be set after sorting
+          arrival_time: null,
+          departure_time: null,
+        };
+        stopTimesFromTable.push(stopTime);
+      }
+
+      // Set the time based on input type
+      const castedTime = timeValue; // Already in HH:MM:SS format from input
+      if (timeType === 'linked') {
+        stopTime.arrival_time = castedTime;
+        stopTime.departure_time = castedTime;
+      } else if (timeType === 'arrival') {
+        stopTime.arrival_time = castedTime;
+      } else if (timeType === 'departure') {
+        stopTime.departure_time = castedTime;
+      }
+    });
+
+    // Sort by time to determine sequence
+    const sortedStopTimes = stopTimesFromTable.sort((a, b) => {
+      const timeA = a.arrival_time || a.departure_time || '';
+      const timeB = b.arrival_time || b.departure_time || '';
+      return timeA.localeCompare(timeB);
+    });
+
+    // Assign sequential stop_sequence numbers
+    const finalStopTimes = sortedStopTimes.map((st, index) => ({
+      ...st,
+      stop_sequence: String(index + 1),
+    })) as StopTimes[];
+
+    // Get ALL old stop_times for this trip
+    const oldStopTimes = await database.queryRows('stop_times', { trip_id });
+    const oldKeys = oldStopTimes.map((st) =>
+      generateCompositeKeyFromRecord('stop_times', st)
+    );
+
+    // Atomic replace: delete all old, insert all new from table
+    await database.replaceRows('stop_times', oldKeys, finalStopTimes);
+
+    console.log(
+      `Rebuilt ${finalStopTimes.length} stop_times for trip ${trip_id} from table`
+    );
   }
 }

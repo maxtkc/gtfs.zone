@@ -49,10 +49,6 @@ interface GTFSParserInterface {
       key: string,
       data: Partial<GTFSTableMap[T]>
     ): Promise<void>;
-    generateKey<T extends keyof GTFSTableMap>(
-      tableName: T,
-      data: GTFSTableMap[T]
-    ): string;
   };
 }
 
@@ -83,6 +79,11 @@ export class ScheduleController {
   private renderer: TimetableRenderer;
   private cellRenderer: TimetableCellRenderer;
   private database: TimetableDatabase;
+
+  // Current timetable state for refresh functionality
+  private currentRouteId?: string;
+  private currentServiceId?: string;
+  private currentDirectionId?: string;
 
   /**
    * Initialize ScheduleController with required dependencies
@@ -149,6 +150,7 @@ export class ScheduleController {
    * Sets both arrival_time and departure_time to the same value.
    * Handles empty input by clearing both times.
    * Updates the UI input immediately after successful database update.
+   * Renumbers stop sequences based on arrival times after update.
    *
    * @param trip_id - GTFS trip identifier
    * @param stop_id - GTFS stop identifier
@@ -173,6 +175,10 @@ export class ScheduleController {
         if (input) {
           input.value = '';
         }
+
+        // Rebuild stop_times from table and refresh timetable
+        await this.database.rebuildStopTimesFromTable(trip_id);
+        await this.refreshCurrentTimetable();
         return;
       }
 
@@ -193,6 +199,10 @@ export class ScheduleController {
       if (input) {
         input.value = TimeFormatter.formatTimeWithSeconds(castedTime);
       }
+
+      // Rebuild stop_times from table and refresh timetable
+      await this.database.rebuildStopTimesFromTable(trip_id);
+      await this.refreshCurrentTimetable();
     } catch (error) {
       console.error('Failed to update linked time:', error);
       this.showTimeError(trip_id, stop_id, 'Failed to save time change');
@@ -205,6 +215,7 @@ export class ScheduleController {
    * Updates either arrival_time or departure_time independently.
    * Validates arrival <= departure constraint before saving.
    * Handles empty input by clearing the specified time field.
+   * Renumbers stop sequences based on arrival times after update.
    *
    * @param trip_id - GTFS trip identifier
    * @param stop_id - GTFS stop identifier
@@ -228,6 +239,10 @@ export class ScheduleController {
           timeType
         );
         console.log(`Cleared ${timeType} time for ${trip_id}/${stop_id}`);
+
+        // Rebuild stop_times from table and refresh timetable
+        await this.database.rebuildStopTimesFromTable(trip_id);
+        await this.refreshCurrentTimetable();
         return;
       }
 
@@ -272,6 +287,10 @@ export class ScheduleController {
           ? TimeFormatter.formatTimeWithSeconds(castedTime)
           : '';
       }
+
+      // Rebuild stop_times from table and refresh timetable
+      await this.database.rebuildStopTimesFromTable(trip_id);
+      await this.refreshCurrentTimetable();
     } catch (error) {
       console.error('Failed to update arrival/departure time:', error);
       this.showTimeError(trip_id, stop_id, 'Failed to save time change');
@@ -480,6 +499,7 @@ export class ScheduleController {
    * Main public API method for generating timetable views.
    * Handles direction selection, data processing, and HTML generation.
    * Returns error HTML if data processing fails.
+   * Stores current state for refresh functionality.
    *
    * @param route_id - GTFS route identifier
    * @param service_id - GTFS service identifier (calendar or calendar_dates)
@@ -497,6 +517,11 @@ export class ScheduleController {
         service_id,
         direction_id,
       });
+
+      // Store current state for refresh functionality
+      this.currentRouteId = route_id;
+      this.currentServiceId = service_id;
+      this.currentDirectionId = direction_id;
 
       // Get all available directions for this route and service
       const availableDirections = this.dataProcessor.getAvailableDirections(
@@ -530,6 +555,38 @@ export class ScheduleController {
     } catch (error) {
       console.error('Error rendering schedule:', error);
       return this.renderer.renderErrorHTML('Failed to generate schedule view');
+    }
+  }
+
+  /**
+   * Refresh the current timetable view
+   *
+   * Re-renders the timetable using the stored route/service/direction state.
+   * Used after edits to reflect updated stop sequences and times.
+   * No-op if no timetable is currently displayed.
+   */
+  async refreshCurrentTimetable(): Promise<void> {
+    if (!this.currentRouteId || !this.currentServiceId) {
+      console.log('No current timetable to refresh');
+      return;
+    }
+
+    console.log('Refreshing timetable:', {
+      route_id: this.currentRouteId,
+      service_id: this.currentServiceId,
+      direction_id: this.currentDirectionId,
+    });
+
+    const html = await this.renderSchedule(
+      this.currentRouteId,
+      this.currentServiceId,
+      this.currentDirectionId
+    );
+
+    // Update the timetable container
+    const container = document.getElementById('schedule-view');
+    if (container) {
+      container.innerHTML = html;
     }
   }
 

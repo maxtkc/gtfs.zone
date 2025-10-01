@@ -631,6 +631,74 @@ export class GTFSDatabase {
   }
 
   /**
+   * Replace rows in database (delete old records and insert new ones in single transaction)
+   * Useful when primary key fields need to be updated
+   */
+  async replaceRows<T extends keyof GTFSTableMap>(
+    tableName: T,
+    oldKeys: string[],
+    newRows: GTFSTableMap[T][]
+  ): Promise<void>;
+  async replaceRows(
+    tableName: string,
+    oldKeys: string[],
+    newRows: GTFSDatabaseRecord[]
+  ): Promise<void>;
+  async replaceRows(
+    tableName: string,
+    oldKeys: string[],
+    newRows: GTFSDatabaseRecord[]
+  ): Promise<void> {
+    if (this.isUsingFallback) {
+      // Fallback: delete and insert separately
+      for (const key of oldKeys) {
+        await this.fallbackDB.deleteRow(tableName, key);
+      }
+      return await this.fallbackDB.insertRows(tableName, newRows);
+    }
+
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const transaction = this.db.transaction(tableName, 'readwrite');
+      const store = transaction.objectStore(tableName);
+      const keyPath = this.getNaturalKeyPath(tableName);
+
+      // Delete old records
+      const deletePromises = oldKeys.map((key) => store.delete(key));
+      await Promise.all(deletePromises);
+
+      // Insert new records
+      const insertPromises = newRows.map((row, index) => {
+        if (keyPath) {
+          const keyValue = row[keyPath];
+          if (!keyValue) {
+            throw new Error(
+              `Missing required key field "${keyPath}" in replacement row ${index}`
+            );
+          }
+          return store.add(row);
+        } else {
+          const key = this.generateCompositeKey(tableName, row);
+          return store.add(row, key);
+        }
+      });
+      await Promise.all(insertPromises);
+
+      await transaction.done;
+
+      console.log(
+        `Replaced ${oldKeys.length} rows with ${newRows.length} rows in ${tableName}`
+      );
+    } catch (error) {
+      console.error(`Failed to replace rows in ${tableName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Retrieve single record by natural key (generic version)
    */
   async getRow<T extends keyof GTFSTableMap>(

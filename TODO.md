@@ -1,65 +1,84 @@
+# TODO
+
+## Map
+
+### Routing
+📁 See detailed plan: [`project_tracking/map-routing.md`](project_tracking/map-routing.md)
+
+- [ ] With the edit tool, when you drag a route out, it will ask for two anchors (points on the route to navigate between). For each anchor, it will give you the option for a straight line to the anchor
+
+### Stop
+📁 See detailed plan: [`project_tracking/map-stops.md`](project_tracking/map-stops.md)
+
+- [ ] Smaller white dot with black circle around it
+- [ ] Highlighted: slightly grey at the center of the stop dot
+- [ ] When lines are parallel, use ties
+
+### Enhancements
+📁 See detailed plan: [`project_tracking/map-enhancements.md`](project_tracking/map-enhancements.md)
+
+- [ ] Different basemap options (stamen, satellite)
+- [ ] Instead of yellow highlight, maybe slightly thicker?
+- [ ] Handle overlapping routes with `Turf.js`: https://turfjs.org/docs/api/lineOverlap
+
+## Browse
+
+#### General
+📁 See detailed plan: [`project_tracking/browse-general.md`](project_tracking/browse-general.md)
+
+- [ ] Use daisyui label component for properties
+- [ ] Add zod sourced tooltips to every property component
+
+### Stop
+📁 See detailed plan: [`project_tracking/browse-stop.md`](project_tracking/browse-stop.md)
+
+- [ ] Remove the whole bar with name and id and lat/lon
+- [ ] Change breadcrumb to use stop_id
+
+### Route Page
+📁 See detailed plan: [`project_tracking/browse-route.md`](project_tracking/browse-route.md)
+
+- [ ] Refresh after adding service exception
+- [ ] Show other routes that use the service (and note that modifications will affect other routes)
+- [ ] Duplicate service button (duplicates trips, optionally duplicates trips from other routes too?)
+- [ ] Add new service button
+- [ ] Maybe add special service exception adders (holidays, every other, etc)
+
+> Note: Services can be used by multiple agencies
+
 ### Timetable
 
-- Use Shortest common supersequence to align the trips for a timetable
-- Fix algorithm. We want to take all of the unique trip sequences and use MLCS to order all of the stops
-- Fix scrolling (you should be able to scroll past the properties, or at least hide them, maybe hidden is better because these are not often edited)
-- Editable service properties (this shouldn't be too difficult)
-- Editable times (hopefully this isn't hard?)
-- Then add a button to adjust all future times by the same offset
-- Duplicate trip
-- (Someday) create a new trip/new service
-- (Someday) (better than) string line plot for showing where vehicles are at any given time
+#### Editing
+📁 See detailed plan: [`project_tracking/timetable-editing.md`](project_tracking/timetable-editing.md)
 
-### Map
+- [ ] Support adding a stop row at the bottom. After putting in the time, this will get shuffled into the appropriate spot (because of the next bullet)
+- [ ] Re calculate the stop_time.stop_sequence after every time edit. If the order changes, this should trigger a reorder with the alg
+- [ ] Adding a trip should be a similar process
+- [ ] support more `stop_time` fields, ex `pickup_type`, `timepoint`
+  - [ ] Maybe we can do this by hovering over the cell and adding enhancements
+- [ ] Edit trip properties
+  - [ ] This will most likely be a new trip page. We could also consider a hover similar to cells in the timetable
 
-- Lets use the TransitApp for inspiration
-- Hover for details so it feels very reactive
+#### Enhancements
+📁 See detailed plan: [`project_tracking/timetable-enhancements.md`](project_tracking/timetable-enhancements.md)
 
-#### Home view/Agency view
+- [ ] Click stop from timetable to edit stop
+- [ ] Nice looking dots on the left with the color line showing a visual like a stop map
+- [ ] Add combined directions (flip trips in one direction and sort by start time)
 
-This will show everything at a high level.
+## Mobile support
+📁 See detailed plan: [`project_tracking/mobile-support.md`](project_tracking/mobile-support.md)
 
-- Thin lines and circles with white bubbles
-- Lines next to each other will show next to each other, stops that are shared will be white ovals
+- [ ] The map is still the main thing. The sidebar becomes a bottom bar and you can swipe down to see more there
 
-#### Route view
+## Misc
+📁 See detailed plan: [`project_tracking/misc-improvements.md`](project_tracking/misc-improvements.md)
 
-- Show all of the stops on that route
+- [ ] Add keyboard shortcuts
+- [ ] Ignore non GTFS standard files (this will maybe fix loading MBTA)
+- [ ] Fix load button dropdown hiding
 
-#### Stop view
+## Release 0.1.0
+📁 See detailed plan: [`project_tracking/release-0.1.0.md`](project_tracking/release-0.1.0.md)
 
-- Maybe a modal for a more modern look
-- Shows the routes that stop there
-- Maybe should look like google maps?
-
-### State Management
-
-#### Browser state
-
-- This is less important
-- Revamp breadcrumbs?
-
-#### GTFS State ✅ COMPLETED
-
-- ✅ IndexedDB implementation complete with row-level storage
-- ✅ Persistent storage for 30MB+ files with real-time editing
-- ✅ Complete fallback system for unsupported browsers
-- ✅ Performance optimizations and comprehensive testing
-
-### Mobile support
-
-- The map is still the main thing. The sidebar becomes a bottom bar and you can swipe down to see more there
-
-### Misc
-
-- Add dropdowns for enum fields
-- Fix the tooltips, zod isn't working correctly
-- Remove the junk gtfs feed and start properly empty
-- Smooth map transitions
-- Remove random map hover
-- Draw stops with the proper route colors
-- Support departure time
-- Fix the stop page
-- Add properties back in
-- Add combined directions (flip trips in one direction and sort by start time)
-- The timetable-editing-plan is a bit fucked
+AT SOME POINT, CODE FREEZE AND RELEASE 0.1.0!

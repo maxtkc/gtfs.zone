@@ -154,7 +154,6 @@ export class TimetableRenderer {
 
     console.log('DEBUG: renderTimetableContent called with:', {
       trips: data.trips?.length || 0,
-      alignedTrips: data.alignedTrips?.length || 0,
       selectedDirectionId: data.selectedDirectionId,
     });
 
@@ -181,13 +180,10 @@ export class TimetableRenderer {
   public renderTimetableHeader(trips: AlignedTrip[]): string {
     const tripHeaders = trips
       .map((trip) => {
-        const tripDisplayName =
-          trip.trip_headsign || trip.trip_short_name || trip.trip_id;
-
         return `
           <th class="trip-header text-center min-w-[80px] p-2 text-xs"
-              title="Trip ID: ${trip.trip_id}">
-            ${tripDisplayName}
+              title="${trip.trip_headsign || trip.trip_short_name || trip.trip_id}">
+            ${trip.trip_id}
           </th>
         `;
       })
@@ -218,24 +214,59 @@ export class TimetableRenderer {
       return '<tbody></tbody>';
     }
 
+    console.log('\n=== RENDERING TIMETABLE BODY ===');
+    console.log(`Number of stops to render: ${data.stops.length}`);
+    console.log(`Number of trips to render: ${data.trips.length}`);
+    console.log('Stop IDs in rendering order:');
+    data.stops.forEach((stop, idx) => {
+      console.log(`  [${idx}] ${stop.stop_id} - ${stop.stop_name}`);
+    });
+
     const rows = data.stops
       .map((stop, stopIndex) => {
+        console.log(
+          `\n--- Rendering row for stop [${stopIndex}]: ${stop.stop_id} ---`
+        );
         const rowClass = '';
         const timeCells = data.trips
-          .map((trip) => {
-            // Use the current stop index as position (NOT findIndex!)
-            const stopPosition = stopIndex;
-            const editableStopTime = trip.editableStopTimes?.get(stopPosition);
+          .map((trip, tripIndex) => {
+            // Use stop_id as the key for all time lookups
+            // This is much clearer than numeric indices and eliminates confusion with stop_sequence
+            const stop_id = stop.stop_id;
 
-            // Always render stacked arrival/departure cell
-            const arrival_time = trip.arrival_times?.get(stopPosition);
-            const departure_time = trip.departure_times?.get(stopPosition);
+            console.log(
+              `  Trip ${tripIndex} (${trip.trip_id}): Looking up stop_id='${stop_id}'`
+            );
+            const editableStopTime = trip.editableStopTimes?.get(stop_id);
+            const arrival_time = trip.arrival_times?.get(stop_id) || undefined;
+            const departure_time =
+              trip.departure_times?.get(stop_id) || undefined;
+
+            console.log(`    arrival_time: ${arrival_time || 'NONE'}`);
+            console.log(`    departure_time: ${departure_time || 'NONE'}`);
+            console.log(
+              `    editableStopTime: ${editableStopTime ? 'YES' : 'NO'}`
+            );
+
+            if (!arrival_time && !departure_time) {
+              console.log(
+                `    ⚠️  NO TIMES FOUND for stop_id='${stop_id}' in trip ${trip.trip_id}`
+              );
+              console.log(
+                `    Available stop_ids in arrival_times:`,
+                Array.from(trip.arrival_times?.keys() || [])
+              );
+              console.log(
+                `    Available stop_ids in departure_times:`,
+                Array.from(trip.departure_times?.keys() || [])
+              );
+            }
 
             return this.cellRenderer.renderStackedArrivalDepartureCell(
               trip.trip_id,
-              stop.stop_id,
-              arrival_time,
-              departure_time,
+              stop_id,
+              arrival_time || null,
+              departure_time || null,
               editableStopTime
             );
           })
