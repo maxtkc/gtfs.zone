@@ -238,7 +238,7 @@ export class UIController {
 
       // Update UI
       this.updateFileList();
-      this.mapController.updateMap();
+      await this.mapController.updateMap();
       this.mapController.hideMapOverlay();
 
       // Show files tab
@@ -313,7 +313,7 @@ export class UIController {
 
       // Update UI
       this.updateFileList();
-      this.mapController.updateMap();
+      await this.mapController.updateMap();
       this.mapController.hideMapOverlay();
 
       // Refresh Objects navigation if available
@@ -1107,12 +1107,12 @@ export class UIController {
     });
   }
 
-  createNewFeed() {
+  async createNewFeed() {
     try {
       // Reset to empty GTFS feed
-      this.gtfsParser.initializeEmpty();
+      await this.gtfsParser.initializeEmpty();
       this.updateFileList();
-      this.mapController.updateMap();
+      await this.mapController.updateMap();
 
       // Clear editor
       this.editor.clearEditor();
@@ -1188,8 +1188,18 @@ export class UIController {
     }
   }
 
-  checkURLParams() {
+  async checkURLParams() {
     // Check for URL parameters to load GTFS data
+
+    // Check query parameter first: ?url=...
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlParam = searchParams.get('url');
+    if (urlParam) {
+      await this.loadGTFSFromURL(urlParam);
+      return;
+    }
+
+    // Check hash parameter: #data=url:...
     const hash = window.location.hash.substring(1);
     if (hash.startsWith('data=')) {
       const dataParam = hash.substring(5);
@@ -1197,7 +1207,7 @@ export class UIController {
       if (dataParam.startsWith('url:')) {
         // Load from URL
         const url = dataParam.substring(4);
-        this.loadGTFSFromURL(url);
+        await this.loadGTFSFromURL(url);
       }
       // Future: support for base64, github, etc.
     }

@@ -82,7 +82,9 @@ export class MapController {
   /**
    * Initialize the map controller with dependencies
    */
-  public initialize(gtfsParser: MapControllerDependencies): void {
+  public async initialize(
+    gtfsParser: MapControllerDependencies
+  ): Promise<void> {
     if (this.isInitialized) {
       console.warn('MapController already initialized');
       return;
@@ -90,7 +92,7 @@ export class MapController {
 
     this.gtfsParser = gtfsParser;
     this.initializeMap();
-    this.initializeModules();
+    await this.initializeModules();
     this.setupModuleCallbacks();
     this.isInitialized = true;
 
@@ -135,7 +137,7 @@ export class MapController {
   /**
    * Initialize core modules
    */
-  private initializeModules(): void {
+  private async initializeModules(): Promise<void> {
     if (!this.map || !this.gtfsParser) {
       throw new Error(
         'Map or gtfsParser not available for module initialization'
@@ -146,6 +148,9 @@ export class MapController {
     this.layerManager = new LayerManager(this.map, this.gtfsParser);
     this.routeRenderer = new RouteRenderer(this.map, this.gtfsParser);
     this.interactionHandler = new InteractionHandler(this.map, this.gtfsParser);
+
+    // Wait for RouteRenderer to be ready
+    await this.routeRenderer.ensureInitialized();
   }
 
   /**
@@ -185,25 +190,20 @@ export class MapController {
   /**
    * Update map with current GTFS data
    */
-  public updateMap(): void {
+  public async updateMap(): Promise<void> {
     if (!this.isMapReady()) {
       return;
     }
 
-    // Wait for map to be loaded before adding sources/layers
-    if (!this.map!.loaded()) {
-      this.map!.on('load', () => this.updateMap());
-      return;
-    }
-
-    console.log('🔄 Updating map with GTFS data');
+    // Ensure RouteRenderer is initialized (this waits for map style to load)
+    await this.routeRenderer!.ensureInitialized();
 
     // Clear existing layers
     this.layerManager!.clearAllLayers();
     this.routeRenderer!.clearRoutes();
 
-    // Add enhanced routes using Deck.gl with MAX blending
-    this.routeRenderer!.renderRoutes({
+    // Wait for route rendering to complete
+    await this.routeRenderer!.renderRoutes({
       lineWidth: 3,
       opacity: 0.8,
       enableBlending: true,
@@ -723,7 +723,7 @@ export class MapController {
       );
 
       // Refresh map to revert visual changes
-      this.updateMap();
+      await this.updateMap();
     }
   }
 

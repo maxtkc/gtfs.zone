@@ -77,6 +77,16 @@
 - [ ] Add keyboard shortcuts
 - [ ] Ignore non GTFS standard files (this will maybe fix loading MBTA)
 - [x] Fix load button dropdown hiding
+- [ ] Revamp the notification system (shouldn't cover important buttons, should be a unified interface)
+
+## Code Quality
+
+### Map Initialization Race Condition
+📁 See detailed plan: [`project_tracking/map-initialization-race-condition.md`](project_tracking/map-initialization-race-condition.md)
+
+- [ ] Fix race condition in RouteRenderer initialization
+- [ ] Implement proper async/await initialization pattern
+- [ ] Remove error recovery fallback logic
 
 ## Release 0.1.0
 📁 See detailed plan: [`project_tracking/release-0.1.0.md`](project_tracking/release-0.1.0.md)

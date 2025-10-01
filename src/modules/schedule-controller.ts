@@ -192,6 +192,9 @@ export class ScheduleController {
         `Updated linked times for trip ${trip_id}, stop ${stop_id} to ${castedTime}`
       );
 
+      // Clear pending stop if this was the first time entered
+      this.clearPendingStopIfMatches(stop_id);
+
       // Update input value immediately
       const input = document.querySelector(
         `input[data-trip-id="${trip_id}"][data-stop-id="${stop_id}"][data-time-type="linked"]`
@@ -277,6 +280,9 @@ export class ScheduleController {
       console.log(
         `Updated ${timeType} time for ${trip_id}/${stop_id} from ${newTime} to ${castedTime}`
       );
+
+      // Clear pending stop if this was the first time entered
+      this.clearPendingStopIfMatches(stop_id);
 
       // Update input value immediately
       const input = document.querySelector(
@@ -546,12 +552,24 @@ export class ScheduleController {
       timetableData.availableDirections = availableDirections;
       timetableData.selectedDirectionId = selectedDirection;
 
+      // Add pending stop to the end of the stops array (UI only, not in database)
+      if (this.pendingStop) {
+        timetableData.stops.push({
+          stop_id: this.pendingStop.stop_id,
+          stop_name: this.pendingStop.stop_name,
+        } as Stops);
+      }
+
       console.log('DEBUG: Timetable data generated:', {
         tripsCount: timetableData.trips.length,
         stopsCount: timetableData.stops.length,
+        hasPendingStop: !!this.pendingStop,
       });
 
-      return this.renderer.renderTimetableHTML(timetableData);
+      return this.renderer.renderTimetableHTML(
+        timetableData,
+        this.pendingStop?.stop_id
+      );
     } catch (error) {
       console.error('Error rendering schedule:', error);
       return this.renderer.renderErrorHTML('Failed to generate schedule view');
@@ -587,6 +605,210 @@ export class ScheduleController {
     const container = document.getElementById('schedule-view');
     if (container) {
       container.innerHTML = html;
+    }
+  }
+
+  /**
+   * Open the add stop dropdown and populate with available stops
+   *
+   * Fetches all stops that are not currently in the timetable and populates
+   * the dropdown menu with them. Used when user clicks the + button.
+   *
+   * @param route_id - GTFS route identifier
+   * @param service_id - GTFS service identifier
+   */
+  public async openAddStopDropdown(
+    route_id: string,
+    service_id: string
+  ): Promise<void> {
+    console.log('=== openAddStopDropdown called ===');
+    console.log('route_id:', route_id);
+    console.log('service_id:', service_id);
+    console.log('currentDirectionId:', this.currentDirectionId);
+
+    // Don't allow adding another stop if there's already a pending stop
+    // (button should be disabled, but check anyway as fallback)
+    if (this.pendingStop) {
+      return;
+    }
+
+    // Get all stops in the current timetable
+    const timetableData = await this.dataProcessor.generateTimetableData(
+      route_id,
+      service_id,
+      this.currentDirectionId
+    );
+    const currentStopIds = new Set(
+      timetableData.stops.map((stop) => stop.stop_id)
+    );
+    console.log(
+      'Current stops in timetable:',
+      currentStopIds.size,
+      Array.from(currentStopIds)
+    );
+
+    // Get all stops from the database
+    const allStops = await this.gtfsParser.gtfsDatabase.queryRows('stops', {});
+    console.log('Total stops in database:', allStops.length);
+
+    // Filter out stops already in the timetable
+    const availableStops = allStops.filter(
+      (stop) => !currentStopIds.has(stop.stop_id)
+    );
+    console.log('Available stops to add:', availableStops.length);
+
+    // Store for filtering
+    this.availableStops = availableStops;
+
+    // Populate the dropdown
+    this.populateAddStopList(availableStops);
+  }
+
+  /**
+   * Populate the add stop dropdown list
+   *
+   * Renders the list of available stops in the dropdown select.
+   *
+   * @param stops - Array of stops to display
+   */
+  private populateAddStopList(stops: Stops[]): void {
+    console.log('=== populateAddStopList called ===');
+    const selectElement = document.getElementById(
+      'add-stop-select'
+    ) as HTMLSelectElement;
+    console.log('Select element found:', !!selectElement);
+    if (!selectElement) {
+      console.error('add-stop-select element not found in DOM');
+      return;
+    }
+
+    // Reset select to default option
+    selectElement.innerHTML = '<option value="">Choose a stop...</option>';
+
+    if (stops.length === 0) {
+      console.log('No available stops to add');
+      selectElement.innerHTML +=
+        '<option value="" disabled>All stops are already in this timetable</option>';
+      return;
+    }
+
+    console.log('Adding', stops.length, 'stops to dropdown');
+    console.log(
+      'First 3 stops:',
+      stops.slice(0, 3).map((s) => ({ id: s.stop_id, name: s.stop_name }))
+    );
+
+    // Add stops as options
+    const options = stops
+      .map(
+        (stop) => `
+        <option value="${stop.stop_id}">
+          ${this.escapeHtml(stop.stop_name || stop.stop_id)} (${stop.stop_id})
+        </option>
+      `
+      )
+      .join('');
+
+    selectElement.innerHTML += options;
+  }
+
+  /**
+   * Add a stop to the timetable UI (not saved to database until time is entered)
+   *
+   * Adds a new row to the timetable for the selected stop. The stop is only
+   * saved in UI state until the user enters at least one time. When a time is
+   * entered, the stop_time will be created in the database for that specific trip.
+   *
+   * Only one pending stop is allowed at a time - user must add a time before
+   * adding another stop.
+   *
+   * @param stop_id - GTFS stop identifier to add
+   */
+  public async addStopToAllTrips(stop_id: string): Promise<void> {
+    try {
+      if (!this.currentRouteId || !this.currentServiceId) {
+        console.error('No current timetable to add stop to');
+        return;
+      }
+
+      // Get stop name for display
+      const stops = await this.gtfsParser.gtfsDatabase.queryRows('stops', {
+        stop_id,
+      });
+
+      if (stops.length === 0) {
+        notifications.showError('Stop not found');
+        return;
+      }
+
+      const stop = stops[0];
+
+      // Set pending stop (UI state only, not saved to database)
+      this.pendingStop = {
+        stop_id: stop.stop_id,
+        stop_name: stop.stop_name || stop.stop_id,
+      };
+
+      console.log(
+        `Added pending stop ${stop_id} to UI (not saved to database)`
+      );
+
+      // Reset the select element
+      const selectElement = document.getElementById(
+        'add-stop-select'
+      ) as HTMLSelectElement;
+      if (selectElement) {
+        selectElement.value = '';
+      }
+
+      // Close the dropdown by blurring the active element
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+
+      // Refresh the timetable to show the new pending stop row
+      await this.refreshCurrentTimetable();
+
+      notifications.showSuccess(
+        `Stop added. Enter a time for at least one trip to save.`
+      );
+    } catch (error) {
+      console.error('Failed to add stop to timetable:', error);
+      notifications.showError('Failed to add stop to timetable');
+    }
+  }
+
+  /**
+   * Escape HTML characters in text
+   *
+   * Prevents XSS by escaping user-provided text content.
+   *
+   * @param text - Raw text that may contain HTML characters
+   * @returns HTML-safe escaped text
+   */
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Store available stops for filtering
+  private availableStops?: Stops[];
+
+  // Track pending stop that hasn't been saved to database yet
+  private pendingStop?: {
+    stop_id: string;
+    stop_name: string;
+  };
+
+  /**
+   * Clear pending stop after first time is entered
+   * Called automatically when a time is successfully saved
+   */
+  private clearPendingStopIfMatches(stop_id: string): void {
+    if (this.pendingStop && this.pendingStop.stop_id === stop_id) {
+      console.log(`Clearing pending stop ${stop_id} - time has been saved`);
+      this.pendingStop = undefined;
     }
   }
 
