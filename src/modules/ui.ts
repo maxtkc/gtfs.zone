@@ -42,16 +42,29 @@ export class UIController {
   setupEventListeners() {
     // DaisyUI handles dropdown toggle automatically via tabindex and focus
 
+    // Helper to close dropdown
+    const closeLoadDropdown = () => {
+      // Close examples details if open
+      const examplesDetails = document.querySelector(
+        '#load-dropdown details'
+      ) as HTMLDetailsElement;
+      if (examplesDetails) {
+        examplesDetails.open = false;
+      }
+      // Remove focus to close dropdown
+      document.activeElement?.blur();
+    };
+
     // Empty button (same as New)
     document.getElementById('empty-btn')?.addEventListener('click', () => {
       this.createNewFeed();
-      // DaisyUI dropdown will close automatically when button loses focus
+      closeLoadDropdown();
     });
 
     // Upload button
     document.getElementById('upload-btn').addEventListener('click', () => {
       document.getElementById('file-input').click();
-      // DaisyUI dropdown will close automatically when button loses focus
+      closeLoadDropdown();
     });
 
     // Example buttons
@@ -62,6 +75,7 @@ export class UIController {
         if (url) {
           this.loadGTFSFromURL(url);
         }
+        closeLoadDropdown();
       });
 
     document.getElementById('example-west')?.addEventListener('click', (e) => {
@@ -69,6 +83,7 @@ export class UIController {
       if (url) {
         this.loadGTFSFromURL(url);
       }
+      closeLoadDropdown();
     });
 
     // File input

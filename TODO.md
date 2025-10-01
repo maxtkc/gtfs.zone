@@ -76,7 +76,7 @@
 
 - [ ] Add keyboard shortcuts
 - [ ] Ignore non GTFS standard files (this will maybe fix loading MBTA)
-- [ ] Fix load button dropdown hiding
+- [x] Fix load button dropdown hiding
 
 ## Release 0.1.0
 📁 See detailed plan: [`project_tracking/release-0.1.0.md`](project_tracking/release-0.1.0.md)
