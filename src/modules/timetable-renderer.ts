@@ -4,11 +4,7 @@
  */
 
 import { Routes, Calendar, CalendarDates } from '../types/gtfs-entities.js';
-import {
-  TimetableData,
-  AlignedTrip,
-  DirectionInfo,
-} from './timetable-data-processor.js';
+import { TimetableData, DirectionInfo } from './timetable-data-processor.js';
 import { TimetableCellRenderer } from './timetable-cell-renderer.js';
 
 /**
@@ -39,14 +35,18 @@ export class TimetableRenderer {
    * Combines header, direction tabs, and content into a cohesive layout.
    *
    * @param data - Complete timetable data including route, service, stops, and trips
+   * @param pendingStopId - Optional ID of pending stop being added (for styling)
    * @returns HTML string for the complete timetable view
    */
-  public renderTimetableHTML(data: TimetableData): string {
+  public renderTimetableHTML(
+    data: TimetableData,
+    pendingStopId?: string
+  ): string {
     return `
       <div id="schedule-view" class="h-full flex flex-col">
         ${this.renderScheduleHeader(data.route, data.service)}
         ${this.renderDirectionTabs(data)}
-        ${this.renderTimetableContent(data)}
+        ${this.renderTimetableContent(data, pendingStopId)}
       </div>
     `;
   }
@@ -138,9 +138,13 @@ export class TimetableRenderer {
    * Creates responsive table with sticky headers and scrolling.
    *
    * @param data - Complete timetable data with trips and stops
+   * @param pendingStopId - Optional ID of pending stop being added (for styling)
    * @returns HTML string for the main timetable content area
    */
-  public renderTimetableContent(data: TimetableData): string {
+  public renderTimetableContent(
+    data: TimetableData,
+    pendingStopId?: string
+  ): string {
     if (!data.selectedDirectionId) {
       return `
         <div class="flex-1 flex items-center justify-center">
@@ -160,8 +164,8 @@ export class TimetableRenderer {
     return `
       <div class="flex-1 overflow-auto">
         <table class="table table-xs table-pin-rows w-full">
-          ${this.renderTimetableHeader(data.trips)}
-          ${this.renderTimetableBody(data)}
+          ${this.renderTimetableHeader(data, !!pendingStopId)}
+          ${this.renderTimetableBody(data, pendingStopId)}
         </table>
       </div>
     `;
@@ -173,11 +177,17 @@ export class TimetableRenderer {
    * Creates table header row with stop column and trip columns.
    * Uses trip headsign, short name, or truncated trip ID for display.
    * Makes header sticky for better scrolling experience.
+   * Includes "Add Stop" button in the stop column header.
    *
-   * @param trips - Array of aligned trips to create columns for
+   * @param data - Complete timetable data including trips, route, and service
+   * @param hasPendingStop - Whether there's a pending stop being added
    * @returns HTML string for the table header
    */
-  public renderTimetableHeader(trips: AlignedTrip[]): string {
+  public renderTimetableHeader(
+    data: TimetableData,
+    hasPendingStop: boolean
+  ): string {
+    const trips = data.trips;
     const tripHeaders = trips
       .map((trip) => {
         return `
@@ -189,10 +199,40 @@ export class TimetableRenderer {
       })
       .join('');
 
+    const disabledAttr = hasPendingStop ? 'disabled' : '';
+    const disabledTitle = hasPendingStop
+      ? 'Add a time for the pending stop first'
+      : 'Add stop to timetable';
+
     return `
       <thead>
         <tr>
-          <th class="stop-header sticky left-0 bg-base-100 min-w-[200px] p-2 text-left">Stop</th>
+          <th class="stop-header sticky left-0 bg-base-100 min-w-[200px] p-2 text-left">
+            <div class="flex items-center gap-2">
+              <span>Stop</span>
+              <div class="dropdown" id="add-stop-dropdown-container">
+                <div tabindex="0" role="button" class="btn btn-xs btn-circle btn-ghost"
+                        title="${disabledTitle}"
+                        ${disabledAttr}
+                        onclick="console.log('Button clicked'); gtfsEditor.scheduleController.openAddStopDropdown('${data.route.route_id}', '${data.service.service_id}')"
+                        onfocus="console.log('Button focused'); gtfsEditor.scheduleController.openAddStopDropdown('${data.route.route_id}', '${data.service.service_id}')">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <div tabindex="0" class="dropdown-content bg-base-100 rounded-box z-[1000] w-64 p-2 shadow-lg border border-base-300 mt-1" id="add-stop-dropdown">
+                  <fieldset class="fieldset">
+                    <label class="label text-xs" for="add-stop-select">Select a stop to add</label>
+                    <select class="select select-sm w-full" id="add-stop-select"
+                            onchange="if(this.value) gtfsEditor.scheduleController.addStopToAllTrips(this.value)">
+                      <option value="">Choose a stop...</option>
+                      <!-- Options will be populated here -->
+                    </select>
+                  </fieldset>
+                </div>
+              </div>
+            </div>
+          </th>
           ${tripHeaders}
         </tr>
       </thead>
@@ -207,9 +247,13 @@ export class TimetableRenderer {
    * Uses stop position as the key for time lookups.
    *
    * @param data - Complete timetable data with stops, trips, and time mappings
+   * @param pendingStopId - Optional ID of pending stop being added (for styling)
    * @returns HTML string for the table body
    */
-  public renderTimetableBody(data: TimetableData): string {
+  public renderTimetableBody(
+    data: TimetableData,
+    pendingStopId?: string
+  ): string {
     if (!data.stops || !data.trips) {
       return '<tbody></tbody>';
     }
@@ -227,7 +271,10 @@ export class TimetableRenderer {
         console.log(
           `\n--- Rendering row for stop [${stopIndex}]: ${stop.stop_id} ---`
         );
-        const rowClass = '';
+        const isPendingStop = pendingStopId === stop.stop_id;
+        const rowClass = isPendingStop
+          ? 'opacity-60 border-dashed border-2 border-warning'
+          : '';
         const timeCells = data.trips
           .map((trip, tripIndex) => {
             // Use stop_id as the key for all time lookups

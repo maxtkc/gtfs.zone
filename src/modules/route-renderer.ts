@@ -25,6 +25,8 @@ export class RouteRenderer {
   private routeFeatures: RouteFeature[] = [];
   private gtfsParser: GTFSParser;
   private highlightedRouteId: string | null = null;
+  private initialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   // Default rendering options
   private defaultOptions: RouteRenderingOptions = {
@@ -37,25 +39,49 @@ export class RouteRenderer {
     this.map = map;
     this.gtfsParser = gtfsParser;
 
-    // Wait for map style to load before initializing layers
+    // Start initialization and store promise
     if (this.map.isStyleLoaded()) {
-      this.initializeMapLayers();
+      this.initializationPromise = this.initializeMapLayers();
     } else {
-      this.map.once('styleload', () => {
-        this.initializeMapLayers();
+      this.initializationPromise = new Promise((resolve) => {
+        this.map.once('load', async () => {
+          await this.initializeMapLayers();
+          resolve();
+        });
       });
+    }
+  }
+
+  /**
+   * Ensure layers are initialized before use
+   * @returns Promise that resolves when initialization is complete
+   */
+  public async ensureInitialized(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    if (this.initializationPromise) {
+      await this.initializationPromise;
     }
   }
 
   /**
    * Initialize MapLibre layers for route rendering
    */
-  private initializeMapLayers(): void {
+  private async initializeMapLayers(): Promise<void> {
     console.log('🔧 Initializing MapLibre route layers...');
+
+    // Check if already initialized
+    if (this.initialized) {
+      console.log('✅ Routes already initialized');
+      return;
+    }
 
     // Check if source already exists
     if (this.map.getSource('routes')) {
-      console.log('🔍 Routes source already exists, skipping initialization');
+      console.log('🔍 Routes source already exists');
+      this.initialized = true;
       return;
     }
 
@@ -120,6 +146,9 @@ export class RouteRenderer {
         'line-join': 'round',
       },
     });
+
+    this.initialized = true;
+    console.log('✅ Routes layers initialized successfully');
   }
 
   /**
@@ -293,10 +322,15 @@ export class RouteRenderer {
   /**
    * Render routes using MapLibre with smooth line rendering
    */
-  public renderRoutes(_options: Partial<RouteRenderingOptions> = {}): void {
+  public async renderRoutes(
+    _options: Partial<RouteRenderingOptions> = {}
+  ): Promise<void> {
     console.log(
       '🎨 Rendering routes using MapLibre with smooth line rendering...'
     );
+
+    // Ensure layers are initialized
+    await this.ensureInitialized();
 
     // Create route features
     this.routeFeatures = this.createRouteFeatures();
@@ -306,63 +340,15 @@ export class RouteRenderer {
       return;
     }
 
-    // Debug: Check if source exists
+    // Source is guaranteed to exist now
     const source = this.map.getSource('routes') as maplibregl.GeoJSONSource;
-    console.log('🔍 Routes source exists:', !!source);
+    const geoJsonData = {
+      type: 'FeatureCollection' as const,
+      features: this.routeFeatures,
+    };
 
-    // Debug: Check if layers exist
-    console.log(
-      '🔍 routes-background layer exists:',
-      !!this.map.getLayer('routes-background')
-    );
-    console.log(
-      '🔍 routes-clickarea layer exists:',
-      !!this.map.getLayer('routes-clickarea')
-    );
-    console.log(
-      '🔍 routes-highlight layer exists:',
-      !!this.map.getLayer('routes-highlight')
-    );
-
-    if (source) {
-      const geoJsonData = {
-        type: 'FeatureCollection' as const,
-        features: this.routeFeatures,
-      };
-
-      console.log('🔍 Setting route data:', geoJsonData);
-      console.log('🔍 First route feature sample:', this.routeFeatures[0]);
-
-      source.setData(geoJsonData);
-
-      // Debug: Force map to repaint
-      this.map.triggerRepaint();
-    } else {
-      console.error(
-        '❌ Routes source not found! Attempting to initialize layers...'
-      );
-
-      // Try to initialize layers now
-      this.initializeMapLayers();
-
-      // Try again after initialization
-      const newSource = this.map.getSource(
-        'routes'
-      ) as maplibregl.GeoJSONSource;
-      if (newSource) {
-        console.log(
-          '✅ Layers initialized successfully, setting route data...'
-        );
-        const geoJsonData = {
-          type: 'FeatureCollection' as const,
-          features: this.routeFeatures,
-        };
-        newSource.setData(geoJsonData);
-        this.map.triggerRepaint();
-      } else {
-        console.error('❌ Failed to initialize route layers!');
-      }
-    }
+    source.setData(geoJsonData);
+    this.map.triggerRepaint();
 
     console.log(
       `✅ Rendered ${this.routeFeatures.length} route features using MapLibre with smooth lines`

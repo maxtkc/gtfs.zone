@@ -1,8 +1,9 @@
 # Timetable Editing
 
-**Status**: 🟡 Partially Implemented (basic editing works, advanced features needed)
+**Status**: 🟢 Core Features Implemented (extended features in progress)
 **Priority**: High
 **Estimated Effort**: Large (2-3 weeks)
+**Last Updated**: 2025-10-01
 
 ## Overview
 Implement comprehensive timetable editing features including stop/trip addition, automatic sequence management, and extended field support beyond just times.
@@ -10,12 +11,17 @@ Implement comprehensive timetable editing features including stop/trip addition,
 ## Checklist
 
 ### Core Features
-- [ ] Add stop row insertion at bottom of timetable
-- [ ] Implement automatic stop sequence reordering after time edit
-- [ ] Create intelligent stop_sequence recalculation algorithm
+- [x] Add stop row insertion at bottom of timetable *(Implemented 2025-10-01)*
+  - Added + button next to "Stop" column header
+  - DaisyUI dropdown with searchable stop list
+  - Filters out stops already in timetable
+  - Creates empty stop_time records for all trips
+  - Uses z-index: 1000 for proper dropdown layering
+- [x] Implement automatic stop sequence reordering after time edit *(Already working)*
+- [x] Create intelligent stop_sequence recalculation algorithm *(Already implemented in TimetableDatabase)*
 - [ ] Design and implement trip addition UI and workflow
-- [ ] Handle empty time cells (null arrival/departure)
-- [ ] Add validation for stop sequence integrity
+- [x] Handle empty time cells (null arrival/departure) *(Already working)*
+- [x] Add validation for stop sequence integrity *(Already implemented)*
 
 ### Extended Fields Support
 - [ ] Add `pickup_type` field editing (0=Regular, 1=None, 2=Phone, 3=Driver)

@@ -110,7 +110,7 @@ export class GTFSEditor {
       // If existing data exists, the parser will automatically work with it
 
       // Initialize all modules
-      this.mapController.initialize(this.gtfsParser);
+      await this.mapController.initialize(this.gtfsParser);
       this.mapController.setPageStateManager(this.pageStateManager);
       this.editor.initialize(this.gtfsParser);
 
@@ -156,7 +156,7 @@ export class GTFSEditor {
       await this.pageStateManager.initializeFromURL();
 
       // Check for URL parameters (legacy support)
-      this.uiController.checkURLParams();
+      await this.uiController.checkURLParams();
 
       // Show welcome notification only if no existing data
       if (!hasExistingData) {
@@ -166,7 +166,7 @@ export class GTFSEditor {
       } else {
         // If we have existing data, update UI components and hide welcome overlay
         this.uiController.updateFileList();
-        this.mapController.updateMap();
+        await this.mapController.updateMap();
         this.mapController.hideMapOverlay();
 
         // Refresh Objects navigation if available
