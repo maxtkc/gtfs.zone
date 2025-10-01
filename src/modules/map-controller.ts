@@ -216,9 +216,9 @@ export class MapController {
       showClickArea: true,
       enableHover: true,
       backgroundColor: '#ffffff',
-      strokeColor: '#2563eb',
-      strokeWidth: 2.5,
-      radius: 7,
+      strokeColor: '#000000',
+      strokeWidth: 2,
+      radius: 4,
       clickAreaRadius: 15,
     });
 

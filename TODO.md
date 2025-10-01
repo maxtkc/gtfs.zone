@@ -10,7 +10,7 @@
 ### Stop
 📁 See detailed plan: [`project_tracking/map-stops.md`](project_tracking/map-stops.md)
 
-- [ ] Smaller white dot with black circle around it
+- [x] Smaller white dot with black circle around it
 - [ ] Highlighted: slightly grey at the center of the stop dot
 - [ ] When lines are parallel, use ties
 

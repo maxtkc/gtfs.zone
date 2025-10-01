@@ -30,9 +30,9 @@ export class LayerManager {
     showClickArea: true,
     enableHover: true,
     backgroundColor: '#ffffff',
-    strokeColor: '#2563eb',
-    strokeWidth: 2.5,
-    radius: 7,
+    strokeColor: '#000000',
+    strokeWidth: 2,
+    radius: 4,
     clickAreaRadius: 15,
   };
 
@@ -209,22 +209,7 @@ export class LayerManager {
           options.radius, // Default stop
         ],
         'circle-color': options.backgroundColor,
-        'circle-stroke-color': [
-          'case',
-          // Use route color if available, otherwise fall back to location type colors
-          ['>', ['get', 'routes_count'], 0],
-          ['get', 'primary_route_color'],
-          // Fallback colors for stops without routes
-          ['==', ['get', 'location_type'], '1'],
-          '#dc2626', // Station - red
-          ['==', ['get', 'location_type'], '2'],
-          '#16a34a', // Entrance - green
-          ['==', ['get', 'location_type'], '3'],
-          '#ca8a04', // Node - yellow
-          ['==', ['get', 'location_type'], '4'],
-          '#7c3aed', // Boarding - purple
-          options.strokeColor, // Default - blue
-        ],
+        'circle-stroke-color': options.strokeColor,
         'circle-stroke-width': options.strokeWidth,
         'circle-opacity': 1,
         'circle-stroke-opacity': 1,
