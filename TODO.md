@@ -54,6 +54,7 @@
 - [ ] Support adding a stop row at the bottom. After putting in the time, this will get shuffled into the appropriate spot (because of the next bullet)
 - [ ] Re calculate the stop_time.stop_sequence after every time edit. If the order changes, this should trigger a reorder with the alg
 - [ ] Adding a trip should be a similar process
+  - 📁 See detailed plan: [`project_tracking/timetable-add-trip.md`](project_tracking/timetable-add-trip.md)
 - [ ] support more `stop_time` fields, ex `pickup_type`, `timepoint`
   - [ ] Maybe we can do this by hovering over the cell and adding enhancements
 - [ ] Edit trip properties

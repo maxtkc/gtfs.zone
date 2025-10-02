@@ -1,6 +1,6 @@
 {
   "name": "gtfs.zone",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A fast, simple editor for GTFS transit data - inspired by geojson.io",
   "main": "src/index.html",
   "type": "module",
