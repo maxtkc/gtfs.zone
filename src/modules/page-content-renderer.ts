@@ -11,6 +11,10 @@ import {
   StopViewController,
   StopViewDependencies,
 } from './stop-view-controller.js';
+import {
+  AgencyViewController,
+  AgencyViewDependencies,
+} from './agency-view-controller.js';
 
 /**
  * Interface for injected dependencies
@@ -86,6 +90,7 @@ export interface ContentRendererDependencies {
 export class PageContentRenderer {
   private dependencies: ContentRendererDependencies;
   private stopViewController: StopViewController;
+  private agencyViewController: AgencyViewController;
 
   constructor(dependencies: ContentRendererDependencies) {
     this.dependencies = dependencies;
@@ -98,6 +103,15 @@ export class PageContentRenderer {
       onRouteClick: dependencies.onRouteClick,
     };
     this.stopViewController = new StopViewController(stopViewDependencies);
+
+    // Initialize AgencyViewController with current dependencies
+    const agencyViewDependencies: AgencyViewDependencies = {
+      gtfsDatabase: dependencies.gtfsDatabase,
+      onRouteClick: dependencies.onRouteClick,
+    };
+    this.agencyViewController = new AgencyViewController(
+      agencyViewDependencies
+    );
   }
 
   /**
@@ -238,82 +252,21 @@ export class PageContentRenderer {
   }
 
   /**
-   * Render agency page (routes list)
+   * Render agency page (agency properties and routes list)
    */
   private async renderAgency(agency_id: string): Promise<string> {
-    const agency =
-      await this.dependencies.relationships.getAgencyAsync(agency_id);
-    const routes =
-      await this.dependencies.relationships.getRoutesForAgencyAsync(agency_id);
-
     // Update map to focus on this agency
     this.dependencies.mapController.focusOnAgency(agency_id);
 
-    const agencyData = agency as Record<string, unknown> | null;
-    const agencyName = (agencyData?.agency_name as string) || agency_id;
+    // Update AgencyViewController dependencies in case database became available
+    const agencyViewDependencies: AgencyViewDependencies = {
+      gtfsDatabase: this.dependencies.gtfsDatabase,
+      onRouteClick: this.dependencies.onRouteClick,
+    };
+    this.agencyViewController.updateDependencies(agencyViewDependencies);
 
-    const routeCards = routes
-      .map((route: unknown) => {
-        const routeData = route as Record<string, unknown>;
-        const routeName =
-          (routeData.route_short_name as string) ||
-          (routeData.route_long_name as string) ||
-          (routeData.route_id as string);
-        const routeDescription =
-          (routeData.route_long_name as string) ||
-          (routeData.route_desc as string) ||
-          '';
-        const routeColor = routeData.route_color
-          ? `#${routeData.route_color as string}`
-          : '';
-        const routeTextColor = routeData.route_text_color
-          ? `#${routeData.route_text_color as string}`
-          : '';
-
-        const colorStyle = routeColor
-          ? `style="background-color: ${routeColor}; color: ${routeTextColor || '#ffffff'};"`
-          : 'class="bg-primary text-primary-content"';
-
-        return `
-        <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow cursor-pointer route-card"
-             data-agency-id="${agency_id}"
-             data-route-id="${routeData.route_id as string}">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-3">
-              <div class="badge badge-lg font-semibold" ${colorStyle}>
-                ${routeName}
-              </div>
-              <div class="flex-1">
-                ${routeDescription ? `<h3 class="font-medium">${routeDescription}</h3>` : ''}
-                <div class="text-sm text-base-content/70">
-                  ID: ${routeData.route_id as string}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      })
-      .join('');
-
-    return `
-      <div class="p-4">
-        <div class="mb-4">
-          <h2 class="text-xl font-semibold">${agencyName} Routes</h2>
-          <div class="text-sm text-base-content/70">${routes.length} route${routes.length !== 1 ? 's' : ''}</div>
-        </div>
-
-        ${
-          routes.length === 0
-            ? `<div class="text-center py-8 text-base-content/50">
-            No routes found for this agency.
-          </div>`
-            : `<div class="space-y-2">
-            ${routeCards}
-          </div>`
-        }
-      </div>
-    `;
+    // Use the new AgencyViewController for comprehensive agency view
+    return await this.agencyViewController.renderAgencyView(agency_id);
   }
 
   /**
@@ -515,5 +468,9 @@ export class PageContentRenderer {
     // Add StopViewController event listeners
     // It will only attach to stop fields (data-table="stops.txt")
     this.stopViewController.addEventListeners(container);
+
+    // Add AgencyViewController event listeners
+    // It will only attach to agency fields (data-table="agency.txt")
+    this.agencyViewController.addEventListeners(container);
   }
 }

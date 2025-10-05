@@ -28,6 +28,8 @@
 
 - [ ] Use daisyui label component for properties
 - [ ] Add zod sourced tooltips to every property component
+- [ ] add zod based enum support in inputs
+- [ ] Hardcode handling for every gtfs field type (including language code, etc)
 
 ### Stop
 📁 See detailed plan: [`project_tracking/browse-stop.md`](project_tracking/browse-stop.md)
@@ -74,7 +76,6 @@
 - [ ] Click stop from timetable to edit stop
 - [ ] Nice looking dots on the left with the color line showing a visual like a stop map
 - [ ] Add combined directions (flip trips in one direction and sort by start time). Also support no direction set
-- [ ] add zod based enum support in inputs
 
 ## Mobile support
 📁 See detailed plan: [`project_tracking/mobile-support.md`](project_tracking/mobile-support.md)

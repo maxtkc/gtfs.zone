@@ -41,11 +41,15 @@
   }
 
   /* Fix tooltip clipping in overflow containers - move overflow to table */
-  .overflow-auto {
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto {
     overflow: visible !important;
   }
 
-  .overflow-auto table {
+  .overflow-auto table,
+  .overflow-x-auto table,
+  .overflow-y-auto table {
     display: block;
     overflow: auto;
     max-height: 100%;
