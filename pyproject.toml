@@ -1,8 +1,10 @@
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.0.0-development"
+version = "0.2.0"
 version_files = [
     "package.json:version"
 ]
 update_changelog_on_bump = true
 major_version_zero = true
+tag_format = "v$version"
+bump_message = "chore(release): bump version $current_version → $new_version"
