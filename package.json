@@ -14,9 +14,6 @@
     "generate-gtfs-types": "npx tsx scripts/scrape-gtfs-spec.ts && npx tsx scripts/generate-gtfs-types.ts",
     "generate-favicons": "./scripts/generate-favicons.sh",
     "typecheck": "tsc --noEmit",
-    "version:patch": "npx tsx scripts/bump-version.ts patch",
-    "version:minor": "npx tsx scripts/bump-version.ts minor",
-    "version:major": "npx tsx scripts/bump-version.ts major",
     "deploy": "npm run build && gh-pages -d dist",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
@@ -30,7 +27,14 @@
     "analyze-bundle": "npm run build && npx webpack-bundle-analyzer dist/bundle.js --mode static --open",
     "lighthouse": "lhci autorun",
     "audit": "audit-ci --config audit-ci.json",
-    "perf-test": "npm run build && npm run lighthouse"
+    "perf-test": "npm run build && npm run lighthouse",
+    "commit": "cz",
+    "release": "semantic-release"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   },
   "keywords": [
     "gtfs",
@@ -42,9 +46,14 @@
   "author": "gtfs.zone contributors",
   "license": "MIT",
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@eslint/js": "^9.35.0",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.55.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.6",
     "@types/clusterize.js": "^0.18.3",
     "@types/jsdom": "^21.1.7",
     "@types/jszip": "^3.4.0",
@@ -52,6 +61,8 @@
     "@types/papaparse": "^5.3.16",
     "audit-ci": "^7.1.0",
     "autoprefixer": "^10.4.21",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
     "gh-pages": "^6.3.0",
@@ -62,6 +73,7 @@
     "node-fetch": "^3.3.2",
     "playwright": "^1.55.0",
     "prettier": "^3.6.2",
+    "semantic-release": "^24.2.9",
     "tailwindcss": "^4.1.13",
     "tslib": "^2.8.1",
     "tsx": "^4.20.5",
