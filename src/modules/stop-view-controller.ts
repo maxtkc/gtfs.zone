@@ -9,7 +9,6 @@ import type { Agency, Routes, Stops, Trips, StopTimes } from '../types/gtfs.js';
 import { notifications } from './notification-system.js';
 import {
   renderFormFields,
-  attachFieldEventListeners,
   generateFieldConfigsFromSchema,
 } from '../utils/field-component.js';
 import { GTFS_TABLES, StopsSchema } from '../types/gtfs.js';
@@ -62,6 +61,13 @@ export class StopViewController {
   private fieldValues: Map<string, string> = new Map();
 
   constructor(dependencies: StopViewDependencies) {
+    this.dependencies = dependencies;
+  }
+
+  /**
+   * Update dependencies (used when database becomes available)
+   */
+  updateDependencies(dependencies: StopViewDependencies): void {
     this.dependencies = dependencies;
   }
 
@@ -366,8 +372,10 @@ export class StopViewController {
    */
   async updateStopProperty(field: string, newValue: string): Promise<boolean> {
     if (!this.currentStopId || !this.dependencies.gtfsDatabase) {
+      const error = new Error('Database not available for editing');
+      console.error(error);
       notifications.show('Database not available for editing', 'error');
-      return false;
+      throw error;
     }
 
     try {
@@ -423,17 +431,32 @@ export class StopViewController {
    */
   addEventListeners(container: HTMLElement): void {
     // Property input handlers with auto-save using the field component utility
-    attachFieldEventListeners(
-      container,
-      async (field: string, value: string) => {
-        // Store initial value on first interaction
-        if (!this.fieldValues.has(field)) {
-          this.fieldValues.set(field, value);
-        }
-
-        await this.updateStopProperty(field, value);
-      }
+    // Only attach to stop fields (data-table="stops.txt")
+    const stopFields = container.querySelectorAll(
+      '[data-field][data-table="stops.txt"]'
     );
+    stopFields.forEach((input) => {
+      const field = input.getAttribute('data-field');
+      if (!field) {
+        return;
+      }
+
+      // Store initial value for comparison
+      const initialValue = (
+        input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+      ).value;
+      this.fieldValues.set(field, initialValue);
+
+      const handleUpdate = async () => {
+        const value = (
+          input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+        ).value;
+        await this.updateStopProperty(field, value);
+      };
+
+      // Use 'change' event to fire when value changes and element loses focus
+      input.addEventListener('change', handleUpdate);
+    });
 
     // Agency view button clicks
     const agencyButtons = container.querySelectorAll('.agency-view-btn');

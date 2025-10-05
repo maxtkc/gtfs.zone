@@ -58,15 +58,23 @@
 - [x] Adding a stop via always-visible dropdown row
 - [ ] support more `stop_time` fields, ex `pickup_type`, `timepoint`
   - [ ] Maybe we can do this by hovering over the cell and adding enhancements
-- [ ] Edit trip properties
-  - [ ] This will most likely be a new trip page. We could also consider a hover similar to cells in the timetable
+
+#### Trip Properties
+📁 See detailed plan: [`project_tracking/trip-properties-editing.md`](project_tracking/trip-properties-editing.md)
+
+- [x] Display trip properties as rows at the top of the timetable (before stop rows)
+- [x] Use schema-driven field generation from `TripsSchema`
+- [x] Implement inline editing following the stop page pattern
+- [x] Add auto-save functionality with validation
+- [x] Show property labels in first column, inputs in trip columns
 
 #### Enhancements
 📁 See detailed plan: [`project_tracking/timetable-enhancements.md`](project_tracking/timetable-enhancements.md)
 
 - [ ] Click stop from timetable to edit stop
 - [ ] Nice looking dots on the left with the color line showing a visual like a stop map
-- [ ] Add combined directions (flip trips in one direction and sort by start time)
+- [ ] Add combined directions (flip trips in one direction and sort by start time). Also support no direction set
+- [ ] add zod based enum support in inputs
 
 ## Mobile support
 📁 See detailed plan: [`project_tracking/mobile-support.md`](project_tracking/mobile-support.md)

@@ -304,6 +304,69 @@ export class ScheduleController {
   }
 
   /**
+   * Update trip property (headsign, direction_id, wheelchair_accessible, etc.)
+   *
+   * Updates a single property on a trip record.
+   * Handles type conversion for enum and number fields.
+   * Shows success/error notifications.
+   *
+   * @param trip_id - GTFS trip identifier
+   * @param field - Property name (e.g., 'trip_headsign', 'direction_id')
+   * @param newValue - New value for the property
+   */
+  public async updateTripProperty(
+    trip_id: string,
+    field: string,
+    newValue: string
+  ): Promise<void> {
+    try {
+      // Type conversion based on field
+      let processedValue: string | number | null = newValue;
+
+      // Enum fields that should be numbers
+      if (
+        ['direction_id', 'wheelchair_accessible', 'bikes_allowed'].includes(
+          field
+        )
+      ) {
+        processedValue = newValue ? parseInt(newValue, 10) : null;
+      } else if (newValue === '') {
+        // Empty string → null for optional fields
+        processedValue = null;
+      }
+
+      // Update database
+      await this.gtfsParser.gtfsDatabase.updateRow('trips', trip_id, {
+        [field]: processedValue,
+      });
+
+      console.log(
+        `Updated trip property ${field} for ${trip_id} to:`,
+        processedValue
+      );
+
+      // Show success notification
+      const fieldLabel = field
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+      const displayValue =
+        processedValue === null ? '(empty)' : String(processedValue);
+      notifications.show(
+        `Updated ${fieldLabel} to "${displayValue}" for trip ${trip_id}`,
+        'success',
+        3000
+      );
+    } catch (error) {
+      console.error('Failed to update trip property:', error);
+      notifications.show(
+        `Failed to update ${field} for trip ${trip_id}`,
+        'error',
+        5000
+      );
+    }
+  }
+
+  /**
    * Database state detection helper
    *
    * Determines if arrival and departure times are in a "linked" state

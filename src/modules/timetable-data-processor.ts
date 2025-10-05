@@ -15,6 +15,7 @@ import {
   CalendarDates,
   StopTimes,
   GTFSTableMap,
+  Trips,
 } from '../types/gtfs-entities.js';
 import { CalendarSchema } from '../types/gtfs.js';
 
@@ -34,20 +35,18 @@ export interface EditableStopTime {
 /**
  * Aligned trip interface for timetable rendering
  * Contains time mappings aligned to the optimal stop sequence
+ * Extends Trips to include all GTFS trip properties
  *
  * IMPORTANT: All maps use supersequence position (number) as keys, NOT stop_id
  * This ensures correct handling of duplicate stops (e.g., circular routes where
  * a stop appears multiple times in the sequence)
  */
-export interface AlignedTrip {
-  trip_id: string;
+export interface AlignedTrip extends Trips {
   headsign: string;
   stopTimes: Map<number, string>; // supersequence position -> time (departure or arrival)
   arrival_times?: Map<number, string>; // supersequence position -> arrival time
   departure_times?: Map<number, string>; // supersequence position -> departure time
   editableStopTimes?: Map<number, EditableStopTime>; // supersequence position -> editable stop time
-  trip_headsign?: string;
-  trip_short_name?: string;
 }
 
 /**
@@ -115,6 +114,10 @@ interface GTFSParserInterface {
       key: string,
       data: Partial<GTFSTableMap[T]>
     ): Promise<void>;
+    getRow<T extends keyof GTFSTableMap>(
+      tableName: T,
+      key: string
+    ): Promise<GTFSTableMap[T] | null>;
   };
 }
 
@@ -517,11 +520,15 @@ export class TimetableDataProcessor {
         }
       });
 
+      // Get full trip data from database to include all GTFS properties
+      const fullTrip = (await this.gtfsParser.gtfsDatabase.getRow(
+        'trips',
+        trip.id
+      )) as Trips;
+
       alignedTrips.push({
-        trip_id: trip.id,
+        ...fullTrip, // Spread all GTFS trip properties (shape_id, wheelchair_accessible, etc.)
         headsign: trip.headsign || trip.id,
-        trip_headsign: trip.trip_headsign,
-        trip_short_name: trip.trip_short_name,
         stopTimes: stopTimeMap,
         arrival_times: arrival_timeMap,
         departure_times: departure_timeMap,

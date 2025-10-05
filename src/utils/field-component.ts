@@ -138,6 +138,7 @@ function renderTextInput(config: FieldConfig, inputId: string): string {
       id="${inputId}"
       class="input"
       data-field="${config.field}"
+      ${config.tableName ? `data-table="${config.tableName}"` : ''}
       value="${escapeHtml(config.value)}"
       placeholder="${escapeHtml(config.placeholder || '')}"
       ${config.required ? 'required' : ''}
@@ -170,6 +171,7 @@ function renderSelectInput(config: FieldConfig, inputId: string): string {
       id="${inputId}"
       class="select"
       data-field="${config.field}"
+      ${config.tableName ? `data-table="${config.tableName}"` : ''}
       ${config.required ? 'required' : ''}
       ${config.readonly ? 'disabled' : ''}
     >
@@ -192,6 +194,7 @@ function renderTextareaInput(config: FieldConfig, inputId: string): string {
       id="${inputId}"
       class="textarea"
       data-field="${config.field}"
+      ${config.tableName ? `data-table="${config.tableName}"` : ''}
       placeholder="${escapeHtml(config.placeholder || '')}"
       ${config.required ? 'required' : ''}
       ${config.readonly ? 'disabled' : ''}

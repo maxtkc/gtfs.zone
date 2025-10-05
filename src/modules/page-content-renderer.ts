@@ -90,12 +90,9 @@ export class PageContentRenderer {
   constructor(dependencies: ContentRendererDependencies) {
     this.dependencies = dependencies;
 
-    // Initialize StopViewController with fallback dependencies
+    // Initialize StopViewController with current dependencies
     const stopViewDependencies: StopViewDependencies = {
-      gtfsDatabase: dependencies.gtfsDatabase || {
-        queryRows: () => Promise.resolve([]),
-        updateRow: () => Promise.resolve(),
-      },
+      gtfsDatabase: dependencies.gtfsDatabase,
       gtfsRelationships: dependencies.gtfsRelationships || {},
       onAgencyClick: dependencies.onAgencyClick,
       onRouteClick: dependencies.onRouteClick,
@@ -461,6 +458,15 @@ export class PageContentRenderer {
     // Update map to highlight this stop
     this.dependencies.mapController.highlightStop(stop_id);
 
+    // Update StopViewController dependencies in case database became available
+    const stopViewDependencies: StopViewDependencies = {
+      gtfsDatabase: this.dependencies.gtfsDatabase,
+      gtfsRelationships: this.dependencies.gtfsRelationships || {},
+      onAgencyClick: this.dependencies.onAgencyClick,
+      onRouteClick: this.dependencies.onRouteClick,
+    };
+    this.stopViewController.updateDependencies(stopViewDependencies);
+
     // Use the new StopViewController for comprehensive stop view
     return await this.stopViewController.renderStopView(stop_id);
   }
@@ -507,6 +513,7 @@ export class PageContentRenderer {
     });
 
     // Add StopViewController event listeners
+    // It will only attach to stop fields (data-table="stops.txt")
     this.stopViewController.addEventListeners(container);
   }
 }

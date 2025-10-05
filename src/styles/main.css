@@ -40,6 +40,17 @@
     max-width: 20rem !important;
   }
 
+  /* Fix tooltip clipping in overflow containers - move overflow to table */
+  .overflow-auto {
+    overflow: visible !important;
+  }
+
+  .overflow-auto table {
+    display: block;
+    overflow: auto;
+    max-height: 100%;
+  }
+
   /* Map controls styling */
   #map-controls .btn {
     transition: all 0.2s ease;
@@ -108,7 +119,22 @@
 
 @layer utilities {
   /* Schedule/Timetable view styles */
-  td.time-cell input.input {
+  td input.input {
     position: inherit;
+  }
+
+  .stop-name.sticky:hover {
+    z-index: 2;
+  }
+
+  .stop-name.sticky {
+    z-index: 1;
+  }
+}
+
+@layer components {
+  /* Trip property rows styling */
+  .trip-property-row:last-of-type {
+    border-bottom: 2px solid oklch(var(--bc) / 0.2);
   }
 }

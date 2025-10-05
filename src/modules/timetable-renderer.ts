@@ -6,6 +6,12 @@
 import { Routes, Calendar, CalendarDates } from '../types/gtfs-entities.js';
 import { TimetableData, DirectionInfo } from './timetable-data-processor.js';
 import { TimetableCellRenderer } from './timetable-cell-renderer.js';
+import {
+  generateFieldConfigsFromSchema,
+  FieldConfig,
+} from '../utils/field-component.js';
+import { TripsSchema, GTFS_TABLES } from '../types/gtfs.js';
+import { getGTFSFieldDescription } from '../utils/zod-tooltip-helper.js';
 
 /**
  * Timetable Renderer - HTML generation for schedule views
@@ -169,6 +175,213 @@ export class TimetableRenderer {
         </table>
       </div>
     `;
+  }
+
+  /**
+   * Generate trip property field configurations from TripsSchema
+   * Filters out non-editable fields (route_id, service_id, trip_id)
+   *
+   * @param sampleTrip - Sample trip object for getting current values
+   * @returns Array of field configurations for trip properties
+   */
+  private generateTripPropertyConfigs(
+    sampleTrip: Record<string, unknown>
+  ): FieldConfig[] {
+    console.log('🔍 Sample trip:', sampleTrip);
+
+    // Generate all field configs from TripsSchema
+    const allConfigs = generateFieldConfigsFromSchema(
+      TripsSchema,
+      sampleTrip,
+      GTFS_TABLES.TRIPS
+    );
+
+    console.log(
+      '🔍 All configs:',
+      allConfigs.map((c) => c.field)
+    );
+
+    // Filter out fields that shouldn't be editable in the timetable
+    // route_id and service_id are fixed (timetable is already filtered by these)
+    // trip_id is the primary key
+    const editableConfigs = allConfigs.filter(
+      (config) => !['route_id', 'service_id', 'trip_id'].includes(config.field)
+    );
+
+    console.log(
+      '🔍 Editable configs:',
+      editableConfigs.map((c) => c.field)
+    );
+
+    return editableConfigs;
+  }
+
+  /**
+   * Render trip property rows at the top of the timetable
+   * Properties are displayed as rows with labels in the first column
+   * and input fields in each trip column
+   *
+   * @param data - Complete timetable data including trips
+   * @returns HTML string for trip property rows
+   */
+  private renderTripPropertyRows(data: TimetableData): string {
+    const trips = data.trips;
+
+    if (trips.length === 0) {
+      return '';
+    }
+
+    // Use first trip as sample to get property configs
+    const sampleTrip = trips[0];
+    const propertyConfigs = this.generateTripPropertyConfigs(sampleTrip);
+
+    // Render each property as a row
+    const propertyRows = propertyConfigs
+      .map((config) => {
+        const cells = trips
+          .map((trip) => {
+            return this.renderPropertyCell(trip, config);
+          })
+          .join('');
+
+        // Add empty cell for "New Trip" column
+        const newTripCell = '<td class="text-center p-2 bg-base-200"></td>';
+
+        // Get human-readable label (without field name in parentheses)
+        const humanLabel = this.generateHumanLabel(config.field);
+
+        // Get tooltip description from GTFS schema
+        const description = getGTFSFieldDescription(
+          GTFS_TABLES.TRIPS,
+          config.field
+        );
+        const tooltipHtml = this.renderTooltip(description);
+
+        // Required field indicator
+        const requiredMark = config.required
+          ? ' <span class="text-error">*</span>'
+          : '';
+
+        return `
+        <tr class="trip-property-row" data-property="${config.field}">
+          <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
+            <div class="stop-name-text">${this.escapeHtml(humanLabel)}${requiredMark}${tooltipHtml}</div>
+            <div class="stop-id text-xs opacity-70">${this.escapeHtml(config.field)}</div>
+          </td>
+          ${cells}
+          ${newTripCell}
+        </tr>
+      `;
+      })
+      .join('');
+
+    return propertyRows;
+  }
+
+  /**
+   * Generate human-readable label from snake_case field name
+   */
+  private generateHumanLabel(fieldName: string): string {
+    return fieldName
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  /**
+   * Render tooltip icon with GTFS description
+   */
+  private renderTooltip(description: string): string {
+    if (!description) {
+      return '';
+    }
+
+    const escapedDescription = this.escapeHtml(description);
+
+    return `
+      <div class="tooltip tooltip-right" data-tip='${escapedDescription}'>
+        <svg class="w-3 h-3 opacity-60 hover:opacity-100 cursor-help inline-block ml-1"
+             fill="none"
+             stroke="currentColor"
+             viewBox="0 0 24 24">
+          <path stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+    `;
+  }
+
+  /**
+   * Render individual property cell with appropriate input type
+   *
+   * @param trip - Trip object containing the property value
+   * @param config - Field configuration for this property
+   * @returns HTML string for the property cell
+   */
+  private renderPropertyCell(
+    trip: Record<string, unknown>,
+    config: FieldConfig
+  ): string {
+    const trip_id = trip.trip_id as string;
+    const value = trip[config.field] ?? '';
+    const inputId = `trip-prop-${trip_id}-${config.field}`;
+
+    if (config.type === 'select' && config.options) {
+      const optionsHtml = [
+        '<option value="">-</option>',
+        ...config.options.map((opt) => {
+          const selected =
+            String(value) === String(opt.value) ? 'selected' : '';
+          return `<option value="${this.escapeHtml(String(opt.value))}" ${selected}>${this.escapeHtml(opt.label)}</option>`;
+        }),
+      ].join('');
+
+      return `
+        <td class="text-center p-2">
+          <select
+            id="${inputId}"
+            class="select select-xs w-full"
+            data-trip-id="${trip_id}"
+            data-field="${config.field}"
+            data-table="trips.txt"
+            onchange="gtfsEditor.scheduleController.updateTripProperty('${trip_id}', '${config.field}', this.value)">
+            ${optionsHtml}
+          </select>
+        </td>
+      `;
+    } else if (config.type === 'number') {
+      return `
+        <td class="text-center p-2">
+          <input
+            id="${inputId}"
+            type="number"
+            class="input input-xs w-full text-center"
+            data-trip-id="${trip_id}"
+            data-field="${config.field}"
+            data-table="trips.txt"
+            value="${this.escapeHtml(String(value))}"
+            onchange="gtfsEditor.scheduleController.updateTripProperty('${trip_id}', '${config.field}', this.value)" />
+        </td>
+      `;
+    } else {
+      // text input
+      return `
+        <td class="text-center p-2">
+          <input
+            id="${inputId}"
+            type="text"
+            class="input input-xs w-full text-center"
+            data-trip-id="${trip_id}"
+            data-field="${config.field}"
+            data-table="trips.txt"
+            value="${this.escapeHtml(String(value))}"
+            placeholder="${this.escapeHtml(config.label)}"
+            onchange="gtfsEditor.scheduleController.updateTripProperty('${trip_id}', '${config.field}', this.value)" />
+        </td>
+      `;
+    }
   }
 
   /**
@@ -343,7 +556,10 @@ export class TimetableRenderer {
       </tr>
     `;
 
-    return `<tbody>${rows}${newStopRow}</tbody>`;
+    // Add property rows before stop rows
+    const propertyRows = this.renderTripPropertyRows(data);
+
+    return `<tbody>${propertyRows}${rows}${newStopRow}</tbody>`;
   }
 
   /**
