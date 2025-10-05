@@ -17,6 +17,7 @@ import {
 
 /**
  * Extract description from a Zod schema field
+ * Handles wrapped types like ZodOptional, ZodNullable, etc.
  */
 function getFieldDescription(
   schema: Record<string, unknown>,
@@ -38,7 +39,13 @@ function getFieldDescription(
       return '';
     }
 
-    const field = shape[fieldName];
+    let field = shape[fieldName];
+
+    // Unwrap optional, nullable, and other wrapper types to get to the inner type
+    // In Zod v4, optional fields are wrapped in ZodOptional with innerType containing the actual field
+    while (field._def?.innerType) {
+      field = field._def.innerType;
+    }
 
     // Try multiple ways to access the description based on Zod's structure
     const description =

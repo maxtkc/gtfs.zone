@@ -5,11 +5,48 @@ import { JSDOM } from 'jsdom';
 import fs from 'fs/promises';
 import path from 'path';
 
+/**
+ * Convert HTML content to plain text while preserving line breaks
+ * Replaces <br>, <p>, and block elements with newlines
+ */
+function convertHtmlToTextWithNewlines(element: Element): string {
+  // Clone the element to avoid modifying the original
+  const clone = element.cloneNode(true) as Element;
+
+  // Replace <br> tags with newlines
+  clone.querySelectorAll('br').forEach(br => {
+    br.replaceWith('\n');
+  });
+
+  // Replace block-level elements (p, div, li) with their content plus newlines
+  clone.querySelectorAll('p, div, li').forEach(block => {
+    const text = block.textContent || '';
+    block.replaceWith(text + '\n');
+  });
+
+  // Get the text content and clean up multiple newlines
+  let text = clone.textContent || '';
+
+  // Normalize whitespace: replace multiple spaces with single space
+  text = text.replace(/[ \t]+/g, ' ');
+
+  // Normalize newlines: replace multiple newlines with double newline (paragraph break)
+  text = text.replace(/\n\s*\n\s*\n+/g, '\n\n');
+
+  // Trim each line
+  text = text.split('\n').map(line => line.trim()).join('\n');
+
+  // Remove leading/trailing whitespace
+  return text.trim();
+}
+
 async function scrapeGTFSSpec(): Promise<any> {
   console.log('Fetching GTFS specification from gtfs.org...');
-  
+
   try {
-    const response = await fetch('https://gtfs.org/documentation/schedule/reference');
+    const response = await fetch('https://gtfs.org/documentation/schedule/reference/', {
+      redirect: 'follow'
+    });
     const html = await response.text();
     
     const dom = new JSDOM(html);
@@ -38,7 +75,7 @@ async function scrapeGTFSSpec(): Promise<any> {
           files.push({
             filename: cells[0].textContent.trim(),
             presence: cells[1].textContent.trim(),
-            description: cells[2].textContent.trim()
+            description: convertHtmlToTextWithNewlines(cells[2])
           });
         }
       }
@@ -82,11 +119,15 @@ async function scrapeGTFSSpec(): Promise<any> {
           for (const row of rows) {
             const cells = row.querySelectorAll('td');
             if (cells.length >= 4) {
+              // Convert HTML formatting to plain text with preserved newlines
+              const descriptionCell = cells[3];
+              const description = convertHtmlToTextWithNewlines(descriptionCell);
+
               fields.push({
                 fieldName: cells[0].textContent.trim(),
                 type: cells[1].textContent.trim(),
                 presence: cells[2].textContent.trim(),
-                description: cells[3].textContent.trim()
+                description: description
               });
             }
           }
