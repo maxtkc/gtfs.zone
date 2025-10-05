@@ -104,7 +104,7 @@ export class TimetableCellRenderer {
                   data-time-type="arrival"
                   pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$"
                   title="Enter arrival time in HH:MM:SS format"
-                  onchange="gtfsEditor.scheduleController.updateArrivalTime('${trip_id}', '${stop_id}', this.value)"
+                  onchange="gtfsEditor.scheduleController.updateArrivalDepartureTime('${trip_id}', '${stop_id}', 'arrival', this.value)"
                     onfocus="this.select()"
                 />
                 <div class="w-6"></div>
@@ -121,7 +121,7 @@ export class TimetableCellRenderer {
                   data-time-type="departure"
                   pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$|^(2[4-9]|[3-9][0-9]):[0-5][0-9]:[0-5][0-9]$"
                   title="Enter departure time in HH:MM:SS format"
-                  onchange="gtfsEditor.scheduleController.updateDepartureTime('${trip_id}', '${stop_id}', this.value)"
+                  onchange="gtfsEditor.scheduleController.updateArrivalDepartureTime('${trip_id}', '${stop_id}', 'departure', this.value)"
                     onfocus="this.select()"
                 />
                 <button
