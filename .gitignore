@@ -112,6 +112,9 @@ Desktop.ini
 *.tmp
 *.temp
 
+# Generated version file
+.version
+
 # GTFS test files (keep the test ZIP but ignore downloaded ones)
 tests/fixtures/*.zip
 !tests/fixtures/test-gtfs.zip

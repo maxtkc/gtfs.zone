@@ -55,22 +55,40 @@ refactor(utils): simplify field component logic
 
 ## Versioning
 
-This project uses [semantic-release](https://github.com/semantic-release/semantic-release) for automated versioning.
-
-- Version bumps happen automatically based on commit messages
-- Releases are created automatically on the `main` branch
-- Manual version bumping is no longer needed
+This project uses **git tags** as the source of truth for versioning, with automatic version injection at build time.
 
 ### How It Works
 
-1. Make changes and commit using `npm run commit`
-2. When merged to `main`, semantic-release will:
-   - Analyze commit messages since last release
-   - Determine the next version number
-   - Update package.json and package-lock.json
-   - Generate/update CHANGELOG.md
-   - Create a GitHub release
-   - Publish to npm (if configured)
+- **package.json version**: Always stays at `0.0.0-development` (never conflicts!)
+- **Actual version**: Determined from git tags and commits using `git-describe`
+- **Version format**:
+  - On a tag: `0.0.18`
+  - Between tags: `0.0.18-12-ga1b2c3d` (12 commits since tag, hash a1b2c3d)
+  - No tags: `0.0.0-dev.a1b2c3d` (development with hash)
+
+### Creating Releases
+
+When you're ready to release, create a git tag:
+
+```bash
+# For the next version
+git tag v0.0.19
+git push origin v0.0.19
+```
+
+This approach means:
+- ✅ Every build has a unique, identifiable version
+- ✅ No package.json merge conflicts ever
+- ✅ No manual version bumping in code
+- ✅ Easy to identify exactly which commit produced a build
+
+### Checking Version
+
+```bash
+npm run version
+```
+
+This will output the current version based on git history.
 
 ## Development Workflow
 
@@ -78,7 +96,7 @@ This project uses [semantic-release](https://github.com/semantic-release/semanti
 2. Make your changes
 3. Commit using `npm run commit` (this ensures proper commit format)
 4. Push your branch and create a pull request
-5. After merge to `main`, semantic-release handles the rest
+5. After merge to `main`, create a git tag for releases when ready
 
 ## Git Hooks
 

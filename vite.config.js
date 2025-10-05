@@ -1,21 +1,31 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
-import { readFileSync } from 'fs'
+import gitDescribe from 'git-describe'
 import { execSync } from 'child_process'
 
-// Read version from package.json
-const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
-let version = packageJson.version
-
-// Append branch name if not on main
+// Get version from git tags using git-describe
+let version = '0.0.0-development'
 try {
-  const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim()
-  if (branch && branch !== 'main') {
-    version = `${version}-${branch}`
+  const gitInfo = gitDescribe.gitDescribeSync({
+    longSemver: true,
+    dirtySemver: false,
+  })
+
+  // If we're exactly on a tag, use the clean version
+  if (gitInfo.distance === 0) {
+    version = gitInfo.tag.replace(/^v/, '')
+  } else {
+    // Otherwise, include commits since tag + hash
+    version = `${gitInfo.tag.replace(/^v/, '')}-${gitInfo.distance}-g${gitInfo.hash}`
   }
 } catch (error) {
-  // If git command fails, just use the version without branch
-  console.warn('Could not determine git branch, using version without branch suffix')
+  // No git tags found, use development version with commit hash
+  try {
+    const hash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+    version = `0.0.0-dev.${hash}`
+  } catch {
+    console.warn('Could not determine git version, using default')
+  }
 }
 
 export default defineConfig({
