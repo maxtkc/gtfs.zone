@@ -27,33 +27,6 @@
 
 @layer components {
   /* DaisyUI Tooltip Enhancement - Handle long text with proper wrapping */
-  .tooltip:before {
-    max-width: 20rem !important;
-    white-space: pre-line !important; /* Preserve newlines, allow wrapping */
-    text-align: left !important;
-    line-height: 1.4;
-    padding: 0.5rem 0.75rem;
-    overflow-wrap: break-word; /* Break long words if needed */
-  }
-
-  .tooltip:after {
-    max-width: 20rem !important;
-  }
-
-  /* Fix tooltip clipping in overflow containers - move overflow to table */
-  .overflow-auto,
-  .overflow-x-auto,
-  .overflow-y-auto {
-    overflow: visible !important;
-  }
-
-  .overflow-auto table,
-  .overflow-x-auto table,
-  .overflow-y-auto table {
-    display: block;
-    overflow: auto;
-    max-height: 100%;
-  }
 
   /* Map controls styling */
   #map-controls .btn {
@@ -127,18 +100,20 @@
     position: inherit;
   }
 
-  .stop-name.sticky:hover {
+  /* My hacks to fix the tooltip issues */
+  .stop-name:hover {
     z-index: 2;
   }
 
-  .stop-name.sticky {
+  .stop-name {
     z-index: 1;
   }
-}
 
-@layer components {
-  /* Trip property rows styling */
-  .trip-property-row:last-of-type {
-    border-bottom: 2px solid oklch(var(--bc) / 0.2);
+  .tooltip:before {
+    max-width: 20rem;
+    white-space: pre-line; /* Preserve newlines, allow wrapping */
+    text-align: left;
+    overflow-wrap: break-word; /* Break long words if needed */
+    font-size: 11px; /* Slightly smaller font size (14px) */
   }
 }
