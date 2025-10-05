@@ -30,13 +30,8 @@
     "lighthouse": "lhci autorun",
     "audit": "audit-ci --config audit-ci.json",
     "perf-test": "npm run build && npm run lighthouse",
-    "commit": "cz",
+    "commit": "cz commit",
     "release": "semantic-release"
-  },
-  "config": {
-    "commitizen": {
-      "path": "cz-conventional-changelog"
-    }
   },
   "keywords": [
     "gtfs",
@@ -63,8 +58,6 @@
     "@types/papaparse": "^5.3.16",
     "audit-ci": "^7.1.0",
     "autoprefixer": "^10.4.21",
-    "commitizen": "^4.3.1",
-    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
     "gh-pages": "^6.3.0",
