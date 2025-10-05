@@ -12,7 +12,7 @@ import {
   attachFieldEventListeners,
   generateFieldConfigsFromSchema,
 } from '../utils/field-component.js';
-import { GTFS_TABLES, StopsSchema, GTFS_PRIMARY_KEYS } from '../types/gtfs.js';
+import { GTFS_TABLES, StopsSchema } from '../types/gtfs.js';
 
 export interface StopViewDependencies {
   gtfsDatabase?: {
@@ -88,7 +88,6 @@ export class StopViewController {
       // Render complete view - don't set height/overflow, let parent handle it
       const html = `
         <div class="p-4 space-y-4">
-          ${this.renderStopHeader(stop)}
           ${this.renderStopProperties(stop)}
           ${this.renderTransitNetwork(agencies, routes)}
         </div>
@@ -102,45 +101,15 @@ export class StopViewController {
   }
 
   /**
-   * Render stop header with name and sleek ID display
-   */
-  private renderStopHeader(stop: EnhancedStop): string {
-    return `
-      <div class="card bg-base-100 shadow-lg">
-        <div class="card-body p-4">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <h1 class="card-title text-xl mb-2">${stop.name}</h1>
-              <div class="badge badge-primary badge-sm">ID: ${stop.id}</div>
-            </div>
-            ${
-              stop.stop_lat && stop.stop_lon
-                ? `
-              <div class="text-right text-sm opacity-70 flex-shrink-0 ml-4">
-                <div>${stop.stop_lat.toFixed(4)}° ${stop.stop_lat >= 0 ? 'N' : 'S'}</div>
-                <div>${stop.stop_lon.toFixed(4)}° ${stop.stop_lon >= 0 ? 'E' : 'W'}</div>
-              </div>
-            `
-                : ''
-            }
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
    * Render editable stop properties section
    */
   private renderStopProperties(stop: EnhancedStop): string {
     // Generate field configurations from StopsSchema
     // This automatically includes all GTFS stop fields with proper types and validation
-    const primaryKey = GTFS_PRIMARY_KEYS[GTFS_TABLES.STOPS];
     const fieldConfigs = generateFieldConfigsFromSchema(
       StopsSchema,
       stop,
-      GTFS_TABLES.STOPS,
-      primaryKey
+      GTFS_TABLES.STOPS
     );
 
     // Render all fields using the reusable field component

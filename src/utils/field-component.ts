@@ -9,6 +9,7 @@
  */
 
 import { getGTFSFieldDescription } from './zod-tooltip-helper.js';
+import { GTFS_PRIMARY_KEYS } from '../types/gtfs.js';
 import type { z } from 'zod';
 
 export interface FieldConfig {
@@ -34,6 +35,8 @@ export interface FieldConfig {
   required?: boolean;
   /** Custom CSS classes for the input element */
   inputClasses?: string;
+  /** Whether the field is readonly (typically for primary keys) */
+  readonly?: boolean;
 }
 
 /**
@@ -109,9 +112,14 @@ function renderLabel(
   const requiredMark = config.required
     ? ' <span class="text-error">*</span>'
     : '';
+  const readonlyIcon = config.readonly
+    ? ` <svg class="w-3 h-3 inline-block opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+       </svg>`
+    : '';
 
   return `
-    <label class="label" for="${inputId}">${escapeHtml(config.label)}${requiredMark}${tooltipHtml}</label>
+    <label class="label" for="${inputId}">${escapeHtml(config.label)}${requiredMark}${readonlyIcon}${tooltipHtml}</label>
   `;
 }
 
@@ -133,6 +141,7 @@ function renderTextInput(config: FieldConfig, inputId: string): string {
       value="${escapeHtml(config.value)}"
       placeholder="${escapeHtml(config.placeholder || '')}"
       ${config.required ? 'required' : ''}
+      ${config.readonly ? 'disabled' : ''}
       ${attrString}
     />
   `;
@@ -162,6 +171,7 @@ function renderSelectInput(config: FieldConfig, inputId: string): string {
       class="select"
       data-field="${config.field}"
       ${config.required ? 'required' : ''}
+      ${config.readonly ? 'disabled' : ''}
     >
       ${optionsHtml}
     </select>
@@ -184,6 +194,7 @@ function renderTextareaInput(config: FieldConfig, inputId: string): string {
       data-field="${config.field}"
       placeholder="${escapeHtml(config.placeholder || '')}"
       ${config.required ? 'required' : ''}
+      ${config.readonly ? 'disabled' : ''}
       ${attrString}
     >${escapeHtml(config.value)}</textarea>
   `;
@@ -313,8 +324,7 @@ export function attachFieldEventListeners(
  * @param schema - Zod schema (e.g., StopsSchema, RoutesSchema)
  * @param data - Current data object
  * @param tableName - GTFS table name (e.g., 'stops.txt')
- * @param primaryKey - Primary key field name (will be read-only)
- * @returns Array of field configurations
+ * @returns Array of field configurations with primary keys marked as readonly
  *
  * @example
  * ```typescript
@@ -322,26 +332,23 @@ export function attachFieldEventListeners(
  * const configs = generateFieldConfigsFromSchema(
  *   StopsSchema,
  *   stop,
- *   GTFS_TABLES.STOPS,
- *   'stop_id'
+ *   GTFS_TABLES.STOPS
  * );
  * ```
  */
 export function generateFieldConfigsFromSchema(
   schema: z.ZodObject<z.ZodRawShape>,
   data: Record<string, string | number | undefined>,
-  tableName: string,
-  primaryKey?: string
+  tableName: string
 ): FieldConfig[] {
   const configs: FieldConfig[] = [];
   const shape = schema.shape;
 
-  for (const [fieldName, fieldSchema] of Object.entries(shape)) {
-    // Skip if primary key (will be handled separately)
-    if (primaryKey && fieldName === primaryKey) {
-      continue;
-    }
+  // Get primary key field for this table
+  const primaryKeyField =
+    GTFS_PRIMARY_KEYS[tableName as keyof typeof GTFS_PRIMARY_KEYS];
 
+  for (const [fieldName, fieldSchema] of Object.entries(shape)) {
     // Unwrap optional/nullable to get inner type
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let innerSchema: any = fieldSchema;
@@ -393,6 +400,9 @@ export function generateFieldConfigsFromSchema(
       attributes.rows = '3';
     }
 
+    // Check if this field is a primary key
+    const isPrimaryKey = fieldName === primaryKeyField;
+
     // Generate human-readable label from field name
     const label = generateLabel(fieldName);
 
@@ -408,11 +418,15 @@ export function generateFieldConfigsFromSchema(
       required: !isOptional,
       options,
       attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+      readonly: isPrimaryKey,
     });
   }
 
-  // Sort configs: required fields first, then optional fields
+  // Sort configs: primary keys first, then required fields, then optional fields
   configs.sort((a, b) => {
+    if (a.readonly !== b.readonly) {
+      return a.readonly ? -1 : 1;
+    }
     if (a.required === b.required) {
       return 0;
     }

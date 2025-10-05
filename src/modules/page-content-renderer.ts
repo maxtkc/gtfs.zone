@@ -85,7 +85,6 @@ export interface ContentRendererDependencies {
  */
 export class PageContentRenderer {
   private dependencies: ContentRendererDependencies;
-  private searchQuery: string = '';
   private stopViewController: StopViewController;
 
   constructor(dependencies: ContentRendererDependencies) {
@@ -102,20 +101,6 @@ export class PageContentRenderer {
       onRouteClick: dependencies.onRouteClick,
     };
     this.stopViewController = new StopViewController(stopViewDependencies);
-  }
-
-  /**
-   * Set search query for filtering content
-   */
-  setSearchQuery(query: string): void {
-    this.searchQuery = query.toLowerCase();
-  }
-
-  /**
-   * Clear search query
-   */
-  clearSearch(): void {
-    this.searchQuery = '';
   }
 
   /**
@@ -208,20 +193,7 @@ export class PageContentRenderer {
    * Render home page (agencies list)
    */
   private async renderHome(): Promise<string> {
-    let agencies = await this.dependencies.relationships.getAgenciesAsync();
-
-    // Apply search filter
-    if (this.searchQuery) {
-      agencies = agencies.filter((agency: unknown) => {
-        const agencyData = agency as Record<string, unknown>;
-        const agencyName = agencyData.agency_name as string | undefined;
-        const agency_id = agencyData.agency_id as string | undefined;
-        return (
-          agencyName?.toLowerCase().includes(this.searchQuery) ||
-          agency_id?.toLowerCase().includes(this.searchQuery)
-        );
-      });
-    }
+    const agencies = await this.dependencies.relationships.getAgenciesAsync();
 
     const agencyCards = agencies
       .map((agency: unknown) => {
@@ -249,25 +221,16 @@ export class PageContentRenderer {
       })
       .join('');
 
-    const searchInput = this.searchQuery ? `value="${this.searchQuery}"` : '';
-
     return `
       <div class="p-4">
-        <div class="flex justify-between items-center mb-4">
+        <div class="mb-4">
           <h2 class="text-xl font-semibold">Transit Agencies</h2>
-          <div class="form-control">
-            <input type="text"
-                   placeholder="Search agencies..."
-                   class="input input-bordered input-sm w-64"
-                   id="agency-search"
-                   ${searchInput} />
-          </div>
         </div>
 
         ${
           agencies.length === 0
             ? `<div class="text-center py-8 text-base-content/50">
-            ${this.searchQuery ? 'No agencies found matching your search.' : 'No agencies found in GTFS data.'}
+            No agencies found in GTFS data.
           </div>`
             : `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             ${agencyCards}
@@ -283,26 +246,11 @@ export class PageContentRenderer {
   private async renderAgency(agency_id: string): Promise<string> {
     const agency =
       await this.dependencies.relationships.getAgencyAsync(agency_id);
-    let routes =
+    const routes =
       await this.dependencies.relationships.getRoutesForAgencyAsync(agency_id);
 
     // Update map to focus on this agency
     this.dependencies.mapController.focusOnAgency(agency_id);
-
-    // Apply search filter
-    if (this.searchQuery) {
-      routes = routes.filter((route: unknown) => {
-        const routeData = route as Record<string, unknown>;
-        const routeShortName = routeData.route_short_name as string | undefined;
-        const routeLongName = routeData.route_long_name as string | undefined;
-        const route_id = routeData.route_id as string | undefined;
-        return (
-          routeShortName?.toLowerCase().includes(this.searchQuery) ||
-          routeLongName?.toLowerCase().includes(this.searchQuery) ||
-          route_id?.toLowerCase().includes(this.searchQuery)
-        );
-      });
-    }
 
     const agencyData = agency as Record<string, unknown> | null;
     const agencyName = (agencyData?.agency_name as string) || agency_id;
@@ -351,28 +299,17 @@ export class PageContentRenderer {
       })
       .join('');
 
-    const searchInput = this.searchQuery ? `value="${this.searchQuery}"` : '';
-
     return `
       <div class="p-4">
-        <div class="flex justify-between items-center mb-4">
-          <div>
-            <h2 class="text-xl font-semibold">${agencyName} Routes</h2>
-            <div class="text-sm text-base-content/70">${routes.length} route${routes.length !== 1 ? 's' : ''}</div>
-          </div>
-          <div class="form-control">
-            <input type="text"
-                   placeholder="Search routes..."
-                   class="input input-bordered input-sm w-64"
-                   id="route-search"
-                   ${searchInput} />
-          </div>
+        <div class="mb-4">
+          <h2 class="text-xl font-semibold">${agencyName} Routes</h2>
+          <div class="text-sm text-base-content/70">${routes.length} route${routes.length !== 1 ? 's' : ''}</div>
         </div>
 
         ${
           routes.length === 0
             ? `<div class="text-center py-8 text-base-content/50">
-            ${this.searchQuery ? 'No routes found matching your search.' : 'No routes found for this agency.'}
+            No routes found for this agency.
           </div>`
             : `<div class="space-y-2">
             ${routeCards}
@@ -568,29 +505,6 @@ export class PageContentRenderer {
         }
       });
     });
-
-    // Search input handlers
-    const agencySearch = container.querySelector(
-      '#agency-search'
-    ) as HTMLInputElement;
-    if (agencySearch) {
-      agencySearch.addEventListener('input', (e) => {
-        const query = (e.target as HTMLInputElement).value;
-        this.setSearchQuery(query);
-        // Trigger re-render - this would need to be handled by the caller
-      });
-    }
-
-    const routeSearch = container.querySelector(
-      '#route-search'
-    ) as HTMLInputElement;
-    if (routeSearch) {
-      routeSearch.addEventListener('input', (e) => {
-        const query = (e.target as HTMLInputElement).value;
-        this.setSearchQuery(query);
-        // Trigger re-render - this would need to be handled by the caller
-      });
-    }
 
     // Add StopViewController event listeners
     this.stopViewController.addEventListeners(container);

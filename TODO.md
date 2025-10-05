@@ -90,6 +90,10 @@
 - [ ] Implement proper async/await initialization pattern
 - [ ] Remove error recovery fallback logic
 
+### GTFS Validation
+
+- [ ] Better support for Conditionally Required GTFS fields
+
 ## Release 0.1.0
 📁 See detailed plan: [`project_tracking/release-0.1.0.md`](project_tracking/release-0.1.0.md)
 

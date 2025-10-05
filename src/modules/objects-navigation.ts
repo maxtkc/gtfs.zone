@@ -78,8 +78,6 @@ export class ObjectsNavigation {
     renderServiceEditor: (service_id: string) => Promise<string>;
   } | null = null; // Will be set after initialization
   private container: HTMLElement | null = null;
-  private searchQuery: string = '';
-  private searchTimeout: NodeJS.Timeout | null = null;
   private isLoading: boolean = false;
   private contentRenderer: PageContentRenderer | null = null;
 
@@ -271,16 +269,12 @@ export class ObjectsNavigation {
       // Get breadcrumbs from PageStateManager
       const breadcrumbs = await getPageStateManager().getBreadcrumbs();
 
-      // Set search query in content renderer
-      this.contentRenderer.setSearchQuery(this.searchQuery);
-
       // Render page content
       const pageContent = await this.contentRenderer.renderPage(pageState);
 
       this.container.innerHTML = `
         <div class="objects-navigation h-full flex flex-col">
           ${this.renderBreadcrumbs(breadcrumbs)}
-          ${this.renderSearchBar()}
           <div class="content flex-1 overflow-y-auto">
             ${pageContent}
           </div>
@@ -303,7 +297,6 @@ export class ObjectsNavigation {
     this.container.innerHTML = `
       <div class="objects-navigation h-full flex flex-col">
         ${this.renderBreadcrumbs([])}
-        ${this.renderSearchBar()}
         <div class="content flex-1 flex items-center justify-center">
           <div class="text-center">
             <div class="loading loading-spinner loading-lg mb-4"></div>
@@ -324,7 +317,6 @@ export class ObjectsNavigation {
     this.container.innerHTML = `
       <div class="objects-navigation h-full flex flex-col">
         ${this.renderBreadcrumbs([])}
-        ${this.renderSearchBar()}
         <div class="content flex-1 flex items-center justify-center">
           <div class="text-center">
             <div class="text-4xl mb-4">⚠️</div>
@@ -373,30 +365,6 @@ export class ObjectsNavigation {
     `;
   }
 
-  renderSearchBar() {
-    return `
-      <div class="search-bar p-3 border-b border-slate-200">
-        <div class="relative">
-          <input 
-            type="text" 
-            id="objects-search" 
-            placeholder="Search agencies, routes, trips, stops..." 
-            value="${this.searchQuery}"
-            class="w-full px-3 py-2 pr-8 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-            ${
-              this.searchQuery
-                ? '<button id="clear-objects-search" class="text-slate-400 hover:text-slate-600">✕</button>'
-                : '<span class="text-slate-400">🔍</span>'
-            }
-          </div>
-        </div>
-        ${this.searchQuery ? `<div class="mt-2 text-xs text-slate-500">Filtering by: "${this.searchQuery}"</div>` : ''}
-      </div>
-    `;
-  }
-
   attachEventListeners() {
     if (!this.container) {
       return;
@@ -406,44 +374,6 @@ export class ObjectsNavigation {
     if (this.contentRenderer) {
       this.contentRenderer.addEventListeners(this.container);
     }
-
-    // Search functionality
-    const searchInput = document.getElementById('objects-search');
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        const query = (e.target as HTMLInputElement).value.trim();
-
-        if (this.searchTimeout) {
-          clearTimeout(this.searchTimeout);
-        }
-
-        this.searchTimeout = setTimeout(async () => {
-          this.searchQuery = query;
-          this.isLoading = true;
-          await this.render();
-          this.isLoading = false;
-          await this.render();
-        }, 300);
-      });
-    }
-
-    // Clear search button
-    this.container.addEventListener('click', async (e) => {
-      const target = e.target as HTMLElement;
-      if (target.id === 'clear-objects-search') {
-        this.searchQuery = '';
-        const searchInput = document.getElementById(
-          'objects-search'
-        ) as HTMLInputElement;
-        if (searchInput) {
-          searchInput.value = '';
-        }
-        this.isLoading = true;
-        await this.render();
-        this.isLoading = false;
-        await this.render();
-      }
-    });
 
     // Breadcrumb navigation
     this.container.addEventListener('click', async (e) => {
