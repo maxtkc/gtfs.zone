@@ -1,14 +1,24 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
-import { consoleForwardPlugin } from 'vite-console-forward-plugin'
+import { execSync } from 'child_process'
 
 // Read version from package.json
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
-const version = packageJson.version
+let version = packageJson.version
+
+// Append branch name if not on main
+try {
+  const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim()
+  if (branch && branch !== 'main') {
+    version = `${version}-${branch}`
+  }
+} catch (error) {
+  // If git command fails, just use the version without branch
+  console.warn('Could not determine git branch, using version without branch suffix')
+}
 
 export default defineConfig({
-  plugins: [consoleForwardPlugin()],
   root: 'src',
   publicDir: '../public',
   define: {
