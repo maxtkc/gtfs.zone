@@ -185,7 +185,7 @@ export class TimetableRenderer {
    */
   public renderTimetableHeader(
     data: TimetableData,
-    hasPendingStop: boolean
+    _hasPendingStop: boolean
   ): string {
     const trips = data.trips;
     const tripHeaders = trips
@@ -199,41 +199,27 @@ export class TimetableRenderer {
       })
       .join('');
 
-    const disabledAttr = hasPendingStop ? 'disabled' : '';
-    const disabledTitle = hasPendingStop
-      ? 'Add a time for the pending stop first'
-      : 'Add stop to timetable';
+    // Always add a "new trip" column on the right
+    const newTripHeader = `
+      <th class="trip-header text-center min-w-[120px] p-2 text-xs bg-base-200">
+        <input
+          type="text"
+          class="input input-xs w-full text-center"
+          placeholder="New trip ID..."
+          id="new-trip-input"
+          onchange="gtfsEditor.scheduleController.createTripFromInput(this.value)"
+        />
+      </th>
+    `;
 
     return `
       <thead>
         <tr>
           <th class="stop-header sticky left-0 bg-base-100 min-w-[200px] p-2 text-left">
-            <div class="flex items-center gap-2">
-              <span>Stop</span>
-              <div class="dropdown" id="add-stop-dropdown-container">
-                <div tabindex="0" role="button" class="btn btn-xs btn-circle btn-ghost"
-                        title="${disabledTitle}"
-                        ${disabledAttr}
-                        onclick="console.log('Button clicked'); gtfsEditor.scheduleController.openAddStopDropdown('${data.route.route_id}', '${data.service.service_id}')"
-                        onfocus="console.log('Button focused'); gtfsEditor.scheduleController.openAddStopDropdown('${data.route.route_id}', '${data.service.service_id}')">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                <div tabindex="0" class="dropdown-content bg-base-100 rounded-box z-[1000] w-64 p-2 shadow-lg border border-base-300 mt-1" id="add-stop-dropdown">
-                  <fieldset class="fieldset">
-                    <label class="label text-xs" for="add-stop-select">Select a stop to add</label>
-                    <select class="select select-sm w-full" id="add-stop-select"
-                            onchange="if(this.value) gtfsEditor.scheduleController.addStopToAllTrips(this.value)">
-                      <option value="">Choose a stop...</option>
-                      <!-- Options will be populated here -->
-                    </select>
-                  </fieldset>
-                </div>
-              </div>
-            </div>
+            Stop
           </th>
           ${tripHeaders}
+          ${newTripHeader}
         </tr>
       </thead>
     `;
@@ -319,6 +305,9 @@ export class TimetableRenderer {
           })
           .join('');
 
+        // Add empty cell for new trip column
+        const newTripCell = '<td class="text-center p-2 bg-base-200"></td>';
+
         return `
         <tr class="${rowClass}">
           <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
@@ -326,12 +315,30 @@ export class TimetableRenderer {
             <div class="stop-id text-xs opacity-70">${stop.stop_id}</div>
           </td>
           ${timeCells}
+          ${newTripCell}
         </tr>
       `;
       })
       .join('');
 
-    return `<tbody>${rows}</tbody>`;
+    // Add new stop row at the bottom
+    const newStopTimeCells = data.trips
+      .map(() => '<td class="text-center p-2 bg-base-200"></td>')
+      .join('');
+    const newStopRow = `
+      <tr class="bg-base-200">
+        <td class="stop-name p-2 sticky left-0 bg-base-200 border-r border-base-300">
+          <select class="select select-sm w-full" id="new-stop-select"
+                  onchange="gtfsEditor.scheduleController.addStopFromSelector(this.value)">
+            <option value="">Add stop...</option>
+          </select>
+        </td>
+        ${newStopTimeCells}
+        <td class="text-center p-2 bg-base-200"></td>
+      </tr>
+    `;
+
+    return `<tbody>${rows}${newStopRow}</tbody>`;
   }
 
   /**

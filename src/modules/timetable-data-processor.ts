@@ -223,9 +223,9 @@ export class TimetableDataProcessor {
       );
     }
 
-    // Get all trips for this route and service
+    // Get all trips for this route and service (use async to get from database)
     const allTrips: EnhancedTrip[] =
-      this.relationships.getTripsForRoute(route_id);
+      await this.relationships.getTripsForRouteAsync(route_id);
     let trips = allTrips.filter(
       (trip: EnhancedTrip) => trip.service_id === service_id
     );

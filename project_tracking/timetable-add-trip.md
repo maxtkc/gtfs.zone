@@ -1,9 +1,10 @@
 # Add Trip to Timetable
 
-**Status**: 📋 Planning Complete, Ready for Implementation
+**Status**: ✅ Implementation Complete
 **Priority**: High
 **Estimated Effort**: Medium (3-5 days)
 **Created**: 2025-10-02
+**Completed**: 2025-10-03
 
 ## Overview
 Implement the ability to add new trips (columns) to the timetable with an "Add Trip" button in the fixed header area. This allows users to create new service runs without leaving the timetable view.
@@ -70,68 +71,69 @@ Implement the ability to add new trips (columns) to the timetable with an "Add T
 
 ### Backend - Database Operations
 
-- [ ] **Create `addNewTrip()` method** in `ScheduleController` (src/modules/schedule-controller.ts)
-  - [ ] Validate `trip_id` is unique (check if already exists in trips table)
-  - [ ] Insert trip record into `trips` table with minimal fields: `trip_id`, `route_id`, `service_id`, `direction_id`
-  - [ ] Create empty stop_time records for all stops in supersequence (arrival_time: null, departure_time: null)
-  - [ ] Return success/error
+- [x] **Create `addNewTrip()` method** in `ScheduleController` (src/modules/schedule-controller.ts:913)
+  - [x] Validate `trip_id` is unique (check if already exists in trips table)
+  - [x] Insert trip record into `trips` table with minimal fields: `trip_id`, `route_id`, `service_id`, `direction_id`
+  - [x] Create empty stop_time records for all stops in supersequence (arrival_time: null, departure_time: null)
+  - [x] Return success/error
 
-- [ ] **Create `validateTripId()` helper** in `ScheduleController`
-  - [ ] Query existing trips to check if trip_id already exists
-  - [ ] Return validation result with error message if duplicate
+- [x] **Create `validateTripId()` helper** in `ScheduleController` (src/modules/schedule-controller.ts:879)
+  - [x] Query existing trips to check if trip_id already exists
+  - [x] Return validation result with error message if duplicate
 
 ### Frontend - UI Components
 
-- [ ] **Move "+ Add Stop" button** from table header to fixed header area
-  - [ ] Remove from `renderTimetableHeader()` (currently at src/modules/timetable-renderer.ts:210)
-  - [ ] Add to `renderScheduleHeader()` (src/modules/timetable-renderer.ts:64)
-  - [ ] Position: Right side of header, next to route/service info
+- [x] **Move "+ Add Stop" button** from table header to fixed header area
+  - [x] Remove from `renderTimetableHeader()` (was at src/modules/timetable-renderer.ts:210)
+  - [x] Add to `renderScheduleHeader()` (src/modules/timetable-renderer.ts:64)
+  - [x] Position: Right side of header, next to route/service info
 
-- [ ] **Add "+ Add Trip" button** in timetable header (next to Add Stop)
-  - [ ] Location: `TimetableRenderer.renderScheduleHeader()` (src/modules/timetable-renderer.ts:64)
-  - [ ] Position: Right side of header, next to [+ Add Stop] button
-  - [ ] Style: DaisyUI button component, consistent with existing UI
-  - [ ] Handler: `onclick="gtfsEditor.scheduleController.openAddTripModal()"`
+- [x] **Add "+ Add Trip" button** in timetable header (next to Add Stop)
+  - [x] Location: `TimetableRenderer.renderScheduleHeader()` (src/modules/timetable-renderer.ts:64)
+  - [x] Position: Right side of header, next to [+ Add Stop] button
+  - [x] Style: DaisyUI button component (btn btn-sm gap-1), consistent with existing UI
+  - [x] Handler: `onclick="gtfsEditor.scheduleController.openAddTripDropdown()"`
 
-- [ ] **Create trip creation dropdown HTML** in `TimetableRenderer`
-  - [ ] Similar to add-stop dropdown (see renderTimetableHeader() line 223)
-  - [ ] Contains:
+- [x] **Create trip creation dropdown HTML** in `TimetableRenderer` (src/modules/timetable-renderer.ts:117)
+  - [x] Similar to add-stop dropdown
+  - [x] Contains:
     - Label: "Enter trip ID"
     - Input field: `<input class="input input-sm w-full" id="add-trip-input">`
-    - Submit on Enter key or input change
-  - [ ] Validation: trip_id must not be empty and must be unique
+    - Submit on Enter key press
+  - [x] Validation: trip_id must not be empty and must be unique
 
-- [ ] **Add dropdown show/hide logic** in `ScheduleController`
-  - [ ] `openAddTripDropdown()` - Display dropdown, focus input
-  - [ ] `addNewTripFromInput()` - Get input value, validate, create trip
-  - [ ] Handle Enter key press on input field
+- [x] **Add dropdown show/hide logic** in `ScheduleController`
+  - [x] `openAddTripDropdown()` - Display dropdown, focus input (src/modules/schedule-controller.ts:838)
+  - [x] `closeAddTripDropdown()` - Hide dropdown (src/modules/schedule-controller.ts:864)
+  - [x] `addNewTripFromInput()` - Get input value, validate, create trip (src/modules/schedule-controller.ts:979)
+  - [x] Handle Enter key press on input field
 
 ### Integration & Refresh
 
-- [ ] **Handle input submission** in `ScheduleController`
-  - [ ] Validate trip_id is not empty
-  - [ ] Validate trip_id is unique using `validateTripId()`
-  - [ ] Call `addNewTrip(trip_id)`
-  - [ ] Show success notification
-  - [ ] Close dropdown (blur input)
-  - [ ] Refresh timetable
+- [x] **Handle input submission** in `ScheduleController`
+  - [x] Validate trip_id is not empty
+  - [x] Validate trip_id is unique using `validateTripId()`
+  - [x] Call `addNewTrip(trip_id)`
+  - [x] Show success notification
+  - [x] Close dropdown
+  - [x] Refresh timetable
 
-- [ ] **Refresh timetable** to show new trip
-  - [ ] Call `refreshCurrentTimetable()` (already exists)
-  - [ ] New trip column appears at end
-  - [ ] Empty cells or copied times displayed
+- [x] **Refresh timetable** to show new trip
+  - [x] Call `refreshCurrentTimetable()` (already exists)
+  - [x] New trip column appears at end
+  - [x] Empty cells displayed
 
 ### Error Handling
 
-- [ ] **Validation errors**
-  - [ ] Empty trip_id → "Trip ID is required"
-  - [ ] Duplicate trip_id → "Trip ID already exists, please choose another"
-  - [ ] Database insert failure → Show error notification
+- [x] **Validation errors**
+  - [x] Empty trip_id → "Trip ID is required"
+  - [x] Duplicate trip_id → "Trip ID already exists, please choose another"
+  - [x] Database insert failure → Show error notification
 
-- [ ] **User feedback**
-  - [ ] Success: "Trip created successfully"
-  - [ ] Error: "Failed to create trip: [reason]"
-  - [ ] Loading state while creating (disable submit button)
+- [x] **User feedback**
+  - [x] Success: "Trip created successfully"
+  - [x] Error: "Failed to create trip" / "No timetable loaded" / validation messages
+  - [x] Dropdowns close on blur with timeout
 
 ### Testing
 

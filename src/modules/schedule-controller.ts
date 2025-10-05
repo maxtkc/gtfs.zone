@@ -566,13 +566,85 @@ export class ScheduleController {
         hasPendingStop: !!this.pendingStop,
       });
 
-      return this.renderer.renderTimetableHTML(
+      const html = this.renderer.renderTimetableHTML(
         timetableData,
         this.pendingStop?.stop_id
       );
+
+      // After rendering, populate the new-stop-select dropdown
+      setTimeout(() => {
+        this.populateNewStopSelect();
+      }, 0);
+
+      return html;
     } catch (error) {
       console.error('Error rendering schedule:', error);
       return this.renderer.renderErrorHTML('Failed to generate schedule view');
+    }
+  }
+
+  /**
+   * Populate the new stop selector with available stops
+   *
+   * Called after rendering to fill the dropdown with stops not in the timetable.
+   */
+  private async populateNewStopSelect(): Promise<void> {
+    const selectElement = document.getElementById(
+      'new-stop-select'
+    ) as HTMLSelectElement;
+    if (!selectElement) {
+      return;
+    }
+
+    try {
+      if (!this.currentRouteId || !this.currentServiceId) {
+        return;
+      }
+
+      // Get all stops in the current timetable
+      const timetableData = await this.dataProcessor.generateTimetableData(
+        this.currentRouteId,
+        this.currentServiceId,
+        this.currentDirectionId
+      );
+      const currentStopIds = new Set(
+        timetableData.stops.map((stop) => stop.stop_id)
+      );
+
+      // Get all stops from the database
+      const allStops = await this.gtfsParser.gtfsDatabase.queryRows(
+        'stops',
+        {}
+      );
+
+      // Filter out stops already in the timetable
+      const availableStops = allStops.filter(
+        (stop) => !currentStopIds.has(stop.stop_id)
+      );
+
+      // Reset select to default option
+      selectElement.innerHTML = '<option value="">Add stop...</option>';
+
+      if (availableStops.length === 0) {
+        selectElement.innerHTML +=
+          '<option value="" disabled>All stops are already in this timetable</option>';
+        return;
+      }
+
+      // Add stops as options
+      const options = availableStops
+        .map(
+          (stop) => `
+          <option value="${stop.stop_id}">
+            ${this.escapeHtml(stop.stop_name || stop.stop_id)}
+          </option>
+        `
+        )
+        .join('');
+
+      selectElement.innerHTML += options;
+    } catch (error) {
+      console.error('Failed to populate new stop select:', error);
     }
   }
 
@@ -662,6 +734,28 @@ export class ScheduleController {
 
     // Populate the dropdown
     this.populateAddStopList(availableStops);
+
+    // Show the dropdown
+    const dropdownContainer = document.getElementById(
+      'add-stop-dropdown-container'
+    );
+    if (dropdownContainer) {
+      dropdownContainer.style.display = 'block';
+      // Position near the button
+      const addStopBtn = document.getElementById('add-stop-btn');
+      if (addStopBtn) {
+        const rect = addStopBtn.getBoundingClientRect();
+        dropdownContainer.style.top = `${rect.bottom + 5}px`;
+        dropdownContainer.style.right = `${window.innerWidth - rect.right}px`;
+      }
+      // Focus the select
+      const selectElement = document.getElementById(
+        'add-stop-select'
+      ) as HTMLSelectElement;
+      if (selectElement) {
+        selectElement.focus();
+      }
+    }
   }
 
   /**
@@ -761,9 +855,12 @@ export class ScheduleController {
         selectElement.value = '';
       }
 
-      // Close the dropdown by blurring the active element
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
+      // Close the dropdown
+      const dropdownContainer = document.getElementById(
+        'add-stop-dropdown-container'
+      );
+      if (dropdownContainer) {
+        dropdownContainer.style.display = 'none';
       }
 
       // Refresh the timetable to show the new pending stop row
@@ -809,6 +906,162 @@ export class ScheduleController {
     if (this.pendingStop && this.pendingStop.stop_id === stop_id) {
       console.log(`Clearing pending stop ${stop_id} - time has been saved`);
       this.pendingStop = undefined;
+    }
+  }
+
+  /**
+   * Create a new trip from the input field
+   *
+   * Called when user types a trip ID in the always-visible new trip input.
+   * Saves trip to database immediately with no stop_times.
+   *
+   * @param trip_id - User-entered trip ID
+   */
+  public async createTripFromInput(trip_id: string): Promise<void> {
+    const trimmedId = trip_id.trim();
+
+    // Clear the input first
+    const inputElement = document.getElementById(
+      'new-trip-input'
+    ) as HTMLInputElement;
+    if (inputElement) {
+      inputElement.value = '';
+    }
+
+    if (!trimmedId) {
+      // Empty input, just ignore
+      return;
+    }
+
+    try {
+      if (!this.currentRouteId || !this.currentServiceId) {
+        notifications.showError('No timetable loaded');
+        return;
+      }
+
+      // Validate trip_id
+      const validation = await this.validateTripId(trimmedId);
+      if (!validation.isValid) {
+        notifications.showError(validation.errorMessage || 'Invalid trip ID');
+        return;
+      }
+
+      // Save trip to database immediately (no pending state)
+      const tripData = {
+        trip_id: trimmedId,
+        route_id: this.currentRouteId,
+        service_id: this.currentServiceId,
+        ...(this.currentDirectionId && {
+          direction_id: this.currentDirectionId,
+        }),
+      };
+
+      await this.gtfsParser.gtfsDatabase.insertRows('trips', [tripData]);
+      console.log('Trip saved to database:', tripData);
+
+      notifications.showSuccess(`Trip "${trimmedId}" created successfully`);
+
+      // Refresh the timetable to show the new trip column
+      await this.refreshCurrentTimetable();
+    } catch (error) {
+      console.error('Failed to create trip:', error);
+      notifications.showError('Failed to create trip');
+    }
+  }
+
+  /**
+   * Validate trip ID uniqueness
+   *
+   * Checks if a trip_id already exists in the trips table.
+   *
+   * @param trip_id - Trip ID to validate
+   * @returns Promise resolving to validation result
+   */
+  private async validateTripId(trip_id: string): Promise<{
+    isValid: boolean;
+    errorMessage?: string;
+  }> {
+    try {
+      const existingTrips = await this.gtfsParser.gtfsDatabase.queryRows(
+        'trips',
+        {
+          trip_id,
+        }
+      );
+
+      if (existingTrips.length > 0) {
+        return {
+          isValid: false,
+          errorMessage: 'Trip ID already exists, please choose another',
+        };
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      console.error('Error validating trip ID:', error);
+      return {
+        isValid: false,
+        errorMessage: 'Failed to validate trip ID',
+      };
+    }
+  }
+
+  /**
+   * Add a stop from the selector
+   *
+   * Called when user selects a stop from the always-visible new stop dropdown.
+   * Sets the stop as "pending" - it will only be saved to DB when user enters a time.
+   *
+   * @param stop_id - Selected stop ID
+   */
+  public async addStopFromSelector(stop_id: string): Promise<void> {
+    if (!stop_id) {
+      return;
+    }
+
+    try {
+      if (!this.currentRouteId || !this.currentServiceId) {
+        console.error('No current timetable to add stop to');
+        return;
+      }
+
+      // Get stop details
+      const stops = await this.gtfsParser.gtfsDatabase.queryRows('stops', {
+        stop_id,
+      });
+
+      if (stops.length === 0) {
+        notifications.showError('Stop not found');
+        return;
+      }
+
+      const stop = stops[0];
+
+      // Set as pending stop (NOT saved to database yet)
+      this.pendingStop = {
+        stop_id: stop.stop_id,
+        stop_name: stop.stop_name || stop.stop_id,
+      };
+
+      console.log(`Set pending stop: ${stop.stop_id} - ${stop.stop_name}`);
+
+      // Reset the selector
+      const selectElement = document.getElementById(
+        'new-stop-select'
+      ) as HTMLSelectElement;
+      if (selectElement) {
+        selectElement.value = '';
+      }
+
+      notifications.showSuccess(
+        `Stop added. Enter a time for at least one trip to save.`
+      );
+
+      // Refresh the timetable to show the new pending stop row
+      await this.refreshCurrentTimetable();
+    } catch (error) {
+      console.error('Failed to add stop to timetable:', error);
+      notifications.showError('Failed to add stop to timetable');
     }
   }
 
