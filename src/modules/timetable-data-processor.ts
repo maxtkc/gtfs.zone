@@ -34,14 +34,18 @@ export interface EditableStopTime {
 /**
  * Aligned trip interface for timetable rendering
  * Contains time mappings aligned to the optimal stop sequence
+ *
+ * IMPORTANT: All maps use supersequence position (number) as keys, NOT stop_id
+ * This ensures correct handling of duplicate stops (e.g., circular routes where
+ * a stop appears multiple times in the sequence)
  */
 export interface AlignedTrip {
   trip_id: string;
   headsign: string;
-  stopTimes: Map<string, string>; // stop_id -> time (departure or arrival), null for gaps
-  arrival_times?: Map<string, string>; // stop_id -> arrival time, null for gaps
-  departure_times?: Map<string, string>; // stop_id -> departure time, null for gaps
-  editableStopTimes?: Map<string, EditableStopTime>; // stop_id -> editable stop time
+  stopTimes: Map<number, string>; // supersequence position -> time (departure or arrival)
+  arrival_times?: Map<number, string>; // supersequence position -> arrival time
+  departure_times?: Map<number, string>; // supersequence position -> departure time
+  editableStopTimes?: Map<number, EditableStopTime>; // supersequence position -> editable stop time
   trip_headsign?: string;
   trip_short_name?: string;
 }
@@ -374,8 +378,9 @@ export class TimetableDataProcessor {
     _supersequence: string[]
   ): Promise<AlignedTrip[]> {
     // Sort trips by departure time from first stop
+    // IMPORTANT: Keep track of original indices because SCS alignments use original trip order!
     const tripsWithFirstTime = await Promise.all(
-      trips.map(async (trip) => {
+      trips.map(async (trip, originalIndex) => {
         const stopTimes = await this.getStopTimesFromDatabase(trip.id);
         const sortedStopTimes = stopTimes.sort(
           (a: StopTimes, b: StopTimes) =>
@@ -385,7 +390,7 @@ export class TimetableDataProcessor {
         const firstStopTime = sortedStopTimes[0];
         const firstDepartureTime =
           firstStopTime?.departure_time || firstStopTime?.arrival_time || '';
-        return { trip, firstDepartureTime };
+        return { trip, firstDepartureTime, originalIndex };
       })
     );
 
@@ -400,12 +405,14 @@ export class TimetableDataProcessor {
       return a.firstDepartureTime.localeCompare(b.firstDepartureTime);
     });
 
-    const sortedTrips = tripsWithFirstTime.map(({ trip }) => trip);
-
     const alignedTrips: AlignedTrip[] = [];
 
-    for (let tripIndex = 0; tripIndex < sortedTrips.length; tripIndex++) {
-      const trip = sortedTrips[tripIndex];
+    for (
+      let sortedIndex = 0;
+      sortedIndex < tripsWithFirstTime.length;
+      sortedIndex++
+    ) {
+      const { trip, originalIndex } = tripsWithFirstTime[sortedIndex];
       const stopTimes = await this.getStopTimesFromDatabase(trip.id);
       const stopTimeMap = new Map<string, string>();
       const arrival_timeMap = new Map<string, string>();
@@ -422,19 +429,23 @@ export class TimetableDataProcessor {
       // The generated GTFS schema incorrectly marks optional fields as required
       // and doesn't handle string-to-number conversion for CSV data
 
-      // Use SCS alignment to map times to stop_ids
+      // Use SCS alignment to map times to supersequence positions
       // The position mapping tells us which stops in this trip align to which positions in the supersequence
-      const positionMapping = scsHelper.getPositionMapping(tripIndex);
+      // IMPORTANT: This handles duplicate stops correctly (e.g., circular routes)
+      // Use originalIndex because SCS was computed on the original unsorted trip order!
+      const positionMapping = scsHelper.getPositionMapping(originalIndex);
 
       console.log(
-        `DEBUG: Trip ${trip.id} (index ${tripIndex}) position mapping:`,
+        `DEBUG: Trip ${trip.id} (sortedIndex=${sortedIndex}, originalIndex=${originalIndex}) position mapping:`,
         positionMapping
       );
       console.log(
         `DEBUG: Trip ${trip.id} has ${sortedStopTimes.length} stop times`
       );
 
-      console.log(`\n=== ALIGNING TRIP ${trip.id} (index ${tripIndex}) ===`);
+      console.log(
+        `\n=== ALIGNING TRIP ${trip.id} (sortedIndex=${sortedIndex}, originalIndex=${originalIndex}) ===`
+      );
       console.log(
         `Sorted stop_times for this trip (${sortedStopTimes.length} stops):`
       );
@@ -444,39 +455,57 @@ export class TimetableDataProcessor {
         );
       });
 
-      // SIMPLIFIED APPROACH: Just use stop_id directly as the key!
-      // No need for complex position mappings - we already have the stop_id
-      sortedStopTimes.forEach((st: StopTimes) => {
+      // Use position mapping from SCS to correctly handle duplicate stops
+      // inputPosition = position in this trip's stop sequence (0, 1, 2, ...)
+      // supersequencePosition = position in the optimal merged sequence
+      sortedStopTimes.forEach((st: StopTimes, inputPosition: number) => {
         const stop_id = st.stop_id;
         const arrival_time = st.arrival_time;
         const departure_time = st.departure_time;
         const displayTime = departure_time || arrival_time;
 
+        // Get the supersequence position for this stop from SCS alignment
+        const supersequencePosition = positionMapping.get(inputPosition);
+
+        if (supersequencePosition === undefined) {
+          const errorMsg = `CRITICAL ERROR: No supersequence position found for trip ${trip.id}, inputPosition ${inputPosition}, stop_id ${stop_id}. This indicates a bug in the SCS alignment logic. Original trip index: ${originalIndex}, sorted trip index: ${sortedIndex}`;
+          console.error(errorMsg);
+          console.error('Position mapping:', positionMapping);
+          console.error(
+            'Available mappings:',
+            Array.from(positionMapping.entries())
+          );
+          throw new Error(errorMsg);
+        }
+
         console.log(
-          `\nProcessing: Trip ${trip.id}, stop_id=${stop_id}, arr=${arrival_time}, dep=${departure_time}`
+          `\nProcessing: Trip ${trip.id}, inputPos=${inputPosition}, stop_id=${stop_id}, superPos=${supersequencePosition}, arr=${arrival_time}, dep=${departure_time}`
         );
 
-        // Use stop_id directly as the key - simple and clear!
+        // Use supersequence position as the key - this handles duplicate stops correctly!
         if (arrival_time) {
-          arrival_timeMap.set(stop_id, arrival_time);
+          arrival_timeMap.set(supersequencePosition, arrival_time);
           console.log(
-            `  ✓ Set arrival_timeMap['${stop_id}'] = ${arrival_time}`
+            `  ✓ Set arrival_timeMap[${supersequencePosition}] = ${arrival_time}`
           );
         }
         if (departure_time) {
-          departure_timeMap.set(stop_id, departure_time);
+          departure_timeMap.set(supersequencePosition, departure_time);
           console.log(
-            `  ✓ Set departure_timeMap['${stop_id}'] = ${departure_time}`
+            `  ✓ Set departure_timeMap[${supersequencePosition}] = ${departure_time}`
           );
         }
         if (displayTime) {
-          stopTimeMap.set(stop_id, displayTime);
-          console.log(`  ✓ Set stopTimeMap['${stop_id}'] = ${displayTime}`);
+          stopTimeMap.set(supersequencePosition, displayTime);
+          console.log(
+            `  ✓ Set stopTimeMap[${supersequencePosition}] = ${displayTime}`
+          );
         }
 
         // Create editable stop time with both arrival and departure
+        // Key by supersequence position to handle duplicate stops
         if (arrival_time || departure_time) {
-          editableStopTimes.set(stop_id, {
+          editableStopTimes.set(supersequencePosition, {
             stop_id: st.stop_id,
             arrival_time: arrival_time,
             departure_time: departure_time,
@@ -484,7 +513,7 @@ export class TimetableDataProcessor {
             originalArrivalTime: arrival_time,
             originalDepartureTime: departure_time,
           });
-          console.log(`  ✓ Set editableStopTimes['${stop_id}']`);
+          console.log(`  ✓ Set editableStopTimes[${supersequencePosition}]`);
         }
       });
 
@@ -505,14 +534,14 @@ export class TimetableDataProcessor {
       console.log(`arrival_timeMap size: ${arrival_timeMap.size}`);
       console.log(`departure_timeMap size: ${departure_timeMap.size}`);
       console.log(`editableStopTimes size: ${editableStopTimes.size}`);
-      console.log(`\nAll entries in maps:`);
+      console.log(`\nAll entries in maps (keyed by supersequence position):`);
       console.table(
-        Array.from(stopTimeMap.entries()).map(([stop_id, time]) => ({
-          stop_id: stop_id,
+        Array.from(stopTimeMap.entries()).map(([position, time]) => ({
+          supersequence_position: position,
           display_time: time,
-          arrival_time: arrival_timeMap.get(stop_id) || '-',
-          departure_time: departure_timeMap.get(stop_id) || '-',
-          has_editable: editableStopTimes.has(stop_id) ? 'YES' : 'NO',
+          arrival_time: arrival_timeMap.get(position) || '-',
+          departure_time: departure_timeMap.get(position) || '-',
+          has_editable: editableStopTimes.has(position) ? 'YES' : 'NO',
         }))
       );
     }

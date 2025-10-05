@@ -263,17 +263,22 @@ export class TimetableRenderer {
           : '';
         const timeCells = data.trips
           .map((trip, tripIndex) => {
-            // Use stop_id as the key for all time lookups
-            // This is much clearer than numeric indices and eliminates confusion with stop_sequence
+            // Use stopIndex as the key for all time lookups
+            // stopIndex = position in the supersequence (same as position in data.stops array)
+            // This handles duplicate stops correctly (e.g., circular routes)
             const stop_id = stop.stop_id;
+            const supersequencePosition = stopIndex;
 
             console.log(
-              `  Trip ${tripIndex} (${trip.trip_id}): Looking up stop_id='${stop_id}'`
+              `  Trip ${tripIndex} (${trip.trip_id}): Looking up position=${supersequencePosition}, stop_id='${stop_id}'`
             );
-            const editableStopTime = trip.editableStopTimes?.get(stop_id);
-            const arrival_time = trip.arrival_times?.get(stop_id) || undefined;
+            const editableStopTime = trip.editableStopTimes?.get(
+              supersequencePosition
+            );
+            const arrival_time =
+              trip.arrival_times?.get(supersequencePosition) || undefined;
             const departure_time =
-              trip.departure_times?.get(stop_id) || undefined;
+              trip.departure_times?.get(supersequencePosition) || undefined;
 
             console.log(`    arrival_time: ${arrival_time || 'NONE'}`);
             console.log(`    departure_time: ${departure_time || 'NONE'}`);
@@ -283,14 +288,14 @@ export class TimetableRenderer {
 
             if (!arrival_time && !departure_time) {
               console.log(
-                `    ⚠️  NO TIMES FOUND for stop_id='${stop_id}' in trip ${trip.trip_id}`
+                `    ⚠️  NO TIMES FOUND for position=${supersequencePosition}, stop_id='${stop_id}' in trip ${trip.trip_id}`
               );
               console.log(
-                `    Available stop_ids in arrival_times:`,
+                `    Available positions in arrival_times:`,
                 Array.from(trip.arrival_times?.keys() || [])
               );
               console.log(
-                `    Available stop_ids in departure_times:`,
+                `    Available positions in departure_times:`,
                 Array.from(trip.departure_times?.keys() || [])
               );
             }
