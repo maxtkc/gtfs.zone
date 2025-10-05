@@ -143,6 +143,12 @@ export class GTFSEditor {
       // Initialize tab manager
       this.tabManager.initialize();
 
+      // Set up basemap switcher
+      this.setupBasemapSwitcher();
+
+      // Set up highlight style toggle
+      this.setupHighlightStyleToggle();
+
       // Set up navigation event listener for automatic tab switching
       this.setupNavigationTabSwitching();
 
@@ -228,6 +234,36 @@ export class GTFSEditor {
     const versionElement = document.getElementById('app-version');
     if (versionElement) {
       versionElement.textContent = `v${__APP_VERSION__}`;
+    }
+  }
+
+  /**
+   * Set up basemap switcher event handler
+   */
+  private setupBasemapSwitcher(): void {
+    const basemapSelect = document.getElementById('basemap-select') as HTMLSelectElement;
+    if (basemapSelect) {
+      basemapSelect.addEventListener('change', (e) => {
+        const target = e.target as HTMLSelectElement;
+        this.mapController.switchBasemap(target.value);
+      });
+    }
+  }
+
+  /**
+   * Set up highlight style toggle event handler
+   */
+  private setupHighlightStyleToggle(): void {
+    const highlightToggle = document.getElementById('highlight-style-toggle') as HTMLInputElement;
+    if (highlightToggle) {
+      highlightToggle.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        // Access route renderer through map controller
+        const routeRenderer = (this.mapController as any).routeRenderer;
+        if (routeRenderer && typeof routeRenderer.setHighlightStyle === 'function') {
+          routeRenderer.setHighlightStyle(target.checked);
+        }
+      });
     }
   }
 

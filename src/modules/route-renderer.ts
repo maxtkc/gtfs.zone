@@ -1,6 +1,7 @@
 import { Map as MapLibreMap } from 'maplibre-gl';
 import { GTFS } from '../types/gtfs.js';
 import type { GTFSParser } from './gtfs-parser.js';
+import * as turf from '@turf/turf';
 
 export interface RouteFeature extends GeoJSON.Feature {
   id: string;
@@ -11,7 +12,23 @@ export interface RouteFeature extends GeoJSON.Feature {
     color: string;
     route_short_name?: string;
     route_long_name?: string;
+    hasOverlap?: boolean;
   };
+}
+
+interface RouteOverlap {
+  routeAId: string;
+  routeBId: string;
+  tripAId: string;
+  tripBId: string;
+  overlapSegments: turf.Feature<turf.LineString>[];
+  overlapPercentage: number;
+}
+
+interface SegmentInfo {
+  coordinates: [number, number][];
+  isOverlapping: boolean;
+  overlapGroup?: string; // ID to identify which routes share this overlap
 }
 
 export interface RouteRenderingOptions {
@@ -78,41 +95,61 @@ export class RouteRenderer {
       return;
     }
 
-    // Check if source already exists
-    if (this.map.getSource('routes')) {
-      console.log('🔍 Routes source already exists');
+    // Check if layers already exist
+    if (this.map.getLayer('routes-background')) {
+      console.log('🔍 Routes layers already exist');
       this.initialized = true;
       return;
     }
 
-    // Add routes source
-    this.map.addSource('routes', {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: [],
-      },
-    });
+    // Add routes source if it doesn't exist
+    if (!this.map.getSource('routes')) {
+      this.map.addSource('routes', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        },
+      });
+      console.log('✅ Routes source added');
+    }
 
-    console.log('✅ Routes source added');
-
-    // Add route background layer for visual appearance
+    // Add route background layer for non-overlapping routes (solid)
     this.map.addLayer({
       id: 'routes-background',
       type: 'line',
       source: 'routes',
+      filter: ['!=', ['get', 'hasOverlap'], true], // Only routes without hasOverlap=true
       paint: {
         'line-color': ['get', 'color'],
         'line-width': this.defaultOptions.lineWidth,
         'line-opacity': this.defaultOptions.opacity,
       },
       layout: {
-        'line-cap': 'round', // KEY: This creates smooth line ends
-        'line-join': 'round', // KEY: This creates smooth line joints
+        'line-cap': 'round',
+        'line-join': 'round',
       },
     });
 
-    console.log('✅ Routes background layer added');
+    // Add route layer for overlapping routes (dashed)
+    this.map.addLayer({
+      id: 'routes-overlapping',
+      type: 'line',
+      source: 'routes',
+      filter: ['==', ['get', 'hasOverlap'], true], // Only routes with hasOverlap=true
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': this.defaultOptions.lineWidth,
+        'line-opacity': this.defaultOptions.opacity,
+        'line-dasharray': [3, 2], // Dashed pattern
+      },
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+    });
+
+    console.log('✅ Routes background layers added');
 
     // Add click area layer for interactions
     this.map.addLayer({
@@ -130,16 +167,16 @@ export class RouteRenderer {
       },
     });
 
-    // Add route highlight layer
+    // Add route highlight layer (thicker line with route's own color)
     this.map.addLayer({
       id: 'routes-highlight',
       type: 'line',
       source: 'routes',
       filter: ['==', 'route_id', ''], // Initially matches nothing
       paint: {
-        'line-color': '#FFFF00', // Yellow highlight
-        'line-width': 5,
-        'line-opacity': 0.9,
+        'line-color': ['get', 'color'],
+        'line-width': 6,
+        'line-opacity': 1.0,
       },
       layout: {
         'line-cap': 'round',
@@ -320,6 +357,99 @@ export class RouteRenderer {
   }
 
   /**
+   * Detect overlapping routes using Turf.js
+   * Compares routes (not individual trips) by using one representative trip per route
+   */
+  private detectOverlappingRoutes(): RouteOverlap[] {
+    const overlaps: RouteOverlap[] = [];
+
+    // Group features by route_id and pick one representative trip per route
+    const routeRepresentatives = new Map<string, RouteFeature>();
+    this.routeFeatures.forEach(feature => {
+      const routeId = feature.properties.route_id;
+      // Use first trip as representative for each route
+      if (!routeRepresentatives.has(routeId)) {
+        routeRepresentatives.set(routeId, feature);
+      }
+    });
+
+    const routeIds = Array.from(routeRepresentatives.keys());
+    console.log(`🔍 Checking for overlaps between ${routeIds.length} routes (using representative trips)...`);
+
+    // Compare each pair of different routes (using one trip per route)
+    for (let i = 0; i < routeIds.length; i++) {
+      for (let j = i + 1; j < routeIds.length; j++) {
+        const routeAId = routeIds[i];
+        const routeBId = routeIds[j];
+        const featureA = routeRepresentatives.get(routeAId)!;
+        const featureB = routeRepresentatives.get(routeBId)!;
+
+        try {
+          const overlap = turf.lineOverlap(featureA, featureB, {
+            tolerance: 0.05, // 50 meters
+          });
+
+          if (overlap.features.length > 0) {
+            // Calculate overlap metrics
+            const lineALength = turf.length(featureA);
+            const overlapLength = overlap.features.reduce((sum, segment) => {
+              return sum + turf.length(segment);
+            }, 0);
+            const overlapPercentage = lineALength > 0 ? (overlapLength / lineALength) * 100 : 0;
+
+            console.log(
+              `  📊 Overlap: ${routeAId} ↔ ${routeBId}: ${overlapPercentage.toFixed(1)}% (${overlapLength.toFixed(2)}km)`
+            );
+
+            // Record the overlap - will apply to ALL trips of both routes
+            overlaps.push({
+              routeAId,
+              routeBId,
+              tripAId: featureA.id as string,
+              tripBId: featureB.id as string,
+              overlapSegments: overlap.features,
+              overlapPercentage,
+            });
+          }
+        } catch (error) {
+          console.warn(`Error detecting overlap between ${routeAId} and ${routeBId}:`, error);
+        }
+      }
+    }
+
+    console.log(`🔍 Detected ${overlaps.length} overlapping route pairs`);
+    return overlaps;
+  }
+
+  /**
+   * Mark routes that have overlaps with visual styling
+   */
+  private markOverlappingRoutes(overlaps: RouteOverlap[]): void {
+    console.log(`🎨 Marking ${overlaps.length} overlapping route pairs with dashed styling...`);
+
+    const overlappingRouteIds = new Set<string>();
+
+    // Collect all route_ids that have overlaps
+    overlaps.forEach(overlap => {
+      overlappingRouteIds.add(overlap.routeAId);
+      overlappingRouteIds.add(overlap.routeBId);
+    });
+
+    console.log(`  📍 ${overlappingRouteIds.size} routes have overlaps`);
+
+    // Mark ALL trips of overlapping routes
+    let markedCount = 0;
+    this.routeFeatures.forEach(feature => {
+      if (overlappingRouteIds.has(feature.properties.route_id)) {
+        feature.properties.hasOverlap = true;
+        markedCount++;
+      }
+    });
+
+    console.log(`✅ Marked ${markedCount} trips across ${overlappingRouteIds.size} routes with dashed styling`);
+  }
+
+  /**
    * Render routes using MapLibre with smooth line rendering
    */
   public async renderRoutes(
@@ -338,6 +468,12 @@ export class RouteRenderer {
     if (this.routeFeatures.length === 0) {
       console.warn('No route features available for rendering');
       return;
+    }
+
+    // Detect overlapping routes and mark them with visual styling
+    const overlaps = this.detectOverlappingRoutes();
+    if (overlaps.length > 0) {
+      this.markOverlappingRoutes(overlaps);
     }
 
     // Source is guaranteed to exist now
@@ -382,7 +518,7 @@ export class RouteRenderer {
 
     this.highlightedRouteId = route_id;
 
-    // Update the highlight filter
+    // Use thicker line with route color
     this.map.setFilter('routes-highlight', ['==', 'route_id', route_id]);
 
     console.log(`✅ Route highlight applied: ${route_id}`);
@@ -429,6 +565,9 @@ export class RouteRenderer {
     }
     if (this.map.getLayer('routes-clickarea')) {
       this.map.removeLayer('routes-clickarea');
+    }
+    if (this.map.getLayer('routes-overlapping')) {
+      this.map.removeLayer('routes-overlapping');
     }
     if (this.map.getLayer('routes-background')) {
       this.map.removeLayer('routes-background');

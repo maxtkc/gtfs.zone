@@ -1,6 +1,6 @@
 # Map Enhancements
 
-**Status**: 🔴 Not Started
+**Status**: 🟡 In Progress
 **Priority**: Medium
 **Estimated Effort**: Medium (1-2 weeks)
 
@@ -9,14 +9,19 @@ Add additional basemap options (Stamen, satellite) and improve route visualizati
 
 ## Checklist
 
-- [ ] Research MapLibre GL basemap providers and their requirements
+- [x] Research MapLibre GL basemap providers and their requirements
 - [ ] Implement basemap switcher UI component
 - [ ] Add Stamen tile layer option
 - [ ] Add satellite/aerial imagery layer option
-- [ ] Install and integrate Turf.js library
-- [ ] Implement route overlap detection using `turf.lineOverlap()`
-- [ ] Design offset rendering for overlapping routes
-- [ ] Replace yellow highlight with thicker line rendering
+- [x] Install and integrate Turf.js library
+- [x] Implement route overlap detection using `turf.lineOverlap()`
+- [x] Design offset rendering for overlapping routes
+- [x] Replace yellow highlight with thicker line rendering
+- [x] Remove toggle and always use thicker highlight
+- [x] Add detailed console logs for debugging overlap detection
+- [x] Implement segment-based rendering (only offset overlapping segments)
+- [x] Add symmetric offsets centered around original line
+- [x] Add detailed logging for segment replacement process
 - [ ] Test basemap switching performance
 - [ ] Handle API key management for commercial tile providers
 - [ ] Document basemap options and configuration
@@ -95,22 +100,7 @@ Current highlight mechanism is in `route-renderer.ts` (not examined but referenc
 
 ### UI Design
 
-```
-Map Controls (top-right corner):
-
-┌──────────────────┐
-│ Basemap: [OSM ▼] │  ← Dropdown menu
-└──────────────────┘
-     ↓ On click
-┌──────────────────┐
-│ ○ OpenStreetMap  │
-│ ○ Stamen Terrain │
-│ ○ Satellite      │
-│ ● Dark Mode      │
-└──────────────────┘
-```
-
-Alternative: Layer switcher icon (🗺️)
+Check out how geojson.io does it. You can see their code base here: github.com/mapbox/geojson.io
 
 ### Basemap Options
 
@@ -404,6 +394,13 @@ npm install @turf/turf
 npm install --save-dev @types/turf
 ```
 
+**Note**: Turf.js documentation can be accessed via Context7 MCP for up-to-date API references:
+```typescript
+// Use context7 MCP to get latest Turf.js docs
+mcp__context7__resolve-library-id({ library: '@turf/turf' })
+mcp__context7__get-library-docs({ library_id: '...', query: 'lineOverlap' })
+```
+
 ### Overlap Detection Algorithm
 
 ```typescript
@@ -488,33 +485,50 @@ With offset:
  ━━━━━━━━━━  Route B (slightly offset)
 ```
 
+### Segment-Based Rendering Approach
+
+**Goal**: Only offset the portions of routes that actually overlap, leaving non-overlapping segments in their original position.
+
+**Strategy**:
+1. Use `turf.lineOverlap()` to identify overlapping segments
+2. Split routes into overlapping and non-overlapping segments
+3. For overlapping segments: offset them symmetrically around the original line
+4. For non-overlapping segments: render at original position
+5. Connect all segments to form continuous routes
+
+**Implementation Status**: ✅ Implemented - routes are now split by overlap segments and offset accordingly
+
 ### Integration with RouteRenderer
 
+**Current Implementation** (route-renderer.ts):
+
 ```typescript
-// In route-renderer.ts
-public renderRoutes(options: RenderOptions): void {
-  // Detect overlaps
-  const overlaps = detectOverlappingRoutes(this.routes);
+public async renderRoutes(options: Partial<RouteRenderingOptions> = {}): Promise<void> {
+  // Create route features
+  this.routeFeatures = this.createRouteFeatures();
 
-  // Apply offsets
-  const offsetRoutes = applyRouteOffsets(this.routes, overlaps);
+  // Detect overlapping routes using turf.lineOverlap()
+  const overlaps = this.detectOverlappingRoutes();
 
-  // Render with Deck.gl PathLayer
-  const pathLayer = new PathLayer({
-    id: 'routes',
-    data: offsetRoutes,
-    getPath: d => d.coordinates,
-    getColor: d => hexToRgb(d.route_color),
-    getWidth: d => d.hasOffset ? 2.5 : 3,  // Slightly thinner if offset
-    widthUnits: 'pixels',
-    ...options,
-  });
+  if (overlaps.length > 0) {
+    // Apply segment-based offsets - only offsets overlapping segments
+    this.applySegmentBasedOffsets(overlaps);
+  }
 
-  this.deckOverlay.setProps({
-    layers: [pathLayer],
+  // Render with MapLibre GL
+  const source = this.map.getSource('routes') as maplibregl.GeoJSONSource;
+  source.setData({
+    type: 'FeatureCollection',
+    features: this.routeFeatures,
   });
 }
 ```
+
+**Key Features**:
+- **Segment-based offsetting**: Only the overlapping portions of routes are offset
+- **Symmetric offsets**: Route A offsets left, Route B offsets right (centered around original line)
+- **Coordinate replacement**: Overlapping segment coordinates are replaced in-place with offset versions
+- **Non-overlapping segments**: Remain in their original position
 
 ## Testing
 
@@ -547,8 +561,9 @@ public renderRoutes(options: RenderOptions): void {
 
 ## Resources
 
-- Turf.js lineOverlap: https://turfjs.org/docs/api/lineOverlap
-- Turf.js lineOffset: https://turfjs.org/docs/api/lineOffset
+- **Turf.js Documentation**: Use Context7 MCP for up-to-date docs (`mcp__context7__resolve-library-id` + `mcp__context7__get-library-docs`)
+  - Turf.js lineOverlap: https://turfjs.org/docs/api/lineOverlap
+  - Turf.js lineOffset: https://turfjs.org/docs/api/lineOffset
 - MapLibre GL Basemap Examples: https://maplibre.org/maplibre-gl-js/docs/examples/
 - Stadia Maps (Stamen): https://stadiamaps.com/stamen/
 - ESRI World Imagery: https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer

@@ -10,6 +10,7 @@ import {
 import { PageStateManager } from './page-state-manager.js';
 import { GTFSDatabaseRecord } from './gtfs-database.js';
 import { GTFS } from '../types/gtfs.js';
+import { basemaps, BasemapStyle } from './basemap-config.js';
 
 // Map interaction modes
 export enum MapMode {
@@ -68,6 +69,7 @@ export class MapController {
   // State
   private isInitialized = false;
   private resizeTimeout: NodeJS.Timeout | null = null;
+  private currentBasemapId = 'osm';
 
   // Highlight state management - ensures mutual exclusivity
   private currentHighlight: {
@@ -103,23 +105,26 @@ export class MapController {
    * Initialize MapLibre GL map
    */
   private initializeMap(): void {
+    const defaultBasemap = basemaps.find((b) => b.id === this.currentBasemapId) || basemaps[0];
+
     this.map = new MapLibreMap({
       container: this.mapElementId,
       style: {
         version: 8,
         sources: {
-          osm: {
-            type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors',
+          'basemap-source': {
+            type: defaultBasemap.type,
+            tiles: defaultBasemap.tiles,
+            tileSize: defaultBasemap.tileSize,
+            attribution: defaultBasemap.attribution,
+            maxzoom: defaultBasemap.maxzoom,
           },
         },
         layers: [
           {
-            id: 'osm',
+            id: 'basemap-layer',
             type: 'raster',
-            source: 'osm',
+            source: 'basemap-source',
           },
         ],
       },
@@ -529,6 +534,78 @@ export class MapController {
 
     // Fit map to show highlighted routes
     this.fitToRoutes(agencyRoutes.map((r) => r.route_id));
+  }
+
+  // ========================================
+  // BASEMAP MANAGEMENT
+  // ========================================
+
+  /**
+   * Switch to a different basemap
+   */
+  public switchBasemap(basemapId: string): void {
+    const basemap = basemaps.find((b) => b.id === basemapId);
+    if (!basemap) {
+      console.error('Basemap not found:', basemapId);
+      return;
+    }
+
+    if (!this.map) {
+      console.error('Map not initialized');
+      return;
+    }
+
+    // Update current basemap ID
+    this.currentBasemapId = basemapId;
+
+    // Remove old basemap source and layer
+    if (this.map.getLayer('basemap-layer')) {
+      this.map.removeLayer('basemap-layer');
+    }
+    if (this.map.getSource('basemap-source')) {
+      this.map.removeSource('basemap-source');
+    }
+
+    // Add new basemap source
+    this.map.addSource('basemap-source', {
+      type: basemap.type,
+      tiles: basemap.tiles,
+      tileSize: basemap.tileSize,
+      attribution: basemap.attribution,
+      maxzoom: basemap.maxzoom,
+    });
+
+    // Find the first non-basemap layer to insert below it
+    const layers = this.map.getStyle().layers;
+    const firstNonBasemapLayer = layers.find(
+      (layer) => !layer.id.includes('basemap')
+    );
+
+    // Add new basemap layer below all other layers
+    this.map.addLayer(
+      {
+        id: 'basemap-layer',
+        type: 'raster',
+        source: 'basemap-source',
+      },
+      firstNonBasemapLayer?.id
+    );
+
+    console.log(`✅ Switched to basemap: ${basemap.name}`);
+  }
+
+  /**
+   * Get current basemap ID
+   */
+  public getCurrentBasemap(): string {
+    return this.currentBasemapId;
+  }
+
+  /**
+   * Get available basemaps
+   */
+  public getAvailableBasemaps(): BasemapStyle[] {
+    return basemaps;
   }
 
   // ========================================
