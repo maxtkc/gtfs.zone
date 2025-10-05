@@ -182,7 +182,6 @@ export class AgencyViewController {
             <span class="font-semibold">${routeShortName}</span>
             ${routeLongName ? `<span class="text-sm opacity-70 truncate">${routeLongName}</span>` : ''}
           </div>
-          <div class="text-xs opacity-60">ID: ${routeId}</div>
         </div>
       </div>
     `;

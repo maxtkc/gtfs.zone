@@ -15,6 +15,11 @@ import {
   AgencyViewController,
   AgencyViewDependencies,
 } from './agency-view-controller.js';
+import {
+  renderFormFields,
+  generateFieldConfigsFromSchema,
+} from '../utils/field-component.js';
+import { FeedInfoSchema, GTFS_TABLES } from '../types/gtfs.js';
 
 /**
  * Interface for injected dependencies
@@ -201,52 +206,108 @@ export class PageContentRenderer {
   }
 
   /**
-   * Render home page (agencies list)
+   * Render home page (feed info and agencies list)
    */
   private async renderHome(): Promise<string> {
     const agencies = await this.dependencies.relationships.getAgenciesAsync();
 
-    const agencyCards = agencies
+    // Get feed_info data
+    const feedInfo = await this.getFeedInfo();
+
+    const agencyItems = agencies
       .map((agency: unknown) => {
         const agencyData = agency as Record<string, unknown>;
         const agencyName =
           (agencyData.agency_name as string) ||
           (agencyData.agency_id as string) ||
           'Unknown Agency';
-        const agencyUrl = agencyData.agency_url
-          ? `<a href="${agencyData.agency_url as string}" class="link link-primary text-sm" target="_blank" rel="noopener">${agencyData.agency_url as string}</a>`
-          : '';
 
         return `
-        <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow cursor-pointer agency-card"
-             data-agency-id="${agencyData.agency_id as string}">
-          <div class="card-body p-4">
-            <h3 class="card-title text-base">${agencyName}</h3>
-            ${agencyUrl}
-            <div class="text-sm text-base-content/70">
-              ID: ${agencyData.agency_id as string}
+          <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 cursor-pointer transition-colors agency-card"
+               data-agency-id="${agencyData.agency_id as string}">
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold">${agencyName}</div>
             </div>
           </div>
-        </div>
-      `;
+        `;
       })
       .join('');
 
     return `
-      <div class="p-4">
-        <div class="mb-4">
-          <h2 class="text-xl font-semibold">Transit Agencies</h2>
-        </div>
+      <div class="p-4 space-y-4">
+        ${feedInfo ? this.renderFeedInfoProperties(feedInfo) : ''}
 
-        ${
-          agencies.length === 0
-            ? `<div class="text-center py-8 text-base-content/50">
-            No agencies found in GTFS data.
-          </div>`
-            : `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            ${agencyCards}
-          </div>`
-        }
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Agencies</h2>
+            <div class="badge badge-outline">${agencies.length} agenc${agencies.length !== 1 ? 'ies' : 'y'}</div>
+          </div>
+          ${
+            agencies.length === 0
+              ? `<div class="card bg-base-100 shadow-lg">
+                  <div class="card-body p-4">
+                    <div class="text-center py-6 opacity-70">
+                      No agencies found in GTFS data.
+                    </div>
+                  </div>
+                </div>`
+              : `<div class="card bg-base-100 shadow-lg">
+                  <div class="card-body p-4">
+                    <div class="space-y-2">
+                      ${agencyItems}
+                    </div>
+                  </div>
+                </div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Get feed_info data
+   */
+  private async getFeedInfo(): Promise<Record<string, unknown> | null> {
+    if (!this.dependencies.gtfsDatabase) {
+      return null;
+    }
+
+    try {
+      const feedInfoRows =
+        await this.dependencies.gtfsDatabase.queryRows('feed_info');
+      return feedInfoRows.length > 0
+        ? (feedInfoRows[0] as Record<string, unknown>)
+        : null;
+    } catch (error) {
+      console.error('Error getting feed_info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Render feed_info properties section
+   */
+  private renderFeedInfoProperties(feedInfo: Record<string, unknown>): string {
+    // Generate field configurations from FeedInfoSchema
+    const fieldConfigs = generateFieldConfigsFromSchema(
+      FeedInfoSchema,
+      feedInfo,
+      GTFS_TABLES.FEED_INFO
+    );
+
+    // Render all fields using the reusable field component
+    const fieldsHtml = renderFormFields(fieldConfigs);
+
+    return `
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold">Feed Information</h2>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body p-4">
+            <div class="max-w-md">
+              ${fieldsHtml}
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
