@@ -1,3 +1,9 @@
+## v0.3.0 (2025-10-05)
+
+### Feat
+
+- add feed info to the home browse page
+
 ## v0.2.1 (2025-10-05)
 
 ### Fix
