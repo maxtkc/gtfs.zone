@@ -217,8 +217,12 @@ function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: stri
     }
   }
 
-  // Add description
-  const escapedDescription = description.replace(/'/g, "\\'").replace(/\n/g, ' ');
+  // Add description with properly escaped special characters
+  const escapedDescription = description
+    .replace(/\\/g, '\\\\')  // Escape backslashes first
+    .replace(/'/g, "\\'")     // Escape single quotes
+    .replace(/\n/g, '\\n')    // Escape newlines (preserve them, don't convert to spaces)
+    .replace(/\r/g, '\\r');   // Escape carriage returns
   return `${zodType}.describe('${escapedDescription}')`;
 }
 
@@ -424,10 +428,17 @@ export function validateForeignKey(
       const hasSchema = gtfsSpec.fieldDefinitions[file.filename] && gtfsSpec.fieldDefinitions[file.filename].length > 0;
       const schemaRef = hasSchema ? `GTFSSchemas['${file.filename}']` : 'z.any()';
       
+      // Escape string for TypeScript: single quotes, newlines, and backslashes
+      const escapedDescription = file.description
+        .replace(/\\/g, '\\\\')  // Escape backslashes first
+        .replace(/'/g, "\\'")     // Escape single quotes
+        .replace(/\n/g, '\\n')    // Escape newlines
+        .replace(/\r/g, '\\r');   // Escape carriage returns
+
       typeDefinitions += `  {\n`;
       typeDefinitions += `    filename: '${file.filename}',\n`;
       typeDefinitions += `    presence: ${presenceValue},\n`;
-      typeDefinitions += `    description: '${file.description.replace(/'/g, "\\'")}',\n`;
+      typeDefinitions += `    description: '${escapedDescription}',\n`;
       typeDefinitions += `    schema: ${schemaRef}\n`;
       typeDefinitions += `  },\n`;
     }

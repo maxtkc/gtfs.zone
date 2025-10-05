@@ -7,6 +7,12 @@
 
 import type { Agency, Routes, Stops, Trips, StopTimes } from '../types/gtfs.js';
 import { notifications } from './notification-system.js';
+import {
+  renderFormFields,
+  attachFieldEventListeners,
+  generateFieldConfigsFromSchema,
+} from '../utils/field-component.js';
+import { GTFS_TABLES, StopsSchema, GTFS_PRIMARY_KEYS } from '../types/gtfs.js';
 
 export interface StopViewDependencies {
   gtfsDatabase?: {
@@ -127,138 +133,26 @@ export class StopViewController {
    * Render editable stop properties section
    */
   private renderStopProperties(stop: EnhancedStop): string {
+    // Generate field configurations from StopsSchema
+    // This automatically includes all GTFS stop fields with proper types and validation
+    const primaryKey = GTFS_PRIMARY_KEYS[GTFS_TABLES.STOPS];
+    const fieldConfigs = generateFieldConfigsFromSchema(
+      StopsSchema,
+      stop,
+      GTFS_TABLES.STOPS,
+      primaryKey
+    );
+
+    // Render all fields using the reusable field component
+    const fieldsHtml = renderFormFields(fieldConfigs);
+
     return `
       <div class="space-y-4">
         <h2 class="text-lg font-semibold">Stop Properties</h2>
         <div class="card bg-base-100 shadow-lg">
           <div class="card-body p-4">
-            <div class="space-y-3 max-w-md">
-              <!-- Basic Information -->
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Name</span>
-                  <span class="label-text-alt text-xs opacity-60">stop_name</span>
-                </label>
-                <input type="text"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="stop_name"
-                       value="${stop.stop_name || ''}"
-                       placeholder="Enter stop name">
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Stop Code</span>
-                  <span class="label-text-alt text-xs opacity-60">stop_code</span>
-                </label>
-                <input type="text"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="stop_code"
-                       value="${stop.stop_code || ''}"
-                       placeholder="Optional stop code">
-              </div>
-
-              <!-- Location -->
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Latitude</span>
-                  <span class="label-text-alt text-xs opacity-60">stop_lat</span>
-                </label>
-                <input type="number"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="stop_lat"
-                       value="${stop.stop_lat || ''}"
-                       step="0.000001"
-                       placeholder="0.000000">
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Longitude</span>
-                  <span class="label-text-alt text-xs opacity-60">stop_lon</span>
-                </label>
-                <input type="number"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="stop_lon"
-                       value="${stop.stop_lon || ''}"
-                       step="0.000001"
-                       placeholder="0.000000">
-              </div>
-
-              <!-- Properties -->
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Location Type</span>
-                  <span class="label-text-alt text-xs opacity-60">location_type</span>
-                </label>
-                <select class="select select-bordered w-full stop-property-input" data-field="location_type">
-                  <option value="" ${!stop.location_type ? 'selected' : ''}>Default (Stop/Platform)</option>
-                  <option value="0" ${stop.location_type === 0 ? 'selected' : ''}>Stop/Platform</option>
-                  <option value="1" ${stop.location_type === 1 ? 'selected' : ''}>Station</option>
-                  <option value="2" ${stop.location_type === 2 ? 'selected' : ''}>Entrance/Exit</option>
-                  <option value="3" ${stop.location_type === 3 ? 'selected' : ''}>Generic Node</option>
-                  <option value="4" ${stop.location_type === 4 ? 'selected' : ''}>Boarding Area</option>
-                </select>
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Wheelchair Accessible</span>
-                  <span class="label-text-alt text-xs opacity-60">wheelchair_boarding</span>
-                </label>
-                <select class="select select-bordered w-full stop-property-input" data-field="wheelchair_boarding">
-                  <option value="" ${!stop.wheelchair_boarding ? 'selected' : ''}>No information</option>
-                  <option value="1" ${stop.wheelchair_boarding === 1 ? 'selected' : ''}>Accessible</option>
-                  <option value="2" ${stop.wheelchair_boarding === 2 ? 'selected' : ''}>Not accessible</option>
-                </select>
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Description</span>
-                  <span class="label-text-alt text-xs opacity-60">stop_desc</span>
-                </label>
-                <textarea class="textarea textarea-bordered w-full stop-property-input"
-                          data-field="stop_desc"
-                          placeholder="Optional stop description"
-                          rows="2">${stop.stop_desc || ''}</textarea>
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Platform Code</span>
-                  <span class="label-text-alt text-xs opacity-60">platform_code</span>
-                </label>
-                <input type="text"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="platform_code"
-                       value="${stop.platform_code || ''}"
-                       placeholder="Optional platform code">
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Zone ID</span>
-                  <span class="label-text-alt text-xs opacity-60">zone_id</span>
-                </label>
-                <input type="text"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="zone_id"
-                       value="${stop.zone_id || ''}"
-                       placeholder="Optional zone identifier">
-              </div>
-
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-medium">Parent Station</span>
-                  <span class="label-text-alt text-xs opacity-60">parent_station</span>
-                </label>
-                <input type="text"
-                       class="input input-bordered w-full stop-property-input"
-                       data-field="parent_station"
-                       value="${stop.parent_station || ''}"
-                       placeholder="Optional parent station ID">
-              </div>
+            <div class="max-w-md">
+              ${fieldsHtml}
             </div>
           </div>
         </div>
@@ -559,31 +453,18 @@ export class StopViewController {
    * Add event listeners for interactive elements
    */
   addEventListeners(container: HTMLElement): void {
-    // Property input handlers with auto-save
-    const propertyInputs = container.querySelectorAll('.stop-property-input');
-    propertyInputs.forEach((input) => {
-      const field = input.getAttribute('data-field');
-      if (!field) {
-        return;
-      }
+    // Property input handlers with auto-save using the field component utility
+    attachFieldEventListeners(
+      container,
+      async (field: string, value: string) => {
+        // Store initial value on first interaction
+        if (!this.fieldValues.has(field)) {
+          this.fieldValues.set(field, value);
+        }
 
-      // Store initial value
-      const initialValue = (
-        input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-      ).value;
-      this.fieldValues.set(field, initialValue);
-
-      const handleUpdate = async () => {
-        const value = (
-          input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-        ).value;
         await this.updateStopProperty(field, value);
-      };
-
-      // Use only 'change' event to avoid duplicate notifications
-      // This fires when the value changes and the element loses focus
-      input.addEventListener('change', handleUpdate);
-    });
+      }
+    );
 
     // Agency view button clicks
     const agencyButtons = container.querySelectorAll('.agency-view-btn');

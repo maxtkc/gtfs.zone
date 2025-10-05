@@ -18,6 +18,25 @@ Simplify stop page layout by removing the redundant information bar at the top a
 - [ ] Update any dependent components or navigation logic
 - [ ] Test breadcrumb navigation with stop_id
 
+### Issues Discovered
+
+**Tooltip Rendering Issues:**
+- [ ] **Text Overflow**: Tooltips with `white-space: pre` cause text to run outside tooltip bounds on long lines
+  - Need to combine `white-space: pre-wrap` or `pre-line` with `max-width`
+  - Alternative: Use `overflow-wrap: break-word` with `white-space: pre-line`
+- [ ] **Field Quote Parsing**: `tts_stop_name` field description stops rendering after "See" - likely quote escaping issue
+  - Check `escapeHtml()` function in `field-component.ts`
+  - Inspect GTFS spec data for this field in `gtfs-spec.json`
+
+**Field Display Priority:**
+- [ ] Show required fields first in field lists
+  - Modify `generateFieldConfigsFromSchema()` to sort by required status
+  - Required fields should appear before optional fields
+
+### Low Priority Enhancements
+
+- [ ] Navigation between stops along a route (prev/next buttons)
+
 ## Current Implementation
 
 ### Stop Page Structure
@@ -439,11 +458,64 @@ Files that may need updates:
 4. **`src/modules/page-content-renderer.ts`** (referenced but not examined)
    - May contain stop page rendering logic
 
+## Low Priority Enhancement: Stop Navigation Along Route
+
+### Feature Description
+Add previous/next navigation buttons on stop pages to allow users to navigate sequentially through stops along a specific route.
+
+### Use Case
+When viewing a stop that's part of a route, users should be able to:
+- Navigate to the previous stop on the route
+- Navigate to the next stop on the route
+- See which route they're navigating along
+
+### Implementation Considerations
+
+**Data Requirements:**
+- Need to identify which route(s) serve the current stop
+- Need to determine stop sequence from `stop_times.txt` (via `stop_sequence` field)
+- Handle cases where stop is served by multiple routes (route selector?)
+
+**UI Design:**
+```
+┌─────────────────────────────────────┐
+│ Route 1 → Broadway Line             │
+│ ← Prev Stop    |    Next Stop →     │
+└─────────────────────────────────────┘
+```
+
+**Complexity Factors:**
+1. Stops can be served by multiple routes (need route context)
+2. Stop sequences can vary by direction (need direction context)
+3. Stop sequences can vary by trip (different trip patterns)
+4. First/last stops on route need special handling
+
+**Possible Approach:**
+1. Add route and direction context to stop page state
+2. Query `stop_times` for trips on that route/direction
+3. Find current stop's sequence number
+4. Find adjacent stops in sequence
+5. Render prev/next buttons with stop names
+
+**Priority Rationale:**
+- Low priority because:
+  - Primary use case (viewing stop details) works well without it
+  - Additional complexity with multi-route stops
+  - Map visualization already provides spatial context
+  - Most users navigate via map or search, not sequentially
+
+**Future Considerations:**
+- Could be enhanced with timetable integration
+- Could show travel time between stops
+- Could integrate with trip viewer for full route visualization
+
 ## Resources
 
 - GTFS stops.txt Specification: https://gtfs.org/schedule/reference/#stopstxt
+- GTFS stop_times.txt Specification: https://gtfs.org/schedule/reference/#stop_timestxt
 - stop_id is the primary key (required, unique)
 - stop_name is optional but recommended
+- stop_sequence determines stop order along trips
 - Current implementation: `objects-navigation.ts:240-496`, `info-display.ts:240-302`
 
 ## Next Steps

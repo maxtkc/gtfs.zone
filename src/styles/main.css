@@ -26,6 +26,20 @@
 }
 
 @layer components {
+  /* DaisyUI Tooltip Enhancement - Handle long text with proper wrapping */
+  .tooltip:before {
+    max-width: 20rem !important;
+    white-space: pre-line !important; /* Preserve newlines, allow wrapping */
+    text-align: left !important;
+    line-height: 1.4;
+    padding: 0.5rem 0.75rem;
+    overflow-wrap: break-word; /* Break long words if needed */
+  }
+
+  .tooltip:after {
+    max-width: 20rem !important;
+  }
+
   /* Map controls styling */
   #map-controls .btn {
     transition: all 0.2s ease;

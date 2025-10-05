@@ -34,6 +34,7 @@
 
 - [ ] Remove the whole bar with name and id and lat/lon
 - [ ] Change breadcrumb to use stop_id
+- [ ] Navigate between stops along a route (low priority enhancement)
 
 ### Route Page
 📁 See detailed plan: [`project_tracking/browse-route.md`](project_tracking/browse-route.md)
