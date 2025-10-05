@@ -298,30 +298,27 @@ export class GTFSDatabase {
   }
 
   /**
-   * Handle database errors with fallback
+   * Handle database errors - FAIL HARD, NO FALLBACKS
    */
-  private async handleDatabaseError(
-    error: Error,
-    operation: string,
-    fallbackAction?: () => Promise<unknown>
-  ): Promise<unknown> {
+  private handleDatabaseError(error: unknown, operation: string): never {
+    // Convert unknown error to Error object
+    const err = error instanceof Error ? error : new Error(String(error));
+
     // eslint-disable-next-line no-console
-    console.error(`Database error in ${operation}:`, error);
+    console.error(`CRITICAL DATABASE ERROR in ${operation}:`, err);
+    console.error('Stack trace:', err.stack);
 
     // Enhanced constraint error debugging
-    if (
-      error.name === 'ConstraintError' ||
-      error.message?.includes('constraint')
-    ) {
+    if (err.name === 'ConstraintError' || err.message?.includes('constraint')) {
       console.error('CONSTRAINT ERROR DETAILS:');
-      console.error('  Error name:', error.name);
-      console.error('  Error message:', error.message);
+      console.error('  Error name:', err.name);
+      console.error('  Error message:', err.message);
       console.error('  Operation:', operation);
 
       // Try to provide more context about what kind of constraint failed
       if (
-        error.message?.includes('duplicate') ||
-        error.message?.includes('unique')
+        err.message?.includes('duplicate') ||
+        err.message?.includes('unique')
       ) {
         console.error(
           '  → This appears to be a DUPLICATE KEY constraint violation'
@@ -329,7 +326,7 @@ export class GTFSDatabase {
         console.error(
           '  → Check for duplicate primary keys or unique constraints'
         );
-      } else if (error.message?.includes('not satisfied')) {
+      } else if (err.message?.includes('not satisfied')) {
         console.error('  → This appears to be a GENERAL CONSTRAINT violation');
         console.error(
           '  → Could be missing required fields, invalid data types, or key constraints'
@@ -337,32 +334,9 @@ export class GTFSDatabase {
       }
     }
 
-    // Check for quota exceeded errors
-    if (
-      error.name === 'QuotaExceededError' ||
-      error.message?.includes('quota')
-    ) {
-      databaseFallbackManager.showDatabaseError(error, operation);
-      throw error;
-    }
-
-    // Check for corruption errors
-    if (
-      error.name === 'InvalidStateError' ||
-      error.message?.includes('corrupt')
-    ) {
-      databaseFallbackManager.showDatabaseError(error, operation);
-      throw error;
-    }
-
-    // For other errors, try fallback if available
-    if (fallbackAction && !this.isUsingFallback) {
-      // eslint-disable-next-line no-console
-      console.warn(`Attempting fallback for ${operation}`);
-      return await fallbackAction();
-    }
-
-    throw error;
+    // Show error to user and fail hard
+    databaseFallbackManager.showDatabaseError(err, operation);
+    throw err;
   }
 
   /**
@@ -553,18 +527,13 @@ export class GTFSDatabase {
         `Inserted ${rows.length} rows into ${tableName} in ${Math.ceil(rows.length / BATCH_SIZE)} batches`
       );
     } catch (error) {
-      return await this.handleDatabaseError(error, 'insertRows', async () => {
-        // Switch to fallback mode and retry
-        this.fallbackDB = databaseFallbackManager.createFallbackDatabase();
-        this.isUsingFallback = true;
-        await this.fallbackDB.initialize();
-        return await this.fallbackDB.insertRows(tableName, rows);
-      });
+      this.handleDatabaseError(error, 'insertRows');
     }
   }
 
   /**
    * Insert a single batch of rows within one transaction
+   * Updated: Better error handling for null errors
    */
   private async insertBatch(
     tableName: string,
@@ -610,12 +579,16 @@ export class GTFSDatabase {
           return store.add(row, key);
         }
       } catch (error) {
+        const errorMsg =
+          error instanceof Error
+            ? error.message
+            : String(error || 'Unknown error');
         console.error(
-          `ERROR: Failed to prepare ${tableName} row ${index} for insertion:`,
-          error,
+          `ERROR: Failed to prepare ${tableName} row ${index} for insertion: ${errorMsg}`,
           row
         );
-        throw error;
+        const err = error instanceof Error ? error : new Error(errorMsg);
+        throw err;
       }
     });
 
@@ -624,9 +597,20 @@ export class GTFSDatabase {
       await transaction.done;
       console.log(`DEBUG: Successfully inserted batch for ${tableName}`);
     } catch (error) {
-      console.error(`ERROR: Batch insertion failed for ${tableName}:`, error);
+      // Convert null/undefined errors to proper Error objects
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : String(error || 'Unknown error');
+      const err =
+        error instanceof Error
+          ? error
+          : new Error(`Batch insertion failed for ${tableName}: ${errorMsg}`);
+      console.error(
+        `ERROR: Batch insertion failed for ${tableName}: ${errorMsg}`
+      );
       console.error('First few rows in failed batch:', rows.slice(0, 3));
-      throw error;
+      throw err;
     }
   }
 

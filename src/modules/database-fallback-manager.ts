@@ -336,16 +336,20 @@ export class DatabaseFallbackManager {
    * Show database error with recovery options
    */
   showDatabaseError(error: Error | unknown, context: string): void {
-    console.error(`Database error in ${context}:`, error);
+    // Convert to proper Error object if needed
+    const err =
+      error instanceof Error
+        ? error
+        : new Error(String(error || 'Unknown error'));
+
+    console.error(`Database error in ${context}:`, err);
+    console.error('Stack trace:', err.stack);
 
     let errorMessage = 'Database operation failed';
     let recoveryOptions: Array<{ label: string; action: () => void }> = [];
 
     // Categorize error types
-    if (
-      error.name === 'QuotaExceededError' ||
-      error.message?.includes('quota')
-    ) {
+    if (err.name === 'QuotaExceededError' || err.message?.includes('quota')) {
       errorMessage =
         'Storage quota exceeded. The GTFS file is too large for available storage.';
       recoveryOptions = [
@@ -359,8 +363,8 @@ export class DatabaseFallbackManager {
         },
       ];
     } else if (
-      error.name === 'InvalidStateError' ||
-      error.message?.includes('corrupt')
+      err.name === 'InvalidStateError' ||
+      err.message?.includes('corrupt')
     ) {
       errorMessage = 'Database appears to be corrupted.';
       recoveryOptions = [
@@ -373,7 +377,7 @@ export class DatabaseFallbackManager {
           action: () => this.downloadDatabaseBackup(),
         },
       ];
-    } else if (error.name === 'VersionError') {
+    } else if (err.name === 'VersionError') {
       errorMessage =
         'Database version conflict detected. This may happen when using multiple tabs.';
       recoveryOptions = [
@@ -383,7 +387,7 @@ export class DatabaseFallbackManager {
         },
       ];
     } else {
-      errorMessage = `Database error: ${error.message || error.name || 'Unknown error'}`;
+      errorMessage = `Database error: ${err.message || err.name || 'Unknown error'}`;
       recoveryOptions = [
         {
           label: 'Try Again',
