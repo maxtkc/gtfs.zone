@@ -1,3 +1,9 @@
+## v0.2.1 (2025-10-05)
+
+### Fix
+
+- compromise with tooltips and scrolling
+
 ## v0.2.0 (2025-10-05)
 
 ### Feat

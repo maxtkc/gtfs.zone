@@ -168,8 +168,8 @@ export class TimetableRenderer {
     });
 
     return `
-      <div class="flex-1 overflow-auto">
-        <table class="table table-xs table-pin-rows w-full">
+      <div class="flex-1 overflow-x-auto">
+        <table class="table table-xs table-pin-rows table-pin-cols">
           ${this.renderTimetableHeader(data, !!pendingStopId)}
           ${this.renderTimetableBody(data, pendingStopId)}
         </table>
@@ -245,7 +245,7 @@ export class TimetableRenderer {
           .join('');
 
         // Add empty cell for "New Trip" column
-        const newTripCell = '<td class="text-center p-2 bg-base-200"></td>';
+        const newTripCell = '<td class="text-center p-2"></td>';
 
         // Get human-readable label (without field name in parentheses)
         const humanLabel = this.generateHumanLabel(config.field);
@@ -264,10 +264,10 @@ export class TimetableRenderer {
 
         return `
         <tr class="trip-property-row" data-property="${config.field}">
-          <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
+          <th class="stop-name p-2 font-medium border-r border-base-300">
             <div class="stop-name-text">${this.escapeHtml(humanLabel)}${requiredMark}${tooltipHtml}</div>
             <div class="stop-id text-xs opacity-70">${this.escapeHtml(config.field)}</div>
-          </td>
+          </th>
           ${cells}
           ${newTripCell}
         </tr>
@@ -404,17 +404,17 @@ export class TimetableRenderer {
     const tripHeaders = trips
       .map((trip) => {
         return `
-          <th class="trip-header text-center min-w-[80px] p-2 text-xs"
+          <td class="trip-header text-center min-w-[80px] p-2 text-xs"
               title="${trip.trip_headsign || trip.trip_short_name || trip.trip_id}">
             ${trip.trip_id}
-          </th>
+          </td>
         `;
       })
       .join('');
 
     // Always add a "new trip" column on the right
     const newTripHeader = `
-      <th class="trip-header text-center min-w-[120px] p-2 text-xs bg-base-200">
+      <td class="trip-header text-center min-w-[120px] p-2 text-xs">
         <input
           type="text"
           class="input input-xs w-full text-center"
@@ -422,13 +422,13 @@ export class TimetableRenderer {
           id="new-trip-input"
           onchange="gtfsEditor.scheduleController.createTripFromInput(this.value)"
         />
-      </th>
+      </td>
     `;
 
     return `
       <thead>
         <tr>
-          <th class="stop-header sticky left-0 bg-base-100 min-w-[200px] p-2 text-left">
+          <th class="stop-header min-w-[200px] p-2 text-left">
             Stop
           </th>
           ${tripHeaders}
@@ -524,14 +524,14 @@ export class TimetableRenderer {
           .join('');
 
         // Add empty cell for new trip column
-        const newTripCell = '<td class="text-center p-2 bg-base-200"></td>';
+        const newTripCell = '<td class="text-center p-2"></td>';
 
         return `
         <tr class="${rowClass}">
-          <td class="stop-name p-2 font-medium sticky left-0 bg-base-100 border-r border-base-300">
+          <th class="stop-name p-2 font-medium border-r border-base-300">
             <div class="stop-name-text">${this.escapeHtml(stop.stop_name || stop.stop_id)}</div>
             <div class="stop-id text-xs opacity-70">${stop.stop_id}</div>
-          </td>
+          </th>
           ${timeCells}
           ${newTripCell}
         </tr>
@@ -541,18 +541,18 @@ export class TimetableRenderer {
 
     // Add new stop row at the bottom
     const newStopTimeCells = data.trips
-      .map(() => '<td class="text-center p-2 bg-base-200"></td>')
+      .map(() => '<td class="text-center p-2"></td>')
       .join('');
     const newStopRow = `
-      <tr class="bg-base-200">
-        <td class="stop-name p-2 sticky left-0 bg-base-200 border-r border-base-300">
+      <tr>
+        <th class="stop-name p-2 border-r border-base-300">
           <select class="select select-sm w-full" id="new-stop-select"
                   onchange="gtfsEditor.scheduleController.addStopFromSelector(this.value)">
             <option value="">Add stop...</option>
           </select>
-        </td>
+        </th>
         ${newStopTimeCells}
-        <td class="text-center p-2 bg-base-200"></td>
+        <td class="text-center p-2"></td>
       </tr>
     `;
 

@@ -24,22 +24,18 @@
 ## Browse
 
 #### General
-📁 See detailed plan: [`project_tracking/browse-general.md`](project_tracking/browse-general.md)
 
-- [ ] Use daisyui label component for properties
-- [ ] Add zod sourced tooltips to every property component
+- [ ] Fix tooltips so they can overflow past scroll boxes (right now they get cut)
 - [ ] add zod based enum support in inputs
 - [ ] Hardcode handling for every gtfs field type (including language code, etc)
 
 ### Stop
-📁 See detailed plan: [`project_tracking/browse-stop.md`](project_tracking/browse-stop.md)
 
 - [ ] Remove the whole bar with name and id and lat/lon
 - [ ] Change breadcrumb to use stop_id
 - [ ] Navigate between stops along a route (low priority enhancement)
 
 ### Route Page
-📁 See detailed plan: [`project_tracking/browse-route.md`](project_tracking/browse-route.md)
 
 - [ ] Refresh after adding service exception
 - [ ] Show other routes that use the service (and note that modifications will affect other routes)
@@ -52,7 +48,6 @@
 ### Timetable
 
 #### Editing
-📁 See detailed plan: [`project_tracking/timetable-editing.md`](project_tracking/timetable-editing.md)
 
 - [ ] Support adding a stop row at the bottom. After putting in the time, this will get shuffled into the appropriate spot (because of the next bullet)
 - [ ] Re calculate the stop_time.stop_sequence after every time edit. If the order changes, this should trigger a reorder with the alg
@@ -62,7 +57,6 @@
   - [ ] Maybe we can do this by hovering over the cell and adding enhancements
 
 #### Trip Properties
-📁 See detailed plan: [`project_tracking/trip-properties-editing.md`](project_tracking/trip-properties-editing.md)
 
 - [x] Display trip properties as rows at the top of the timetable (before stop rows)
 - [x] Use schema-driven field generation from `TripsSchema`
@@ -71,19 +65,16 @@
 - [x] Show property labels in first column, inputs in trip columns
 
 #### Enhancements
-📁 See detailed plan: [`project_tracking/timetable-enhancements.md`](project_tracking/timetable-enhancements.md)
 
 - [ ] Click stop from timetable to edit stop
 - [ ] Nice looking dots on the left with the color line showing a visual like a stop map
 - [ ] Add combined directions (flip trips in one direction and sort by start time). Also support no direction set
 
 ## Mobile support
-📁 See detailed plan: [`project_tracking/mobile-support.md`](project_tracking/mobile-support.md)
 
 - [ ] The map is still the main thing. The sidebar becomes a bottom bar and you can swipe down to see more there
 
 ## Misc
-📁 See detailed plan: [`project_tracking/misc-improvements.md`](project_tracking/misc-improvements.md)
 
 - [ ] Add keyboard shortcuts
 - [ ] Ignore non GTFS standard files (this will maybe fix loading MBTA)
@@ -93,7 +84,6 @@
 ## Code Quality
 
 ### Map Initialization Race Condition
-📁 See detailed plan: [`project_tracking/map-initialization-race-condition.md`](project_tracking/map-initialization-race-condition.md)
 
 - [ ] Fix race condition in RouteRenderer initialization
 - [ ] Implement proper async/await initialization pattern
@@ -102,8 +92,3 @@
 ### GTFS Validation
 
 - [ ] Better support for Conditionally Required GTFS fields
-
-## Release 0.1.0
-📁 See detailed plan: [`project_tracking/release-0.1.0.md`](project_tracking/release-0.1.0.md)
-
-AT SOME POINT, CODE FREEZE AND RELEASE 0.1.0!
