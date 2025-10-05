@@ -1,6 +1,6 @@
 {
   "name": "gtfs.zone",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "A fast, simple editor for GTFS transit data - inspired by geojson.io",
   "main": "src/index.html",
   "type": "module",
@@ -68,6 +68,7 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.1",
     "vite": "^7.1.7",
+    "vite-console-forward-plugin": "^2.0.1",
     "webpack-bundle-analyzer": "^4.10.2"
   },
   "dependencies": {

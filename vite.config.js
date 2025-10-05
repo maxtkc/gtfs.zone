@@ -1,12 +1,14 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
+import { consoleForwardPlugin } from 'vite-console-forward-plugin'
 
 // Read version from package.json
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const version = packageJson.version
 
 export default defineConfig({
+  plugins: [consoleForwardPlugin()],
   root: 'src',
   publicDir: '../public',
   define: {
