@@ -452,7 +452,8 @@ export class TimetableDatabase {
   ): Promise<{ isValid: boolean; errorMessage?: string }> {
     const stopTime = await this.getStopTime(trip_id, stop_id);
     if (!stopTime) {
-      return { isValid: false, errorMessage: 'Schedule record not found' };
+      // No existing record means no constraints to validate
+      return { isValid: true };
     }
 
     const currentArrivalTime = stopTime.arrival_time;

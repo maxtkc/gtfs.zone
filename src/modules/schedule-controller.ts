@@ -349,15 +349,11 @@ export class ScheduleController {
       return;
     }
 
-    // Get current times from database
+    // Get current times from database (may not exist for stops with no times)
     const stopTime = await this.database.getStopTime(trip_id, stop_id);
-    if (!stopTime) {
-      console.error(`No stop_time found for trip ${trip_id}, stop ${stop_id}`);
-      return;
-    }
 
-    const arrival_time = stopTime.arrival_time;
-    const departure_time = stopTime.departure_time;
+    const arrival_time = stopTime?.arrival_time;
+    const departure_time = stopTime?.departure_time;
 
     // Determine which time to use as primary (arrival preferred, fallback to departure)
     const primaryTime = arrival_time || departure_time;
@@ -375,8 +371,10 @@ export class ScheduleController {
     inputContainer.innerHTML = '';
     inputContainer.appendChild(linkedInput);
 
-    // Update database: set both times to the primary time
-    await this.database.updateLinkedTimes(trip_id, stop_id, primaryTime);
+    // Update database only if there's a time to set
+    if (primaryTime) {
+      await this.database.updateLinkedTimes(trip_id, stop_id, primaryTime);
+    }
 
     console.log(
       `Linked times for ${trip_id}/${stop_id}: set both times to ${primaryTime}`
@@ -408,17 +406,13 @@ export class ScheduleController {
       return;
     }
 
-    // Get current times from database
+    // Get current times from database (may not exist for stops with no times)
     const stopTime = await this.database.getStopTime(trip_id, stop_id);
-    if (!stopTime) {
-      console.error(`No stop_time found for trip ${trip_id}, stop ${stop_id}`);
-      return;
-    }
 
-    const arrival_time = stopTime.arrival_time
+    const arrival_time = stopTime?.arrival_time
       ? TimeFormatter.formatTimeWithSeconds(stopTime.arrival_time)
       : '';
-    const departure_time = stopTime.departure_time
+    const departure_time = stopTime?.departure_time
       ? TimeFormatter.formatTimeWithSeconds(stopTime.departure_time)
       : '';
 
