@@ -1,3 +1,11 @@
+## v0.4.0 (2025-10-06)
+
+### Feat
+
+- ability to add new services
+- implement handling of different gtfs field types
+- **map**: add projection and basemap controls
+
 ## v0.3.0 (2025-10-05)
 
 ### Feat
