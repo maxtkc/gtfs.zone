@@ -11,14 +11,34 @@
 import { getGTFSFieldDescription } from './zod-tooltip-helper.js';
 import { GTFS_PRIMARY_KEYS } from '../types/gtfs.js';
 import type { z } from 'zod';
+import {
+  GTFSFieldType,
+  getInputTypeForFieldType,
+  getInputAttributesForFieldType,
+} from '../types/gtfs-field-types.js';
+import {
+  formatValueForDisplay,
+  convertValueToGTFS,
+} from './field-formatters.js';
+import { getEnumOptions, isEnumField } from '../types/gtfs-enums.js';
 
 export interface FieldConfig {
   /** Field name in the GTFS specification (e.g., 'stop_name', 'stop_lat') */
   field: string;
   /** Human-readable label for the field */
   label: string;
-  /** Input type: text, number, select, textarea */
-  type: 'text' | 'number' | 'select' | 'textarea';
+  /** Input type: text, number, select, textarea, email, url, tel, color, date, time */
+  type:
+    | 'text'
+    | 'number'
+    | 'select'
+    | 'textarea'
+    | 'email'
+    | 'url'
+    | 'tel'
+    | 'color'
+    | 'date'
+    | 'time';
   /** Current value of the field */
   value?: string | number;
   /** Placeholder text for empty inputs */
@@ -37,6 +57,8 @@ export interface FieldConfig {
   inputClasses?: string;
   /** Whether the field is readonly (typically for primary keys) */
   readonly?: boolean;
+  /** GTFS field type for specialized handling */
+  gtfsFieldType?: GTFSFieldType;
 }
 
 /**
@@ -132,6 +154,16 @@ function renderTextInput(config: FieldConfig, inputId: string): string {
     .map(([key, value]) => `${key}="${escapeHtml(String(value))}"`)
     .join(' ');
 
+  // Format value for display based on field type
+  let displayValue = config.value;
+  if (
+    config.gtfsFieldType &&
+    config.value !== undefined &&
+    config.value !== ''
+  ) {
+    displayValue = formatValueForDisplay(config.value, config.gtfsFieldType);
+  }
+
   return `
     <input
       type="${config.type}"
@@ -139,7 +171,8 @@ function renderTextInput(config: FieldConfig, inputId: string): string {
       class="input"
       data-field="${config.field}"
       ${config.tableName ? `data-table="${config.tableName}"` : ''}
-      value="${escapeHtml(config.value)}"
+      ${config.gtfsFieldType ? `data-gtfs-type="${config.gtfsFieldType}"` : ''}
+      value="${escapeHtml(displayValue)}"
       placeholder="${escapeHtml(config.placeholder || '')}"
       ${config.required ? 'required' : ''}
       ${config.readonly ? 'disabled' : ''}
@@ -156,7 +189,14 @@ function renderSelectInput(config: FieldConfig, inputId: string): string {
     throw new Error('Select input requires options array');
   }
 
-  const currentValue = String(config.value || '');
+  const currentValue = String(config.value ?? '');
+  const hasValue =
+    config.value !== undefined && config.value !== null && config.value !== '';
+
+  // Add empty option for optional fields
+  const emptyOption = !config.required
+    ? `<option value="" ${!hasValue ? 'selected' : ''}>-- Select --</option>`
+    : '';
 
   const optionsHtml = config.options
     .map((option) => {
@@ -175,6 +215,7 @@ function renderSelectInput(config: FieldConfig, inputId: string): string {
       ${config.required ? 'required' : ''}
       ${config.readonly ? 'disabled' : ''}
     >
+      ${emptyOption}
       ${optionsHtml}
     </select>
   `;
@@ -238,6 +279,12 @@ export function renderFormField(config: FieldConfig): string {
   switch (config.type) {
     case 'text':
     case 'number':
+    case 'email':
+    case 'url':
+    case 'tel':
+    case 'color':
+    case 'date':
+    case 'time':
       inputHtml = renderTextInput(config, inputId);
       break;
     case 'select':
@@ -309,9 +356,16 @@ export function attachFieldEventListeners(
     }
 
     const handleUpdate = async () => {
-      const value = (
+      let value = (
         input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
       ).value;
+
+      // Convert value to GTFS format if a GTFS field type is specified
+      const gtfsType = input.getAttribute('data-gtfs-type');
+      if (gtfsType) {
+        value = convertValueToGTFS(value, gtfsType as GTFSFieldType);
+      }
+
       await onUpdate(field, value);
     };
 
@@ -339,6 +393,94 @@ export function attachFieldEventListeners(
  * );
  * ```
  */
+/**
+ * Detect GTFS field type from field name and Zod schema
+ */
+function detectGTFSFieldType(
+  fieldName: string,
+  _innerSchema: z.ZodTypeAny
+): GTFSFieldType | undefined {
+  // Check schema description for type hints (unused for now)
+  // const description = innerSchema._def?.description;
+
+  // Check for common field name patterns
+  if (
+    fieldName.includes('_color') ||
+    fieldName === 'route_color' ||
+    fieldName === 'route_text_color'
+  ) {
+    return GTFSFieldType.Color;
+  }
+  if (
+    fieldName.includes('_date') ||
+    fieldName === 'start_date' ||
+    fieldName === 'end_date' ||
+    fieldName === 'date'
+  ) {
+    return GTFSFieldType.Date;
+  }
+  if (
+    fieldName.includes('_time') ||
+    fieldName === 'arrival_time' ||
+    fieldName === 'departure_time'
+  ) {
+    return GTFSFieldType.Time;
+  }
+  if (fieldName.includes('_email') || fieldName === 'agency_email') {
+    return GTFSFieldType.Email;
+  }
+  if (
+    fieldName.includes('_url') ||
+    fieldName === 'agency_url' ||
+    fieldName === 'stop_url' ||
+    fieldName === 'route_url'
+  ) {
+    return GTFSFieldType.URL;
+  }
+  if (fieldName.includes('_phone') || fieldName === 'agency_phone') {
+    return GTFSFieldType.PhoneNumber;
+  }
+  if (
+    fieldName.includes('_lang') ||
+    fieldName === 'agency_lang' ||
+    fieldName === 'feed_lang'
+  ) {
+    return GTFSFieldType.LanguageCode;
+  }
+  if (
+    fieldName.includes('_timezone') ||
+    fieldName === 'agency_timezone' ||
+    fieldName === 'stop_timezone'
+  ) {
+    return GTFSFieldType.Timezone;
+  }
+  if (
+    fieldName.includes('_lat') ||
+    fieldName === 'stop_lat' ||
+    fieldName === 'shape_pt_lat'
+  ) {
+    return GTFSFieldType.Latitude;
+  }
+  if (
+    fieldName.includes('_lon') ||
+    fieldName === 'stop_lon' ||
+    fieldName === 'shape_pt_lon'
+  ) {
+    return GTFSFieldType.Longitude;
+  }
+  if (fieldName.includes('_id')) {
+    return GTFSFieldType.ID;
+  }
+  if (fieldName.includes('price') || fieldName.includes('fare_amount')) {
+    return GTFSFieldType.CurrencyAmount;
+  }
+  if (fieldName === 'currency_type') {
+    return GTFSFieldType.CurrencyCode;
+  }
+
+  return undefined;
+}
+
 export function generateFieldConfigsFromSchema(
   schema: z.ZodObject<z.ZodRawShape>,
   data: Record<string, string | number | undefined>,
@@ -363,12 +505,63 @@ export function generateFieldConfigsFromSchema(
     const typeName = innerSchema._def?.typeName;
     const isOptional = fieldSchema.isOptional?.() ?? false;
 
-    let fieldType: 'text' | 'number' | 'select' | 'textarea' = 'text';
+    // Detect GTFS field type for specialized handling
+    const gtfsFieldType = detectGTFSFieldType(fieldName, innerSchema);
+
+    let fieldType:
+      | 'text'
+      | 'number'
+      | 'select'
+      | 'textarea'
+      | 'email'
+      | 'url'
+      | 'tel'
+      | 'color'
+      | 'date'
+      | 'time' = 'text';
     let options: Array<{ value: string | number; label: string }> | undefined;
     const attributes: Record<string, string | number> = {};
 
-    // Determine input type based on Zod schema
-    if (typeName === 'ZodNumber') {
+    // Check if this is an enum field first
+    if (isEnumField(fieldName)) {
+      fieldType = 'select';
+      const enumOptions = getEnumOptions(fieldName);
+      if (enumOptions) {
+        options = enumOptions.map((opt) => ({
+          value: opt.value,
+          label: opt.label,
+        }));
+      }
+    }
+    // Use GTFS field type metadata if available
+    else if (gtfsFieldType) {
+      const inputType = getInputTypeForFieldType(gtfsFieldType);
+      const typeAttributes = getInputAttributesForFieldType(gtfsFieldType);
+
+      // Map input types
+      if (inputType === 'email') {
+        fieldType = 'email';
+      } else if (inputType === 'url') {
+        fieldType = 'url';
+      } else if (inputType === 'tel') {
+        fieldType = 'tel';
+      } else if (inputType === 'color') {
+        fieldType = 'color';
+      } else if (inputType === 'date') {
+        fieldType = 'date';
+      } else if (inputType === 'time') {
+        fieldType = 'time';
+      } else if (inputType === 'number') {
+        fieldType = 'number';
+      } else {
+        fieldType = 'text';
+      }
+
+      // Merge type-specific attributes
+      Object.assign(attributes, typeAttributes);
+    }
+    // Fallback to Zod schema type detection
+    else if (typeName === 'ZodNumber') {
       fieldType = 'number';
 
       // Check for min/max constraints
@@ -422,6 +615,7 @@ export function generateFieldConfigsFromSchema(
       options,
       attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
       readonly: isPrimaryKey,
+      gtfsFieldType,
     });
   }
 

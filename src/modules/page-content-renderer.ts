@@ -20,6 +20,9 @@ import {
   generateFieldConfigsFromSchema,
 } from '../utils/field-component.js';
 import { FeedInfoSchema, GTFS_TABLES } from '../types/gtfs.js';
+import { convertValueToGTFS } from '../utils/field-formatters.js';
+import { GTFSFieldType } from '../types/gtfs-field-types.js';
+import { notifications } from './notification-system.js';
 
 /**
  * Interface for injected dependencies
@@ -533,5 +536,68 @@ export class PageContentRenderer {
     // Add AgencyViewController event listeners
     // It will only attach to agency fields (data-table="agency.txt")
     this.agencyViewController.addEventListeners(container);
+
+    // Add feed_info field event listeners
+    this.addFeedInfoEventListeners(container);
+  }
+
+  /**
+   * Add event listeners for feed_info fields
+   */
+  private addFeedInfoEventListeners(container: HTMLElement): void {
+    const feedInfoFields = container.querySelectorAll(
+      '[data-field][data-table="feed_info.txt"]'
+    );
+
+    feedInfoFields.forEach((input) => {
+      const field = input.getAttribute('data-field');
+      if (!field) {
+        return;
+      }
+
+      const handleUpdate = async () => {
+        let value = (
+          input as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+        ).value;
+
+        // Convert value to GTFS format if a GTFS field type is specified
+        const gtfsType = input.getAttribute('data-gtfs-type');
+        if (gtfsType) {
+          value = convertValueToGTFS(value, gtfsType as GTFSFieldType);
+        }
+
+        await this.updateFeedInfoProperty(field, value);
+      };
+
+      // Use 'change' event to fire when value changes and element loses focus
+      input.addEventListener('change', handleUpdate);
+    });
+  }
+
+  /**
+   * Update a feed_info property in the database
+   */
+  private async updateFeedInfoProperty(
+    field: string,
+    value: string
+  ): Promise<void> {
+    if (!this.dependencies.gtfsDatabase) {
+      console.error('Database not available');
+      return;
+    }
+
+    try {
+      // For single-row tables like feed_info, use the table name as the key
+      await this.dependencies.gtfsDatabase.updateRow('feed_info', 'feed_info', {
+        [field]: value,
+      });
+
+      notifications.showSuccess(`Updated ${field}`);
+    } catch (error) {
+      console.error('Error updating feed_info property:', error);
+      notifications.showError(
+        `Failed to update ${field}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 }

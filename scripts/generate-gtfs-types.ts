@@ -2,6 +2,11 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import {
+  GTFSFieldType,
+  GTFS_FIELD_TYPE_METADATA,
+  mapGTFSTypeString,
+} from '../src/types/gtfs-field-types.js';
 
 // Extract primary key mappings from GTFS spec
 function extractPrimaryKeys(gtfsSpec: any): Record<string, string> {
@@ -180,40 +185,68 @@ function mapGTFSTypeToZod(gtfsType: string, fieldName: string, description: stri
     zodType = 'z.string()';
     // Note: Foreign key validation will be added at the schema level
   }
-  // Handle specific types
+  // Use hardcoded field type metadata for validation
   else {
-    switch (typeMapping[gtfsType] || 'string') {
-      case 'string':
-        // Special handling for specific string formats
-        if (gtfsType === 'Email') {
+    const fieldType = mapGTFSTypeString(gtfsType);
+    const metadata = GTFS_FIELD_TYPE_METADATA[fieldType];
+
+    if (metadata) {
+      // Generate Zod validator using the metadata's zodValidator function
+      // We'll use a simplified version here since we can't execute the function directly in code generation
+      switch (fieldType) {
+        case GTFSFieldType.Email:
           zodType = 'z.string().email()';
-        } else if (gtfsType === 'URL') {
+          break;
+        case GTFSFieldType.URL:
           zodType = 'z.string().url()';
-        } else if (gtfsType === 'Date') {
-          zodType = 'z.string().regex(/^\\d{8}$/)'; // YYYYMMDD format
-        } else if (gtfsType === 'Time') {
-          zodType = 'z.string().regex(/^\\d{2}:\\d{2}:\\d{2}$/)'; // HH:MM:SS format
-        } else if (gtfsType === 'Color') {
-          zodType = 'z.string().regex(/^[0-9A-Fa-f]{6}$/)'; // hex color
-        } else {
-          zodType = 'z.string()';
-        }
-        break;
-      case 'number':
-        if (gtfsType.includes('Non-negative')) {
-          zodType = 'z.number().min(0)';
-        } else if (gtfsType.includes('Positive')) {
-          zodType = 'z.number().positive()';
-        } else if (gtfsType === 'Latitude') {
-          zodType = 'z.number().min(-90).max(90)';
-        } else if (gtfsType === 'Longitude') {
-          zodType = 'z.number().min(-180).max(180)';
-        } else {
+          break;
+        case GTFSFieldType.Date:
+          zodType = 'z.string().regex(/^\\d{8}$/, \'Must be in YYYYMMDD format\')';
+          break;
+        case GTFSFieldType.Time:
+          zodType = 'z.string().regex(/^\\d{1,2}:\\d{2}:\\d{2}$/, \'Must be in HH:MM:SS format\')';
+          break;
+        case GTFSFieldType.Color:
+          zodType = 'z.string().regex(/^[0-9A-Fa-f]{6}$/, \'Must be a 6-digit hexadecimal color\')';
+          break;
+        case GTFSFieldType.LanguageCode:
+          zodType = 'z.string().regex(/^[a-z]{2,3}(-[A-Z]{2})?$/, \'Must be a valid IETF BCP 47 language code\')';
+          break;
+        case GTFSFieldType.CurrencyCode:
+          zodType = 'z.string().regex(/^[A-Z]{3}$/, \'Must be a 3-letter ISO 4217 currency code\')';
+          break;
+        case GTFSFieldType.CurrencyAmount:
+          zodType = 'z.string().regex(/^\\d+(\\.\\d{1,4})?$/, \'Must be a valid decimal amount\')';
+          break;
+        case GTFSFieldType.Latitude:
+          zodType = 'z.number().min(-90.0).max(90.0)';
+          break;
+        case GTFSFieldType.Longitude:
+          zodType = 'z.number().min(-180.0).max(180.0)';
+          break;
+        case GTFSFieldType.Integer:
+          zodType = 'z.number().int()';
+          break;
+        case GTFSFieldType.NonNegativeInteger:
+          zodType = 'z.number().int().nonnegative()';
+          break;
+        case GTFSFieldType.PositiveInteger:
+          zodType = 'z.number().int().positive()';
+          break;
+        case GTFSFieldType.Float:
           zodType = 'z.number()';
-        }
-        break;
-      default:
-        zodType = 'z.string()';
+          break;
+        case GTFSFieldType.NonNegativeFloat:
+          zodType = 'z.number().nonnegative()';
+          break;
+        case GTFSFieldType.PositiveFloat:
+          zodType = 'z.number().positive()';
+          break;
+        default:
+          zodType = 'z.string()';
+      }
+    } else {
+      zodType = 'z.string()';
     }
   }
 

@@ -1,6 +1,8 @@
 import { GTFSDatabaseRecord } from './gtfs-database.js';
 import { GTFSTableMap } from '../types/gtfs-entities.js';
 import { GTFS_TABLES, GTFSTableName } from '../types/gtfs.js';
+import { GTFSFieldType } from '../types/gtfs-field-types.js';
+import { validateValue } from '../utils/field-formatters.js';
 
 interface ValidationMessage {
   level: 'error' | 'warning' | 'info';
@@ -353,19 +355,13 @@ export class GTFSValidator {
           GTFS_TABLES.STOPS,
           rowNum
         );
-      } else {
-        const lat =
-          typeof stop.stop_lat === 'number'
-            ? stop.stop_lat
-            : parseFloat(stop.stop_lat);
-        if (isNaN(lat) || lat < -90 || lat > 90) {
-          this.addError(
-            `Row ${rowNum}: stop_lat must be between -90 and 90`,
-            'INVALID_COORDINATE',
-            GTFS_TABLES.STOPS,
-            rowNum
-          );
-        }
+      } else if (!this.isValidLatitude(stop.stop_lat)) {
+        this.addError(
+          `Row ${rowNum}: stop_lat must be between -90.0 and 90.0`,
+          'INVALID_COORDINATE',
+          GTFS_TABLES.STOPS,
+          rowNum
+        );
       }
 
       if (
@@ -378,19 +374,13 @@ export class GTFSValidator {
           GTFS_TABLES.STOPS,
           rowNum
         );
-      } else {
-        const lon =
-          typeof stop.stop_lon === 'number'
-            ? stop.stop_lon
-            : parseFloat(stop.stop_lon);
-        if (isNaN(lon) || lon < -180 || lon > 180) {
-          this.addError(
-            `Row ${rowNum}: stop_lon must be between -180 and 180`,
-            'INVALID_COORDINATE',
-            GTFS_TABLES.STOPS,
-            rowNum
-          );
-        }
+      } else if (!this.isValidLongitude(stop.stop_lon)) {
+        this.addError(
+          `Row ${rowNum}: stop_lon must be between -180.0 and 180.0`,
+          'INVALID_COORDINATE',
+          GTFS_TABLES.STOPS,
+          rowNum
+        );
       }
 
       // Validate location_type
@@ -682,16 +672,13 @@ export class GTFSValidator {
           GTFS_TABLES.SHAPES,
           rowNum
         );
-      } else {
-        const lat = parseFloat(shape.shape_pt_lat);
-        if (isNaN(lat) || lat < -90 || lat > 90) {
-          this.addError(
-            `Row ${rowNum}: shape_pt_lat must be between -90 and 90`,
-            'INVALID_COORDINATE',
-            GTFS_TABLES.SHAPES,
-            rowNum
-          );
-        }
+      } else if (!this.isValidLatitude(shape.shape_pt_lat)) {
+        this.addError(
+          `Row ${rowNum}: shape_pt_lat must be between -90.0 and 90.0`,
+          'INVALID_COORDINATE',
+          GTFS_TABLES.SHAPES,
+          rowNum
+        );
       }
 
       if (!shape.shape_pt_lon) {
@@ -701,16 +688,13 @@ export class GTFSValidator {
           GTFS_TABLES.SHAPES,
           rowNum
         );
-      } else {
-        const lon = parseFloat(shape.shape_pt_lon);
-        if (isNaN(lon) || lon < -180 || lon > 180) {
-          this.addError(
-            `Row ${rowNum}: shape_pt_lon must be between -180 and 180`,
-            'INVALID_COORDINATE',
-            GTFS_TABLES.SHAPES,
-            rowNum
-          );
-        }
+      } else if (!this.isValidLongitude(shape.shape_pt_lon)) {
+        this.addError(
+          `Row ${rowNum}: shape_pt_lon must be between -180.0 and 180.0`,
+          'INVALID_COORDINATE',
+          GTFS_TABLES.SHAPES,
+          rowNum
+        );
       }
 
       if (!shape.shape_pt_sequence) {
@@ -801,37 +785,40 @@ export class GTFSValidator {
   }
 
   isValidUrl(url: string) {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
+    const result = validateValue(url, GTFSFieldType.URL);
+    return result.valid;
   }
 
   isValidTime(time: string) {
-    // GTFS time format: HH:MM:SS or H:MM:SS (hours can exceed 24)
-    return /^\d{1,2}:\d{2}:\d{2}$/.test(time);
+    const result = validateValue(time, GTFSFieldType.Time);
+    return result.valid;
   }
 
   isValidDate(date: string) {
-    // GTFS date format: YYYYMMDD
-    if (!/^\d{8}$/.test(date)) {
-      return false;
-    }
+    const result = validateValue(date, GTFSFieldType.Date);
+    return result.valid;
+  }
 
-    const year = parseInt(date.substr(0, 4));
-    const month = parseInt(date.substr(4, 2));
-    const day = parseInt(date.substr(6, 2));
+  isValidColor(color: string) {
+    const result = validateValue(color, GTFSFieldType.Color);
+    return result.valid;
+  }
 
-    return (
-      year >= 1900 &&
-      year <= 2200 &&
-      month >= 1 &&
-      month <= 12 &&
-      day >= 1 &&
-      day <= 31
-    );
+  isValidEmail(email: string) {
+    const result = validateValue(email, GTFSFieldType.Email);
+    return result.valid;
+  }
+
+  isValidLatitude(lat: number | string) {
+    const num = typeof lat === 'number' ? lat : parseFloat(lat);
+    const result = validateValue(num, GTFSFieldType.Latitude);
+    return result.valid;
+  }
+
+  isValidLongitude(lon: number | string) {
+    const num = typeof lon === 'number' ? lon : parseFloat(lon);
+    const result = validateValue(num, GTFSFieldType.Longitude);
+    return result.valid;
   }
 
   getValidationSummary() {

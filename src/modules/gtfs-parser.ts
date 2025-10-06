@@ -23,6 +23,88 @@ export class GTFSParser {
     this.gtfsDatabase = new GTFSDatabase();
   }
 
+  /**
+   * Parse and coerce field values based on GTFS field types
+   */
+  private parseFieldValue(fieldName: string, value: string): string | number {
+    // Handle empty values
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+
+    const stringValue = String(value).trim();
+
+    // Detect field type from field name
+    let shouldBeNumeric = false;
+
+    // Numeric fields
+    if (
+      fieldName.includes('_lat') ||
+      fieldName.includes('_lon') ||
+      fieldName === 'stop_lat' ||
+      fieldName === 'stop_lon' ||
+      fieldName === 'shape_pt_lat' ||
+      fieldName === 'shape_pt_lon' ||
+      fieldName === 'shape_dist_traveled' ||
+      fieldName.includes('_sequence') ||
+      fieldName === 'direction_id' ||
+      fieldName === 'location_type' ||
+      fieldName === 'wheelchair_boarding' ||
+      fieldName === 'wheelchair_accessible' ||
+      fieldName === 'bikes_allowed' ||
+      fieldName === 'pickup_type' ||
+      fieldName === 'drop_off_type' ||
+      fieldName === 'payment_method' ||
+      fieldName === 'transfers' ||
+      fieldName === 'transfer_duration' ||
+      fieldName === 'route_type' ||
+      fieldName === 'route_sort_order' ||
+      fieldName === 'continuous_pickup' ||
+      fieldName === 'continuous_drop_off' ||
+      fieldName === 'exception_type' ||
+      fieldName.includes('_type')
+    ) {
+      shouldBeNumeric = true;
+    }
+
+    // Parse numeric values
+    if (shouldBeNumeric && stringValue !== '') {
+      const num = parseFloat(stringValue);
+      if (!isNaN(num)) {
+        // For latitude/longitude, preserve 6 decimal places
+        if (fieldName.includes('_lat') || fieldName.includes('_lon')) {
+          return parseFloat(num.toFixed(6));
+        }
+        // For integers, remove decimal part
+        if (Number.isInteger(num)) {
+          return parseInt(stringValue, 10);
+        }
+        return num;
+      }
+    }
+
+    // Return trimmed string for non-numeric fields
+    return stringValue;
+  }
+
+  /**
+   * Process parsed CSV data to apply type coercion
+   */
+  private processParsedData(
+    data: Record<string, unknown>[]
+  ): GTFSDatabaseRecord[] {
+    return data.map((row) => {
+      const processedRow: GTFSDatabaseRecord = {};
+      for (const [fieldName, value] of Object.entries(row)) {
+        processedRow[fieldName] = this.parseFieldValue(
+          fieldName,
+          value as string
+        );
+      }
+      return processedRow;
+    });
+  }
+
   async initialize(): Promise<void> {
     await this.gtfsDatabase.initialize();
 
@@ -223,23 +305,27 @@ export class GTFSParser {
             skipEmptyLines: true,
           });
 
+          // Process parsed data with type coercion
+          const processedData = this.processParsedData(
+            parsed.data as Record<string, unknown>[]
+          );
+
           // Store in memory for compatibility
           this.gtfsData[fileName] = {
             content: fileContent,
-            data: parsed.data,
+            data: processedData,
             errors: parsed.errors,
           };
 
           // Store in IndexedDB
           const tableName = this.getTableName(fileName);
-          const rows = parsed.data as GTFSDatabaseRecord[];
-          if (rows.length > 0) {
+          if (processedData.length > 0) {
             loadingStateManager.updateProgress(
               operation,
               progress + 5,
-              `Storing ${fileName} (${rows.length} records)...`
+              `Storing ${fileName} (${processedData.length} records)...`
             );
-            await this.gtfsDatabase.insertRows(tableName, rows);
+            await this.gtfsDatabase.insertRows(tableName, processedData);
           }
         } else if (fileName.endsWith('.geojson')) {
           // Handle GeoJSON files
@@ -474,6 +560,36 @@ export class GTFSParser {
     };
   }
 
+  /**
+   * Format field value for export (ensures proper formatting, no scientific notation)
+   */
+  private formatFieldForExport(fieldName: string, value: unknown): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    // Convert to string
+    const stringValue = String(value);
+
+    // For numeric fields, ensure proper formatting
+    if (typeof value === 'number') {
+      // Latitude/Longitude: always use 6 decimal places
+      if (fieldName.includes('_lat') || fieldName.includes('_lon')) {
+        return value.toFixed(6);
+      }
+
+      // Integers: no decimal point
+      if (Number.isInteger(value)) {
+        return String(value);
+      }
+
+      // Other floats: avoid scientific notation
+      return value.toString();
+    }
+
+    return stringValue;
+  }
+
   async exportAsZip() {
     try {
       // Get all available files from memory (for file list)
@@ -496,13 +612,17 @@ export class GTFSParser {
             let csvContent = '';
 
             if (fileName.endsWith('.txt')) {
-              // Create CSV content from natural key data (no auto-increment id to remove)
+              // Create CSV content with proper formatting
               if (rows.length > 0) {
                 const headers = Object.keys(rows[0]);
                 csvContent = [
                   headers.join(','),
                   ...rows.map((row) =>
-                    headers.map((header) => row[header] || '').join(',')
+                    headers
+                      .map((header) =>
+                        this.formatFieldForExport(header, row[header])
+                      )
+                      .join(',')
                   ),
                 ].join('\n');
               }
