@@ -104,16 +104,25 @@ export class TimetableRenderer {
   public renderDirectionTabs(data: TimetableData): string {
     const directions = data.availableDirections || [];
 
-    // Don't show tabs if there's only one or no directions
-    if (directions.length <= 1) {
+    // If no directions available (empty timetable), show default Inbound/Outbound tabs
+    const defaultDirections: DirectionInfo[] = [
+      { id: '0', name: 'Outbound', tripCount: 0 },
+      { id: '1', name: 'Inbound', tripCount: 0 },
+    ];
+
+    const directionsToShow =
+      directions.length > 0 ? directions : defaultDirections;
+
+    // Don't show tabs if there's only one direction AND trips exist
+    if (directions.length === 1) {
       return '';
     }
 
     const selectedDirectionId =
       data.selectedDirectionId ||
-      (directions.length > 0 ? directions[0].id : null);
+      (directionsToShow.length > 0 ? directionsToShow[0].id : '0');
 
-    const tabsHTML = directions
+    const tabsHTML = directionsToShow
       .map((direction: DirectionInfo) => {
         const isActive = direction.id === selectedDirectionId;
         const activeClass = isActive ? 'tab-active' : '';
@@ -151,22 +160,12 @@ export class TimetableRenderer {
     data: TimetableData,
     pendingStopId?: string
   ): string {
-    if (!data.selectedDirectionId) {
-      return `
-        <div class="flex-1 flex items-center justify-center">
-          <div class="text-center text-base-content/50">
-            <p>No direction selected.</p>
-            <p class="text-sm mt-2">Select a direction from the tabs above.</p>
-          </div>
-        </div>
-      `;
-    }
-
     console.log('DEBUG: renderTimetableContent called with:', {
       trips: data.trips?.length || 0,
       selectedDirectionId: data.selectedDirectionId,
     });
 
+    // Always render the table structure, even when empty
     return `
       <div class="flex-1 overflow-x-auto">
         <table class="table table-xs table-pin-rows table-pin-cols">

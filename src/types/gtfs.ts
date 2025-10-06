@@ -2,7 +2,7 @@
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
  *
  * Generated from https://gtfs.org/documentation/schedule/reference
- * Scraped at: 2025-10-03T08:01:26.159Z
+ * Scraped at: 2025-10-06T07:31:38.143Z
  *
  * This file contains TypeScript interfaces and Zod schemas for all GTFS files and their fields.
  * Zod schemas include field descriptions accessible at runtime and foreign key validation.
@@ -516,6 +516,298 @@ export const GTFS_PRIMARY_KEYS = {
   'attributions.txt': 'attribution_id',
 } as const;
 
+// Field type mappings extracted from GTFS specification
+// Maps filename -> fieldName -> GTFS type string (e.g., "Text", "Integer", "Enum")
+export const GTFS_FIELD_TYPES = {
+  'agency.txt': {
+    agency_id: 'Unique ID',
+    agency_name: 'Text',
+    agency_url: 'URL',
+    agency_timezone: 'Timezone',
+    agency_lang: 'Language code',
+    agency_phone: 'Phone number',
+    agency_fare_url: 'URL',
+    agency_email: 'Email',
+  },
+  'stops.txt': {
+    stop_id: 'Unique ID',
+    stop_code: 'Text',
+    stop_name: 'Text',
+    tts_stop_name: 'Text',
+    stop_desc: 'Text',
+    stop_lat: 'Latitude',
+    stop_lon: 'Longitude',
+    zone_id: 'ID',
+    stop_url: 'URL',
+    location_type: 'Enum',
+    parent_station: 'Foreign ID referencing stops.stop_id',
+    stop_timezone: 'Timezone',
+    wheelchair_boarding: 'Enum',
+    level_id: 'Foreign ID referencing levels.level_id',
+    platform_code: 'Text',
+  },
+  'routes.txt': {
+    route_id: 'Unique ID',
+    agency_id: 'Foreign ID referencing agency.agency_id',
+    route_short_name: 'Text',
+    route_long_name: 'Text',
+    route_desc: 'Text',
+    route_type: 'Enum',
+    route_url: 'URL',
+    route_color: 'Color',
+    route_text_color: 'Color',
+    route_sort_order: 'Non-negative integer',
+    continuous_pickup: 'Enum',
+    continuous_drop_off: 'Enum',
+    network_id: 'ID',
+  },
+  'trips.txt': {
+    route_id: 'Foreign ID referencing routes.route_id',
+    service_id:
+      'Foreign ID referencing calendar.service_id or calendar_dates.service_id',
+    trip_id: 'Unique ID',
+    trip_headsign: 'Text',
+    trip_short_name: 'Text',
+    direction_id: 'Enum',
+    block_id: 'ID',
+    shape_id: 'Foreign ID referencing shapes.shape_id',
+    wheelchair_accessible: 'Enum',
+    bikes_allowed: 'Enum',
+    cars_allowed: 'Enum',
+  },
+  'stop_times.txt': {
+    trip_id: 'Foreign ID referencing trips.trip_id',
+    arrival_time: 'Time',
+    departure_time: 'Time',
+    stop_id: 'Foreign ID referencing stops.stop_id',
+    location_group_id:
+      'Foreign ID referencing location_groups.location_group_id',
+    location_id: 'Foreign ID referencing id from locations.geojson',
+    stop_sequence: 'Non-negative integer',
+    stop_headsign: 'Text',
+    start_pickup_drop_off_window: 'Time',
+    end_pickup_drop_off_window: 'Time',
+    pickup_type: 'Enum',
+    drop_off_type: 'Enum',
+    continuous_pickup: 'Enum',
+    continuous_drop_off: 'Enum',
+    shape_dist_traveled: 'Non-negative float',
+    timepoint: 'Enum',
+    pickup_booking_rule_id:
+      'Foreign ID referencing booking_rules.booking_rule_id',
+    drop_off_booking_rule_id:
+      'Foreign ID referencing booking_rules.booking_rule_id',
+  },
+  'calendar.txt': {
+    service_id: 'Unique ID',
+    monday: 'Enum',
+    tuesday: 'Enum',
+    wednesday: 'Enum',
+    thursday: 'Enum',
+    friday: 'Enum',
+    saturday: 'Enum',
+    sunday: 'Enum',
+    start_date: 'Date',
+    end_date: 'Date',
+  },
+  'calendar_dates.txt': {
+    service_id: 'Foreign ID referencing calendar.service_id or ID',
+    date: 'Date',
+    exception_type: 'Enum',
+  },
+  'fare_attributes.txt': {
+    fare_id: 'Unique ID',
+    price: 'Non-negative float',
+    currency_type: 'Currency code',
+    payment_method: 'Enum',
+    transfers: 'Enum',
+    agency_id: 'Foreign ID referencing agency.agency_id',
+    transfer_duration: 'Non-negative integer',
+  },
+  'fare_rules.txt': {
+    fare_id: 'Foreign ID referencing fare_attributes.fare_id',
+    route_id: 'Foreign ID referencing routes.route_id',
+    origin_id: 'Foreign ID referencing stops.zone_id',
+    destination_id: 'Foreign ID referencing stops.zone_id',
+    contains_id: 'Foreign ID referencing stops.zone_id',
+  },
+  'timeframes.txt': {
+    timeframe_group_id: 'ID',
+    start_time: 'Time',
+    end_time: 'Time',
+    service_id:
+      'Foreign ID referencing calendar.service_id or calendar_dates.service_id',
+  },
+  'rider_categories.txt': {
+    rider_category_id: 'Unique ID',
+    rider_category_name: 'Text',
+    is_default_fare_category: 'Enum',
+    eligibility_url: 'URL',
+  },
+  'fare_media.txt': {
+    fare_media_id: 'Unique ID',
+    fare_media_name: 'Text',
+    fare_media_type: 'Enum',
+  },
+  'fare_products.txt': {
+    fare_product_id: 'ID',
+    fare_product_name: 'Text',
+    rider_category_id:
+      'Foreign ID referencing rider_categories.rider_category_id',
+    fare_media_id: 'Foreign ID referencing fare_media.fare_media_id',
+    amount: 'Currency amount',
+    currency: 'Currency code',
+  },
+  'fare_leg_rules.txt': {
+    leg_group_id: 'ID',
+    network_id:
+      'Foreign ID referencing routes.network_id or networks.network_id',
+    from_area_id: 'Foreign ID referencing areas.area_id',
+    to_area_id: 'Foreign ID referencing areas.area_id',
+    from_timeframe_group_id:
+      'Foreign ID referencing timeframes.timeframe_group_id',
+    to_timeframe_group_id:
+      'Foreign ID referencing timeframes.timeframe_group_id',
+    fare_product_id: 'Foreign ID referencing fare_products.fare_product_id',
+    rule_priority: 'Non-negative integer',
+  },
+  'fare_leg_join_rules.txt': {
+    from_network_id:
+      'Foreign ID referencing routes.network_id or networks.network_id',
+    to_network_id:
+      'Foreign ID referencing routes.network_id or networks.network_id',
+    from_stop_id: 'Foreign ID referencing stops.stop_id',
+    to_stop_id: 'Foreign ID referencing stops.stop_id',
+  },
+  'fare_transfer_rules.txt': {
+    from_leg_group_id: 'Foreign ID referencing fare_leg_rules.leg_group_id',
+    to_leg_group_id: 'Foreign ID referencing fare_leg_rules.leg_group_id',
+    transfer_count: 'Non-zero integer',
+    duration_limit: 'Positive integer',
+    duration_limit_type: 'Enum',
+    fare_transfer_type: 'Enum',
+    fare_product_id: 'Foreign ID referencing fare_products.fare_product_id',
+  },
+  'areas.txt': {
+    area_id: 'Unique ID',
+    area_name: 'Text',
+  },
+  'stop_areas.txt': {
+    area_id: 'Foreign ID referencing areas.area_id',
+    stop_id: 'Foreign ID referencing stops.stop_id',
+  },
+  'networks.txt': {
+    network_id: 'Unique ID',
+    network_name: 'Text',
+  },
+  'route_networks.txt': {
+    network_id: 'Foreign ID referencing networks.network_id',
+    route_id: 'Foreign ID referencing routes.route_id',
+  },
+  'shapes.txt': {
+    shape_id: 'ID',
+    shape_pt_lat: 'Latitude',
+    shape_pt_lon: 'Longitude',
+    shape_pt_sequence: 'Non-negative integer',
+    shape_dist_traveled: 'Non-negative float',
+  },
+  'frequencies.txt': {
+    trip_id: 'Foreign ID referencing trips.trip_id',
+    start_time: 'Time',
+    end_time: 'Time',
+    headway_secs: 'Positive integer',
+    exact_times: 'Enum',
+  },
+  'transfers.txt': {
+    from_stop_id: 'Foreign ID referencing stops.stop_id',
+    to_stop_id: 'Foreign ID referencing stops.stop_id',
+    from_route_id: 'Foreign ID referencing routes.route_id',
+    to_route_id: 'Foreign ID referencing routes.route_id',
+    from_trip_id: 'Foreign ID referencing trips.trip_id',
+    to_trip_id: 'Foreign ID referencing trips.trip_id',
+    transfer_type: 'Enum',
+    min_transfer_time: 'Non-negative integer',
+  },
+  'pathways.txt': {
+    pathway_id: 'Unique ID',
+    from_stop_id: 'Foreign ID referencing stops.stop_id',
+    to_stop_id: 'Foreign ID referencing stops.stop_id',
+    pathway_mode: 'Enum',
+    is_bidirectional: 'Enum',
+    length: 'Non-negative float',
+    traversal_time: 'Positive integer',
+    stair_count: 'Non-null integer',
+    max_slope: 'Float',
+    min_width: 'Positive float',
+    signposted_as: 'Text',
+    reversed_signposted_as: 'Text',
+  },
+  'levels.txt': {
+    level_id: 'Unique ID',
+    level_index: 'Float',
+    level_name: 'Text',
+  },
+  'location_groups.txt': {
+    location_group_id: 'Unique ID',
+    location_group_name: 'Text',
+  },
+  'location_group_stops.txt': {
+    location_group_id:
+      'Foreign ID referencing location_groups.location_group_id',
+    stop_id: 'Foreign ID referencing stops.stop_id',
+  },
+  'booking_rules.txt': {
+    booking_rule_id: 'Unique ID',
+    booking_type: 'Enum',
+    prior_notice_duration_min: 'Integer',
+    prior_notice_duration_max: 'Integer',
+    prior_notice_last_day: 'Integer',
+    prior_notice_last_time: 'Time',
+    prior_notice_start_day: 'Integer',
+    prior_notice_start_time: 'Time',
+    prior_notice_service_id: 'Foreign ID referencing calendar.service_id',
+    message: 'Text',
+    pickup_message: 'Text',
+    drop_off_message: 'Text',
+    phone_number: 'Phone number',
+    info_url: 'URL',
+    booking_url: 'URL',
+  },
+  'translations.txt': {
+    table_name: 'Enum',
+    field_name: 'Text',
+    language: 'Language code',
+    translation: 'Text or URL or Email or Phone number',
+    record_id: 'Foreign ID',
+    record_sub_id: 'Foreign ID',
+    field_value: 'Text or URL or Email or Phone number',
+  },
+  'feed_info.txt': {
+    feed_publisher_name: 'Text',
+    feed_publisher_url: 'URL',
+    feed_lang: 'Language code',
+    default_lang: 'Language code',
+    feed_start_date: 'Date',
+    feed_end_date: 'Date',
+    feed_version: 'Text',
+    feed_contact_email: 'Email',
+    feed_contact_url: 'URL',
+  },
+  'attributions.txt': {
+    attribution_id: 'Unique ID',
+    agency_id: 'Foreign ID referencing agency.agency_id',
+    route_id: 'Foreign ID referencing routes.route_id',
+    trip_id: 'Foreign ID referencing trips.trip_id',
+    organization_name: 'Text',
+    is_producer: 'Enum',
+    is_operator: 'Enum',
+    is_authority: 'Enum',
+    attribution_url: 'URL',
+    attribution_email: 'Email',
+    attribution_phone: 'Phone number',
+  },
+} as const;
+
 // Validation context interface for foreign key checking
 export interface GTFSValidationContext {
   [filename: string]: Map<string, unknown>;
@@ -567,6 +859,10 @@ export const AgencySchema = z.object({
     ),
   agency_lang: z
     .string()
+    .regex(
+      /^[a-z]{2,3}(-[A-Z]{2})?$/,
+      'Must be a valid IETF BCP 47 language code'
+    )
     .describe(
       'Primary language used by this transit agency. Should be provided to help GTFS consumers choose capitalization rules and other language-specific settings for the dataset.'
     )
@@ -628,15 +924,15 @@ export const StopsSchema = z
       .optional(),
     stop_lat: z
       .number()
-      .min(-90)
-      .max(90)
+      .min(-90.0)
+      .max(90.0)
       .describe(
         'Latitude of the location.\n\nFor stops/platforms (location_type=0) and boarding area (location_type=4), the coordinates must be the ones of the bus pole — if exists — and otherwise of where the travelers are boarding the vehicle (on the sidewalk or the platform, and not on the roadway or the track where the vehicle stops).\n\nConditionally Required:\n- Required for locations which are stops (location_type=0), stations (location_type=1) or entrances/exits (location_type=2).\n- Optional for locations which are generic nodes (location_type=3) or boarding areas (location_type=4).'
       ),
     stop_lon: z
       .number()
-      .min(-180)
-      .max(180)
+      .min(-180.0)
+      .max(180.0)
       .describe(
         'Longitude of the location.\n\nFor stops/platforms (location_type=0) and boarding area (location_type=4), the coordinates must be the ones of the bus pole — if exists — and otherwise of where the travelers are boarding the vehicle (on the sidewalk or the platform, and not on the roadway or the track where the vehicle stops).\n\nConditionally Required:\n- Required for locations which are stops (location_type=0), stations (location_type=1) or entrances/exits (location_type=2).\n- Optional for locations which are generic nodes (location_type=3) or boarding areas (location_type=4).'
       ),
@@ -735,21 +1031,22 @@ export const RoutesSchema = z
       .optional(),
     route_color: z
       .string()
-      .regex(/^[0-9A-Fa-f]{6}$/)
+      .regex(/^[0-9A-Fa-f]{6}$/, 'Must be a 6-digit hexadecimal color')
       .describe(
         'Route color designation that matches public facing material. Defaults to white (FFFFFF) when omitted or left empty. The color difference between route_color and route_text_color should provide sufficient contrast when viewed on a black and white screen.'
       )
       .optional(),
     route_text_color: z
       .string()
-      .regex(/^[0-9A-Fa-f]{6}$/)
+      .regex(/^[0-9A-Fa-f]{6}$/, 'Must be a 6-digit hexadecimal color')
       .describe(
         'Legible color to use for text drawn against a background of route_color. Defaults to black (000000) when omitted or left empty. The color difference between route_color and route_text_color should provide sufficient contrast when viewed on a black and white screen.'
       )
       .optional(),
     route_sort_order: z
       .number()
-      .min(0)
+      .int()
+      .nonnegative()
       .describe(
         'Orders the routes in a way which is ideal for presentation to customers. Routes with smaller route_sort_order values should be displayed first.'
       )
@@ -848,13 +1145,13 @@ export const StopTimesSchema = z
     trip_id: z.string().describe('Identifies a trip.'),
     arrival_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Arrival time at the stop (defined by stop_times.stop_id) for a specific trip (defined by stop_times.trip_id) in the time zone specified by agency.agency_timezone, not stops.stop_timezone.\n\nIf there are not separate times for arrival and departure at a stop, arrival_time and departure_time should be the same.\n\nFor times occurring after midnight on the service day, enter the time as a value greater than 24:00:00 in HH:MM:SS.\n\nIf exact arrival and departure times (timepoint=1) are not available, estimated or interpolated arrival and departure times (timepoint=0) should be provided.\n\nConditionally Required:\n- Required for the first and last stop in a trip (defined by stop_times.stop_sequence).\n- Required for timepoint=1.\n- Forbidden when start_pickup_drop_off_window or end_pickup_drop_off_window are defined.\n- Optional otherwise.'
       ),
     departure_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Departure time from the stop (defined by stop_times.stop_id) for a specific trip (defined by stop_times.trip_id) in the time zone specified by agency.agency_timezone, not stops.stop_timezone.\n\nIf there are not separate times for arrival and departure at a stop, arrival_time and departure_time should be the same.\n\nFor times occurring after midnight on the service day, enter the time as a value greater than 24:00:00 in HH:MM:SS.\n\nIf exact arrival and departure times (timepoint=1) are not available, estimated or interpolated arrival and departure times (timepoint=0) should be provided.\n\nConditionally Required:\n- Required for timepoint=1.\n- Forbidden when start_pickup_drop_off_window or end_pickup_drop_off_window are defined.\n- Optional otherwise.'
       ),
@@ -875,7 +1172,8 @@ export const StopTimesSchema = z
       ),
     stop_sequence: z
       .number()
-      .min(0)
+      .int()
+      .nonnegative()
       .describe(
         'Order of stops, location groups, or GeoJSON locations for a particular trip. The values must increase along the trip but do not need to be consecutive.Example: The first location on the trip could have a stop_sequence=1, the second location on the trip could have a stop_sequence=23, the third location could have a stop_sequence=40, and so on.\n\nTravel within the same location group or GeoJSON location requires two records in stop_times.txt with the same location_group_id or location_id.'
       ),
@@ -887,13 +1185,13 @@ export const StopTimesSchema = z
       .optional(),
     start_pickup_drop_off_window: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Time that on-demand service becomes available in a GeoJSON location, location group, or stop.\n\nConditionally Required:\n- Required if stop_times.location_group_id or stop_times.location_id is defined.\n- Required if end_pickup_drop_off_window is defined.\n- Forbidden if arrival_time or departure_time is defined.\n- Optional otherwise.'
       ),
     end_pickup_drop_off_window: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Time that on-demand service ends in a GeoJSON location, location group, or stop.\n\nConditionally Required:\n- Required if stop_times.location_group_id or stop_times.location_id is defined.\n- Required if start_pickup_drop_off_window is defined.\n- Forbidden if arrival_time or departure_time is defined.\n- Optional otherwise.'
       ),
@@ -919,7 +1217,7 @@ export const StopTimesSchema = z
       ),
     shape_dist_traveled: z
       .number()
-      .min(0)
+      .nonnegative()
       .describe(
         'Actual distance traveled along the associated shape, from the first stop to the stop specified in this record. This field specifies how much of the shape to draw between any two stops during a trip. Must be in the same units used in shapes.txt. Values used for shape_dist_traveled must increase along with stop_sequence; they must not be used to show reverse travel along a route.\n\nRecommended for routes that have looping or inlining (the vehicle crosses or travels over the same portion of alignment in one trip). See shapes.shape_dist_traveled. Example: If a bus travels a distance of 5.25 kilometers from the start of the shape to the stop,shape_dist_traveled=5.25.'
       )
@@ -988,11 +1286,11 @@ export const CalendarSchema = z.object({
     .describe('Functions in the same way as monday except applies to Sundays.'),
   start_date: z
     .string()
-    .regex(/^\d{8}$/)
+    .regex(/^\d{8}$/, 'Must be in YYYYMMDD format')
     .describe('Start service day for the service interval.'),
   end_date: z
     .string()
-    .regex(/^\d{8}$/)
+    .regex(/^\d{8}$/, 'Must be in YYYYMMDD format')
     .describe(
       'End service day for the service interval. This service day is included in the interval.'
     ),
@@ -1010,7 +1308,7 @@ export const CalendarDatesSchema = z
       ),
     date: z
       .string()
-      .regex(/^\d{8}$/)
+      .regex(/^\d{8}$/, 'Must be in YYYYMMDD format')
       .describe('Date when service exception occurs.'),
     exception_type: z
       .number()
@@ -1031,9 +1329,12 @@ export const FareAttributesSchema = z
     fare_id: z.string().describe('Identifies a fare class.'),
     price: z
       .number()
-      .min(0)
+      .nonnegative()
       .describe('Fare price, in the unit specified by currency_type.'),
-    currency_type: z.string().describe('Currency used to pay the fare.'),
+    currency_type: z
+      .string()
+      .regex(/^[A-Z]{3}$/, 'Must be a 3-letter ISO 4217 currency code')
+      .describe('Currency used to pay the fare.'),
     payment_method: z
       .number()
       .describe(
@@ -1051,7 +1352,8 @@ export const FareAttributesSchema = z
       ),
     transfer_duration: z
       .number()
-      .min(0)
+      .int()
+      .nonnegative()
       .describe(
         'Length of time in seconds before a transfer expires. When transfers=0 this field may be used to indicate how long a ticket is valid for or it may be left empty.'
       )
@@ -1108,13 +1410,13 @@ export const TimeframesSchema = z
       .describe('Identifies a timeframe or set of timeframes.'),
     start_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Defines the beginning of a timeframe. The interval includes the start time.\nValues greater than 24:00:00 are forbidden. An empty value in start_time is considered 00:00:00.\n\nConditionally Required:\n- Required if timeframes.end_time is defined.\n- Forbidden otherwise'
       ),
     end_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Defines the end of a timeframe. The interval does not include the end time.\nValues greater than 24:00:00 are forbidden. An empty value in end_time is considered 24:00:00.\n\nConditionally Required:\n- Required if timeframes.start_time is defined.\n- Forbidden otherwise'
       ),
@@ -1195,11 +1497,13 @@ export const FareProductsSchema = z
       .optional(),
     amount: z
       .string()
+      .regex(/^\d+(\.\d{1,4})?$/, 'Must be a valid decimal amount')
       .describe(
         'The cost of the fare product. May be negative to represent transfer discounts. May be zero to represent a fare product that is free.'
       ),
     currency: z
       .string()
+      .regex(/^[A-Z]{3}$/, 'Must be a 3-letter ISO 4217 currency code')
       .describe('The currency of the cost of the fare product.'),
   })
   .superRefine((_data, _ctx) => {
@@ -1253,7 +1557,8 @@ export const FareLegRulesSchema = z
       .describe('The fare product required to travel the leg.'),
     rule_priority: z
       .number()
-      .min(0)
+      .int()
+      .nonnegative()
       .describe(
         'Defines the order of priority in which matching rules are applied to legs, allowing certain rules to take precedence over others. When multiple entries in fare_leg_rules.txt match, the rule or set of rules with the highest value for rule_priority will be selected.\n\nAn empty value for rule_priority is treated as zero.'
       )
@@ -1313,12 +1618,15 @@ export const FareTransferRulesSchema = z
       )
       .optional(),
     transfer_count: z
-      .string()
+      .number()
+      .int()
+      .positive()
       .describe(
         'Defines how many consecutive transfers the transfer rule may be applied to.\n\nValid options are:\n-1 - No limit.\n1 or more - Defines how many transfers the transfer rule may span.\n\nIf a sub-journey matches multiple records with different transfer_counts, then the rule with the minimum transfer_count that is greater than or equal to the current transfer count of the sub-journey is to be selected.\n\nConditionally Forbidden:\n- Forbidden if fare_transfer_rules.from_leg_group_id does not equal fare_transfer_rules.to_leg_group_id.\n- Required if fare_transfer_rules.from_leg_group_id equals fare_transfer_rules.to_leg_group_id.'
       ),
     duration_limit: z
       .number()
+      .int()
       .positive()
       .describe(
         'Defines the duration limit of the transfer.\n\nMust be expressed in integer increments of seconds.\n\nIf there is no duration limit, fare_transfer_rules.duration_limit must be empty.'
@@ -1419,25 +1727,26 @@ export const ShapesSchema = z.object({
   shape_id: z.string().describe('Identifies a shape.'),
   shape_pt_lat: z
     .number()
-    .min(-90)
-    .max(90)
+    .min(-90.0)
+    .max(90.0)
     .describe(
       'Latitude of a shape point. Each record in shapes.txt represents a shape point used to define the shape.'
     ),
   shape_pt_lon: z
     .number()
-    .min(-180)
-    .max(180)
+    .min(-180.0)
+    .max(180.0)
     .describe('Longitude of a shape point.'),
   shape_pt_sequence: z
     .number()
-    .min(0)
+    .int()
+    .nonnegative()
     .describe(
       'Sequence in which the shape points connect to form the shape. Values must increase along the trip but do not need to be consecutive.Example: If the shape "A_shp" has three points in its definition, the shapes.txt file might contain these records to define the shape:\nshape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\nA_shp,37.61956,-122.48161,0\nA_shp,37.64430,-122.41070,6\nA_shp,37.65863,-122.30839,11'
     ),
   shape_dist_traveled: z
     .number()
-    .min(0)
+    .nonnegative()
     .describe(
       'Actual distance traveled along the shape from the first shape point to the point specified in this record. Used by trip planners to show the correct portion of the shape on a map. Values must increase along with shape_pt_sequence; they must not be used to show reverse travel along a route. Distance units must be consistent with those used in stop_times.txt.\n\nRecommended for routes that have looping or inlining (the vehicle crosses or travels over the same portion of alignment in one trip).\n\nIf a vehicle retraces or crosses the route alignment at points in the course of a trip, shape_dist_traveled is important to clarify how portions of the points in shapes.txt line up correspond with records in stop_times.txt.Example: If a bus travels along the three points defined above for A_shp, the additional shape_dist_traveled values (shown here in kilometers) would look like this:\nshape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence,shape_dist_traveled\nA_shp,37.61956,-122.48161,0,0\nA_shp,37.64430,-122.41070,6,6.8310\nA_shp,37.65863,-122.30839,11,15.8765'
     )
@@ -1456,18 +1765,19 @@ export const FrequenciesSchema = z
       ),
     start_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Time at which the first vehicle departs from the first stop of the trip with the specified headway.'
       ),
     end_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Time at which service changes to a different headway (or ceases) at the first stop in the trip.'
       ),
     headway_secs: z
       .number()
+      .int()
       .positive()
       .describe(
         'Time, in seconds, between departures from the same stop (headway) for the trip, during the time interval specified by start_time and end_time. Multiple headways may be defined for the same trip, but must not overlap. New headways may start at the exact time the previous headway ends.'
@@ -1528,7 +1838,8 @@ export const TransfersSchema = z
       ),
     min_transfer_time: z
       .number()
-      .min(0)
+      .int()
+      .nonnegative()
       .describe(
         'Amount of time, in seconds, that must be available to permit a transfer between routes at the specified stops. The min_transfer_time should be sufficient to permit a typical rider to move between the two stops, including buffer time to allow for schedule variance on each route.'
       )
@@ -1571,20 +1882,22 @@ export const PathwaysSchema = z
       ),
     length: z
       .number()
-      .min(0)
+      .nonnegative()
       .describe(
         'Horizontal length in meters of the pathway from the origin location (defined in from_stop_id) to the destination location (defined in to_stop_id).\n\nThis field is recommended for walkways (pathway_mode=1), fare gates (pathway_mode=6) and exit gates (pathway_mode=7).'
       )
       .optional(),
     traversal_time: z
       .number()
+      .int()
       .positive()
       .describe(
         'Average time in seconds needed to walk through the pathway from the origin location (defined in from_stop_id) to the destination location (defined in to_stop_id).\n\nThis field is recommended for moving sidewalks (pathway_mode=3), escalators (pathway_mode=4) and elevator (pathway_mode=5).'
       )
       .optional(),
     stair_count: z
-      .string()
+      .number()
+      .int()
       .describe(
         'Number of stairs of the pathway.\n\nA positive stair_count implies that the rider walk up from from_stop_id to to_stop_id. And a negative stair_count implies that the rider walk down from from_stop_id to to_stop_id.\n\nThis field is recommended for stairs (pathway_mode=2).\n\nIf only an estimated stair count can be provided, it is recommended to approximate 15 stairs for 1 floor.'
       )
@@ -1685,33 +1998,37 @@ export const BookingRulesSchema = z
       ),
     prior_notice_duration_min: z
       .number()
+      .int()
       .describe(
         'Minimum number of minutes before travel to make the request.\n\nConditionally Required:\n- Required for booking_type=1.\n- Forbidden otherwise.'
       ),
     prior_notice_duration_max: z
       .number()
+      .int()
       .describe(
         'Maximum number of minutes before travel to make the booking request.\n\nConditionally Forbidden:\n- Forbidden for booking_type=0 and booking_type=2.\n- Optional for booking_type=1.'
       ),
     prior_notice_last_day: z
       .number()
+      .int()
       .describe(
         'Last day before travel to make the booking request.\n\nExample: “Ride must be booked 1 day in advance before 5PM” will be encoded as prior_notice_last_day=1.\n\nConditionally Required:\n- Required for booking_type=2.\n- Forbidden otherwise.'
       ),
     prior_notice_last_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Last time on the last day before travel to make the booking request.\n\nExample: “Ride must be booked 1 day in advance before 5PM” will be encoded as prior_notice_last_time=17:00:00.\n\nConditionally Required:\n- Required if prior_notice_last_day is defined.\n- Forbidden otherwise.'
       ),
     prior_notice_start_day: z
       .number()
+      .int()
       .describe(
         'Earliest day before travel to make the booking request.\n\nExample: “Ride can be booked at the earliest one week in advance at midnight” will be encoded as prior_notice_start_day=7.\n\nConditionally Forbidden:\n- Forbidden for booking_type=0.\n- Forbidden for booking_type=1 if prior_notice_duration_max is defined.\n- Optional otherwise.'
       ),
     prior_notice_start_time: z
       .string()
-      .regex(/^\d{2}:\d{2}:\d{2}$/)
+      .regex(/^\d{1,2}:\d{2}:\d{2}$/, 'Must be in HH:MM:SS format')
       .describe(
         'Earliest time on the earliest day before travel to make the booking request.\n\nExample: “Ride can be booked at the earliest one week in advance at midnight” will be encoded as prior_notice_start_time=00:00:00.\n\nConditionally Required:\n- Required if prior_notice_start_day is defined.\n- Forbidden otherwise.'
       ),
@@ -1776,6 +2093,10 @@ export const TranslationsSchema = z.object({
     ),
   language: z
     .string()
+    .regex(
+      /^[a-z]{2,3}(-[A-Z]{2})?$/,
+      'Must be a valid IETF BCP 47 language code'
+    )
     .describe(
       "Language of translation.\n\nIf the language is the same as in feed_info.feed_lang, the original value of the field will be assumed to be the default value to use in languages without specific translations (if default_lang doesn't specify otherwise).Example: In Switzerland, a city in an officially bilingual canton is officially called “Biel/Bienne”, but would simply be called “Bienne” in French and “Biel” in German."
     ),
@@ -1816,24 +2137,32 @@ export const FeedInfoSchema = z.object({
     ),
   feed_lang: z
     .string()
+    .regex(
+      /^[a-z]{2,3}(-[A-Z]{2})?$/,
+      'Must be a valid IETF BCP 47 language code'
+    )
     .describe(
       'Default language used for the text in this dataset. This setting helps GTFS consumers choose capitalization rules and other language-specific settings for the dataset. The file translations.txt can be used if the text needs to be translated into languages other than the default one.\n\nThe default language may be multilingual for datasets with the original text in multiple languages. In such cases, the feed_lang field should contain the language code mul defined by the norm ISO 639-2, and a translation for each language used in the dataset should be provided in translations.txt. If all the original text in the dataset is in the same language, then mul should not be used.Example: Consider a dataset from a multilingual country like Switzerland, with the original stops.stop_name field populated with stop names in different languages. Each stop name is written according to the dominant language in that stop’s geographic location, e.g. Genève for the French-speaking city of Geneva, Zürich for the German-speaking city of Zurich, and Biel/Bienne for the bilingual city of Biel/Bienne. The dataset feed_lang should be mul and translations would be provided in translations.txt, in German: Genf, Zürich and Biel; in French: Genève, Zurich and Bienne; in Italian: Ginevra, Zurigo and Bienna; and in English: Geneva, Zurich and Biel/Bienne.'
     ),
   default_lang: z
     .string()
+    .regex(
+      /^[a-z]{2,3}(-[A-Z]{2})?$/,
+      'Must be a valid IETF BCP 47 language code'
+    )
     .describe(
       'Defines the language that should be used when the data consumer doesn’t know the language of the rider. It will often be en (English).'
     )
     .optional(),
   feed_start_date: z
     .string()
-    .regex(/^\d{8}$/)
+    .regex(/^\d{8}$/, 'Must be in YYYYMMDD format')
     .describe(
       'The dataset provides complete and reliable schedule information for service in the period from the beginning of the feed_start_date day to the end of the feed_end_date day. Both days may be left empty if unavailable. The feed_end_date date must not precede the feed_start_date date if both are given. It is recommended that dataset providers give schedule data outside this period to advise of likely future service, but dataset consumers should treat it mindful of its non-authoritative status. If feed_start_date or feed_end_date extend beyond the active calendar dates defined in calendar.txt and calendar_dates.txt, the dataset is making an explicit assertion that there is no service for dates within the feed_start_date or feed_end_date range but not included in the active calendar dates.'
     ),
   feed_end_date: z
     .string()
-    .regex(/^\d{8}$/)
+    .regex(/^\d{8}$/, 'Must be in YYYYMMDD format')
     .describe('(see above)'),
   feed_version: z
     .string()

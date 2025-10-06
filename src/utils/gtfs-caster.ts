@@ -14,6 +14,8 @@ import {
 } from '../types/gtfs.js';
 import { GTFSRelationshipResolver } from './gtfs-relationships.js';
 import { GTFSTableMap } from '../types/gtfs-entities.js';
+import { GTFSFieldType } from '../types/gtfs-field-types.js';
+import { validateValue } from './field-formatters.js';
 
 export interface ValidationResult {
   success: boolean;
@@ -32,6 +34,64 @@ export interface CastOptions {
 export class GTFSCaster {
   private relationshipResolver?: GTFSRelationshipResolver;
   private validationContext?: GTFSValidationContext;
+
+  /**
+   * Validate field value using GTFS field type metadata
+   */
+  private validateFieldValue(
+    fieldName: string,
+    value: unknown,
+    fieldType?: GTFSFieldType
+  ): { valid: boolean; warnings: string[] } {
+    const warnings: string[] = [];
+
+    // Skip validation for empty/null values
+    if (value === null || value === undefined || value === '') {
+      return { valid: true, warnings };
+    }
+
+    // Detect field type from field name if not provided
+    if (!fieldType) {
+      // Try to infer from field name
+      if (
+        fieldName.includes('_color') ||
+        fieldName === 'route_color' ||
+        fieldName === 'route_text_color'
+      ) {
+        fieldType = GTFSFieldType.Color;
+      } else if (
+        fieldName.includes('_date') ||
+        fieldName === 'start_date' ||
+        fieldName === 'end_date'
+      ) {
+        fieldType = GTFSFieldType.Date;
+      } else if (
+        fieldName.includes('_time') ||
+        fieldName === 'arrival_time' ||
+        fieldName === 'departure_time'
+      ) {
+        fieldType = GTFSFieldType.Time;
+      } else if (fieldName.includes('_url')) {
+        fieldType = GTFSFieldType.URL;
+      } else if (fieldName.includes('_email')) {
+        fieldType = GTFSFieldType.Email;
+      } else if (fieldName.includes('_lat')) {
+        fieldType = GTFSFieldType.Latitude;
+      } else if (fieldName.includes('_lon')) {
+        fieldType = GTFSFieldType.Longitude;
+      }
+    }
+
+    // Apply type-specific validation if field type detected
+    if (fieldType) {
+      const result = validateValue(value as string | number, fieldType);
+      if (!result.valid) {
+        warnings.push(`${fieldName}: ${result.error}`);
+      }
+    }
+
+    return { valid: warnings.length === 0, warnings };
+  }
 
   /**
    * Validate and cast a single GTFS file
@@ -70,6 +130,17 @@ export class GTFSCaster {
     for (let i = 0; i < rawData.length; i++) {
       try {
         const validatedRecord = schema.parse(rawData[i]);
+
+        // Additional type-specific validation
+        for (const [fieldName, value] of Object.entries(validatedRecord)) {
+          const fieldValidation = this.validateFieldValue(fieldName, value);
+          if (!fieldValidation.valid) {
+            results.warnings!.push(
+              ...fieldValidation.warnings.map((w) => `Row ${i + 1}: ${w}`)
+            );
+          }
+        }
+
         results.data!.push(validatedRecord);
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -392,24 +463,52 @@ export class GTFSCaster {
     const suggestions: string[] = [];
 
     for (const issue of error.issues) {
+      const fieldName = issue.path.join('.');
+
       switch (issue.code) {
         case 'invalid_type':
           suggestions.push(
-            `Field '${issue.path.join('.')}' should be ${(issue as Record<string, unknown>).expected} but got ${(issue as Record<string, unknown>).received}`
+            `Field '${fieldName}' should be ${(issue as Record<string, unknown>).expected} but got ${(issue as Record<string, unknown>).received}`
           );
           break;
         case 'too_small':
           suggestions.push(
-            `Field '${issue.path.join('.')}' is too small. Minimum value: ${(issue as Record<string, unknown>).minimum}`
+            `Field '${fieldName}' is too small. Minimum value: ${(issue as Record<string, unknown>).minimum}`
           );
           break;
         case 'too_big':
           suggestions.push(
-            `Field '${issue.path.join('.')}' is too large. Maximum value: ${(issue as Record<string, unknown>).maximum}`
+            `Field '${fieldName}' is too large. Maximum value: ${(issue as Record<string, unknown>).maximum}`
           );
           break;
+        case 'invalid_string':
+          // Provide type-specific suggestions
+          if (issue.message.includes('color')) {
+            suggestions.push(
+              `Field '${fieldName}': Must be a 6-digit hexadecimal color (e.g., FFFFFF, 0039A6)`
+            );
+          } else if (issue.message.includes('YYYYMMDD')) {
+            suggestions.push(
+              `Field '${fieldName}': Must be in YYYYMMDD format (e.g., 20180913)`
+            );
+          } else if (issue.message.includes('HH:MM:SS')) {
+            suggestions.push(
+              `Field '${fieldName}': Must be in HH:MM:SS format (e.g., 14:30:00 or 25:35:00 for next day)`
+            );
+          } else if (issue.message.includes('email')) {
+            suggestions.push(
+              `Field '${fieldName}': Must be a valid email address`
+            );
+          } else if (issue.message.includes('url')) {
+            suggestions.push(
+              `Field '${fieldName}': Must be a valid URL with http:// or https://`
+            );
+          } else {
+            suggestions.push(`Field '${fieldName}': ${issue.message}`);
+          }
+          break;
         default:
-          suggestions.push(`Field '${issue.path.join('.')}': ${issue.message}`);
+          suggestions.push(`Field '${fieldName}': ${issue.message}`);
       }
     }
 

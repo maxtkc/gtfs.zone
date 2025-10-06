@@ -74,6 +74,18 @@ export async function navigateToStop(stop_id: string): Promise<void> {
 }
 
 /**
+ * Navigate to service details page
+ * @param service_id - The service ID to display
+ */
+export async function navigateToService(service_id: string): Promise<void> {
+  const pageState: PageState = {
+    type: 'service',
+    service_id: service_id,
+  };
+  await getPageStateManager().navigateTo(pageState);
+}
+
+/**
  * Navigate back to the previous page
  * @returns true if navigation was successful, false if no history available
  */
