@@ -190,30 +190,17 @@ export class TimetableDataProcessor {
     service_id: string,
     direction_id?: string
   ): Promise<TimetableData> {
-    // Get route information
-    const routesData =
-      (this.gtfsParser.getFileDataSync('routes.txt') as Routes[]) || [];
-
-    // Add logging to debug the data loading issue
+    // Get route information directly from database (no memory cache)
     console.log(`[TimetableDataProcessor] Looking for route_id: ${route_id}`);
-    console.log(
-      `[TimetableDataProcessor] Routes data available:`,
-      routesData?.length || 0,
-      'routes'
-    );
-    console.log(
-      `[TimetableDataProcessor] Routes data sample:`,
-      routesData?.slice(0, 3)
-    );
+    const route = await this.gtfsParser.gtfsDatabase.getRow('routes', route_id);
 
-    const route = routesData.find((r: Routes) => r.route_id === route_id);
     if (!route) {
-      // If no route found in memory cache, try to get from database directly
-      console.log(
-        `[TimetableDataProcessor] Route ${route_id} not found in memory cache, checking database...`
-      );
-      throw new Error(`Route ${route_id} not found`);
+      const error = `Route ${route_id} not found`;
+      console.error(`[TimetableDataProcessor] ${error}`);
+      throw new Error(error);
     }
+
+    console.log(`[TimetableDataProcessor] Found route:`, route);
 
     // Get service information - use GTFS standard validation
     const service = this.relationships.getCalendarForService(service_id) || {
@@ -245,11 +232,20 @@ export class TimetableDataProcessor {
     }
 
     if (trips.length === 0) {
-      const directionFilter =
-        direction_id !== undefined ? ` and direction ${direction_id}` : '';
-      throw new Error(
-        `No trips found for route ${route_id}, service ${service_id}${directionFilter}`
-      );
+      // Return empty timetable structure with default directions
+      const defaultDirections: DirectionInfo[] = [
+        { id: '0', name: 'Outbound', tripCount: 0 },
+        { id: '1', name: 'Inbound', tripCount: 0 },
+      ];
+
+      return {
+        route,
+        service,
+        stops: [],
+        trips: [],
+        availableDirections: defaultDirections,
+        selectedDirectionId: direction_id || '0',
+      };
     }
 
     // Build stop sequences for each trip

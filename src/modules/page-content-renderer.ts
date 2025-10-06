@@ -16,10 +16,16 @@ import {
   AgencyViewDependencies,
 } from './agency-view-controller.js';
 import {
+  ServiceViewController,
+  ServiceViewDependencies,
+} from './service-view-controller.js';
+import {
   renderFormFields,
   generateFieldConfigsFromSchema,
 } from '../utils/field-component.js';
-import { FeedInfoSchema, GTFS_TABLES } from '../types/gtfs.js';
+import { FeedInfoSchema, RoutesSchema, GTFS_TABLES } from '../types/gtfs.js';
+import { InlineEntityCreator } from '../utils/inline-entity-creator.js';
+import { notifications } from './notification-system.js';
 
 /**
  * Interface for injected dependencies
@@ -48,12 +54,17 @@ export interface ContentRendererDependencies {
       key: string,
       data: Record<string, unknown>
     ) => Promise<void>;
+    getRow: (tableName: string, key: string) => Promise<unknown | undefined>;
+    getAllRows: (tableName: string) => Promise<unknown[]>;
+    insertRows: (tableName: string, rows: unknown[]) => Promise<void>;
   };
 
   // GTFS relationships for stop controller (optional)
   gtfsRelationships?: {
     getAgenciesServingStop?: (stop_id: string) => Promise<unknown[]>;
     getRoutesServingStop?: (stop_id: string) => Promise<unknown[]>;
+    getRoutesForService?: (service_id: string) => Promise<unknown[]>;
+    getTripsForService?: (service_id: string) => Promise<unknown[]>;
   };
 
   // Schedule controller for timetables
@@ -82,11 +93,13 @@ export interface ContentRendererDependencies {
   onAgencyClick: (agency_id: string) => void;
   onRouteClick: (route_id: string) => void;
   onStopClick: (stop_id: string) => void;
+  onServiceClick?: (service_id: string) => void;
   onTimetableClick: (
     route_id: string,
     service_id: string,
     direction_id?: string
   ) => void;
+  onEntityCreated?: () => void;
 }
 
 /**
@@ -96,6 +109,7 @@ export class PageContentRenderer {
   private dependencies: ContentRendererDependencies;
   private stopViewController: StopViewController;
   private agencyViewController: AgencyViewController;
+  private serviceViewController: ServiceViewController;
 
   constructor(dependencies: ContentRendererDependencies) {
     this.dependencies = dependencies;
@@ -116,6 +130,19 @@ export class PageContentRenderer {
     };
     this.agencyViewController = new AgencyViewController(
       agencyViewDependencies
+    );
+
+    // Initialize ServiceViewController with current dependencies
+    const serviceViewDependencies: ServiceViewDependencies = {
+      gtfsDatabase: dependencies.gtfsDatabase,
+      gtfsRelationships: dependencies.gtfsRelationships || {},
+      serviceDaysController: dependencies.serviceDaysController,
+      onAgencyClick: dependencies.onAgencyClick,
+      onRouteClick: dependencies.onRouteClick,
+      onTimetableClick: dependencies.onTimetableClick,
+    };
+    this.serviceViewController = new ServiceViewController(
+      serviceViewDependencies
     );
   }
 
@@ -147,6 +174,8 @@ export class PageContentRenderer {
           );
         case 'stop':
           return await this.renderStop(pageState.stop_id);
+        case 'service':
+          return await this.renderService(pageState.service_id);
         default:
           // TypeScript should prevent this, but fallback to home
           return await this.renderHome();
@@ -214,6 +243,9 @@ export class PageContentRenderer {
     // Get feed_info data
     const feedInfo = await this.getFeedInfo();
 
+    // Get all unique services
+    const services = await this.getServices();
+
     const agencyItems = agencies
       .map((agency: unknown) => {
         const agencyData = agency as Record<string, unknown>;
@@ -233,14 +265,38 @@ export class PageContentRenderer {
       })
       .join('');
 
+    const serviceItems = services
+      .map((service: Record<string, unknown>) => {
+        const serviceName = service.service_id as string;
+
+        return `
+          <div class="flex items-center gap-3 p-3 rounded-lg hover:bg-base-200 cursor-pointer transition-colors service-card"
+               data-service-id="${service.service_id as string}">
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold">${serviceName}</div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
     return `
       <div class="p-4 space-y-4">
         ${feedInfo ? this.renderFeedInfoProperties(feedInfo) : ''}
 
         <div class="space-y-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <h2 class="text-lg font-semibold">Agencies</h2>
-            <div class="badge badge-outline">${agencies.length} agenc${agencies.length !== 1 ? 'ies' : 'y'}</div>
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                class="input input-sm input-bordered"
+                placeholder="New Agency ID"
+                data-inline-create="agency"
+                style="width: 150px;"
+              />
+              <div class="badge badge-outline">${agencies.length} agenc${agencies.length !== 1 ? 'ies' : 'y'}</div>
+            </div>
           </div>
           ${
             agencies.length === 0
@@ -255,6 +311,39 @@ export class PageContentRenderer {
                   <div class="card-body p-4">
                     <div class="space-y-2">
                       ${agencyItems}
+                    </div>
+                  </div>
+                </div>`
+          }
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="text-lg font-semibold">Services</h2>
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                class="input input-sm input-bordered"
+                placeholder="New Service ID"
+                data-inline-create="service"
+                style="width: 150px;"
+              />
+              <div class="badge badge-outline">${services.length} service${services.length !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+          ${
+            services.length === 0
+              ? `<div class="card bg-base-100 shadow-lg">
+                  <div class="card-body p-4">
+                    <div class="text-center py-6 opacity-70">
+                      No services found in GTFS data.
+                    </div>
+                  </div>
+                </div>`
+              : `<div class="card bg-base-100 shadow-lg">
+                  <div class="card-body p-4">
+                    <div class="space-y-2">
+                      ${serviceItems}
                     </div>
                   </div>
                 </div>`
@@ -281,6 +370,25 @@ export class PageContentRenderer {
     } catch (error) {
       console.error('Error getting feed_info:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get all services from calendar
+   */
+  private async getServices(): Promise<Record<string, unknown>[]> {
+    if (!this.dependencies.gtfsDatabase) {
+      return [];
+    }
+
+    try {
+      // Get all services from calendar table
+      const services =
+        await this.dependencies.gtfsDatabase.getAllRows('calendar');
+      return services;
+    } catch (error) {
+      console.error('Error getting services:', error);
+      return [];
     }
   }
 
@@ -331,7 +439,7 @@ export class PageContentRenderer {
   }
 
   /**
-   * Render route page (trips/services list)
+   * Render route page (route properties + services list)
    */
   private async renderRoute(route_id: string): Promise<string> {
     console.log(`Rendering route ${route_id}`);
@@ -340,12 +448,11 @@ export class PageContentRenderer {
       await this.dependencies.relationships.getTripsForRouteAsync(route_id);
     console.log('Route data:', route);
     console.log('Trips count:', trips.length);
-    console.log('First few trips:', trips.slice(0, 3));
 
     // Update map to highlight this route
     this.dependencies.mapController.highlightRoute(route_id);
 
-    // Group trips by service_id for timetable links
+    // Group trips by service_id for service list
     const serviceGroups = trips.reduce(
       (groups: Record<string, unknown[]>, trip: unknown) => {
         const tripData = trip as Record<string, unknown>;
@@ -359,86 +466,124 @@ export class PageContentRenderer {
       {}
     );
 
-    console.log('Service groups:', serviceGroups);
-    console.log(
-      'Service groups keys length:',
-      Object.keys(serviceGroups).length
+    const routeData = route as Record<string, unknown> | null;
+
+    // Generate field configurations from RoutesSchema
+    const fieldConfigs = generateFieldConfigsFromSchema(
+      RoutesSchema,
+      routeData || {},
+      GTFS_TABLES.ROUTES
     );
 
-    const routeData = route as Record<string, unknown> | null;
-    const routeName =
-      (routeData?.route_short_name as string) ||
-      (routeData?.route_long_name as string) ||
-      route_id;
+    // Render all route fields
+    const fieldsHtml = renderFormFields(fieldConfigs);
 
-    // Generate service cards with embedded service days editors
-    const serviceCardPromises = Object.entries(serviceGroups).map(
-      async ([service_id, serviceTrips]: [string, unknown[]]) => {
-        const tripCount = serviceTrips.length;
-        const directions = [
-          ...new Set(
-            serviceTrips.map(
-              (trip: unknown) => (trip as Record<string, unknown>).direction_id
-            )
-          ),
-        ];
-
-        // Get the service days editor HTML
-        const serviceEditorHTML =
-          await this.dependencies.serviceDaysController.renderServiceEditor(
-            service_id
-          );
-
-        return `
-        <div class="card bg-base-100 shadow-sm border border-base-300 mb-6">
+    // Render route properties section
+    const routePropertiesHTML = `
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold">Route Properties</h2>
+        <div class="card bg-base-100 shadow-lg">
           <div class="card-body p-4">
-            <div class="flex justify-between items-start mb-4">
-              <div>
-                <h3 class="card-title text-lg">Service ${service_id}</h3>
-                <div class="text-sm text-base-content/70">
-                  ${tripCount} trip${tripCount !== 1 ? 's' : ''}
-                  ${directions.length > 1 ? ' • Both directions' : ''}
-                </div>
-              </div>
-              <div class="card-actions">
-                <button class="btn btn-sm btn-primary service-timetable-btn"
-                        data-route-id="${route_id}"
-                        data-service-id="${service_id}">
-                  View Timetable
-                </button>
-              </div>
-            </div>
-
-            <!-- Service Days Editor -->
-            <div class="service-days-section mt-4">
-              ${serviceEditorHTML}
+            <div class="max-w-md">
+              ${fieldsHtml}
             </div>
           </div>
         </div>
-        `;
-      }
-    );
+      </div>
+    `;
 
-    const serviceCards = (await Promise.all(serviceCardPromises)).join('');
+    // Get all available services from calendar
+    const allServices = this.dependencies.gtfsDatabase
+      ? await this.dependencies.gtfsDatabase.getAllRows('calendar')
+      : [];
+
+    // Render new service selector
+    const newServiceSelectorHTML =
+      allServices.length > 0
+        ? `
+      <div class="space-y-2">
+        <label class="label" for="new-service-select">
+          Add timetable for service:
+        </label>
+        <select
+          id="new-service-select"
+          class="select select-bordered w-full"
+          data-route-id="${route_id}"
+        >
+          <option value="">Choose a service...</option>
+          ${allServices
+            .filter((s) => !serviceGroups[s.service_id as string]) // Only show services without trips
+            .map(
+              (service) => `
+              <option value="${service.service_id}">${service.service_id}</option>
+            `
+            )
+            .join('')}
+        </select>
+      </div>
+    `
+        : '';
+
+    // Render services list
+    const servicesListHTML = `
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold">Services</h2>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body p-4">
+            ${newServiceSelectorHTML}
+            ${
+              Object.keys(serviceGroups).length === 0 &&
+              allServices.length === 0
+                ? `<div class="text-center py-6 opacity-70">
+                    No services found. Create a service first.
+                  </div>`
+                : Object.keys(serviceGroups).length === 0
+                  ? `<div class="text-center py-6 opacity-70 mt-4">
+                    No timetables yet. Select a service above to create one.
+                  </div>`
+                  : `<div class="space-y-2 ${newServiceSelectorHTML ? 'mt-4' : ''}">
+                    ${Object.entries(serviceGroups)
+                      .map(([service_id, serviceTrips]) => {
+                        const tripCount = serviceTrips.length;
+                        const directions = [
+                          ...new Set(
+                            serviceTrips.map(
+                              (trip: unknown) =>
+                                (trip as Record<string, unknown>).direction_id
+                            )
+                          ),
+                        ];
+
+                        return `
+                          <div class="flex items-center justify-between p-3 rounded-lg hover:bg-base-200 cursor-pointer transition-colors service-row"
+                               data-service-id="${service_id}">
+                            <div class="flex-1">
+                              <div class="font-semibold">Service ${service_id}</div>
+                              <div class="text-sm text-base-content/70">
+                                ${tripCount} trip${tripCount !== 1 ? 's' : ''}
+                                ${directions.length > 1 ? ' • Both directions' : ''}
+                              </div>
+                            </div>
+                            <button class="btn btn-sm btn-ghost route-timetable-btn"
+                                    data-route-id="${route_id}"
+                                    data-service-id="${service_id}">
+                              View Timetable
+                            </button>
+                          </div>
+                        `;
+                      })
+                      .join('')}
+                  </div>`
+            }
+          </div>
+        </div>
+      </div>
+    `;
 
     return `
-      <div class="p-4">
-        <div class="mb-4">
-          <h2 class="text-xl font-semibold">Route ${routeName}</h2>
-          <div class="text-sm text-base-content/70">
-            ${Object.keys(serviceGroups).length} service${Object.keys(serviceGroups).length !== 1 ? 's' : ''} • ${trips.length} total trips
-          </div>
-        </div>
-
-        ${
-          Object.keys(serviceGroups).length === 0
-            ? `<div class="text-center py-8 text-base-content/50">
-            No services found for this route.
-          </div>`
-            : `<div class="space-y-4">
-            ${serviceCards}
-          </div>`
-        }
+      <div class="p-4 space-y-4">
+        ${routePropertiesHTML}
+        ${servicesListHTML}
       </div>
     `;
   }
@@ -486,6 +631,25 @@ export class PageContentRenderer {
   }
 
   /**
+   * Render service page
+   */
+  private async renderService(service_id: string): Promise<string> {
+    // Update ServiceViewController dependencies in case database became available
+    const serviceViewDependencies: ServiceViewDependencies = {
+      gtfsDatabase: this.dependencies.gtfsDatabase,
+      gtfsRelationships: this.dependencies.gtfsRelationships || {},
+      serviceDaysController: this.dependencies.serviceDaysController,
+      onAgencyClick: this.dependencies.onAgencyClick,
+      onRouteClick: this.dependencies.onRouteClick,
+      onTimetableClick: this.dependencies.onTimetableClick,
+    };
+    this.serviceViewController.updateDependencies(serviceViewDependencies);
+
+    // Use the new ServiceViewController for comprehensive service view
+    return await this.serviceViewController.renderServiceView(service_id);
+  }
+
+  /**
    * Add event listeners for interactive elements
    * This should be called after the content is inserted into the DOM
    */
@@ -501,6 +665,17 @@ export class PageContentRenderer {
       });
     });
 
+    // Service card clicks
+    const serviceCards = container.querySelectorAll('.service-card');
+    serviceCards.forEach((card) => {
+      card.addEventListener('click', () => {
+        const service_id = card.getAttribute('data-service-id');
+        if (service_id && this.dependencies.onServiceClick) {
+          this.dependencies.onServiceClick(service_id);
+        }
+      });
+    });
+
     // Route card clicks
     const routeCards = container.querySelectorAll('.route-card');
     routeCards.forEach((card) => {
@@ -512,16 +687,40 @@ export class PageContentRenderer {
       });
     });
 
-    // Service timetable button clicks
-    const timetableButtons = container.querySelectorAll(
-      '.service-timetable-btn'
+    // Service timetable button clicks (route page)
+    const routeTimetableButtons = container.querySelectorAll(
+      '.route-timetable-btn'
     );
-    timetableButtons.forEach((button) => {
-      button.addEventListener('click', () => {
+    routeTimetableButtons.forEach((button) => {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
         const route_id = button.getAttribute('data-route-id');
         const service_id = button.getAttribute('data-service-id');
         if (route_id && service_id) {
           this.dependencies.onTimetableClick(route_id, service_id);
+        }
+      });
+    });
+
+    // Service row clicks (route page)
+    const serviceRows = container.querySelectorAll('.service-row');
+    serviceRows.forEach((row) => {
+      row.addEventListener('click', () => {
+        const service_id = row.getAttribute('data-service-id');
+        if (service_id && this.dependencies.onServiceClick) {
+          this.dependencies.onServiceClick(service_id);
+        }
+      });
+    });
+
+    // Service link clicks (on route page)
+    const serviceLinks = container.querySelectorAll('.service-link');
+    serviceLinks.forEach((link) => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent event bubbling
+        const service_id = link.getAttribute('data-service-id');
+        if (service_id && this.dependencies.onServiceClick) {
+          this.dependencies.onServiceClick(service_id);
         }
       });
     });
@@ -533,5 +732,99 @@ export class PageContentRenderer {
     // Add AgencyViewController event listeners
     // It will only attach to agency fields (data-table="agency.txt")
     this.agencyViewController.addEventListeners(container);
+
+    // Add ServiceViewController event listeners
+    // It will only attach to service-related elements
+    this.serviceViewController.addEventListeners(container);
+
+    // Add inline entity creation event listeners
+    this.addInlineCreationListeners(container);
+
+    // Add service selection dropdown listener
+    this.addServiceSelectionListener(container);
+  }
+
+  /**
+   * Add event listeners for inline entity creation
+   */
+  private addInlineCreationListeners(container: HTMLElement): void {
+    if (!this.dependencies.gtfsDatabase) {
+      return;
+    }
+
+    const inlineCreator = new InlineEntityCreator(
+      this.dependencies.gtfsDatabase,
+      notifications,
+      () => {
+        // Refresh the page after entity creation
+        if (this.dependencies.onEntityCreated) {
+          this.dependencies.onEntityCreated();
+        }
+      }
+    );
+
+    // Find all inline creation inputs
+    const createInputs = container.querySelectorAll('[data-inline-create]');
+    createInputs.forEach((input) => {
+      const entityType = input.getAttribute('data-inline-create');
+
+      // Handle blur event to create entity
+      input.addEventListener('blur', async () => {
+        const value = (input as HTMLInputElement).value.trim();
+        if (!value) {
+          return;
+        }
+
+        let success = false;
+        if (entityType === 'agency') {
+          success = await inlineCreator.createAgency(value);
+        } else if (entityType === 'service') {
+          success = await inlineCreator.createService(value);
+        } else if (entityType === 'route') {
+          const agencyId = input.getAttribute('data-agency-id') || undefined;
+          success = await inlineCreator.createRoute(value, agencyId);
+        }
+
+        // Clear input if successful
+        if (success) {
+          (input as HTMLInputElement).value = '';
+        }
+      });
+
+      // Handle Enter key
+      input.addEventListener('keydown', async (e: Event) => {
+        const keyEvent = e as KeyboardEvent;
+        if (keyEvent.key === 'Enter') {
+          (input as HTMLElement).blur();
+        }
+      });
+    });
+  }
+
+  /**
+   * Add event listener for service selection dropdown
+   */
+  private addServiceSelectionListener(container: HTMLElement): void {
+    const serviceSelect = container.querySelector(
+      '#new-service-select'
+    ) as HTMLSelectElement;
+    if (!serviceSelect) {
+      return;
+    }
+
+    serviceSelect.addEventListener('change', () => {
+      const selectedServiceId = serviceSelect.value;
+      const routeId = serviceSelect.getAttribute('data-route-id');
+
+      if (!selectedServiceId || !routeId) {
+        return;
+      }
+
+      // Navigate directly to timetable view
+      this.dependencies.onTimetableClick(routeId, selectedServiceId);
+
+      // Reset the dropdown
+      serviceSelect.value = '';
+    });
   }
 }

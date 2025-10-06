@@ -1135,4 +1135,63 @@ export class GTFSRelationships {
         .filter((route) => route !== null);
     }
   }
+
+  /**
+   * Get all routes that use a specific service (async)
+   */
+  async getRoutesForServiceAsync(service_id: string) {
+    try {
+      // Get all trips for this service
+      const trips = await this.getTripsForServiceAsync(service_id);
+
+      // Get unique route IDs from those trips
+      const route_ids = [...new Set(trips.map((trip) => trip.route_id))];
+
+      // Get route details for each route ID
+      const routes = await Promise.all(
+        route_ids.map((route_id) => this.getRouteByIdAsync(route_id))
+      );
+
+      // Filter out null routes and return
+      return routes.filter((route) => route !== null);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting routes for service from IndexedDB:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all trips that use a specific service (async)
+   */
+  async getTripsForServiceAsync(service_id: string) {
+    try {
+      const tripsData = await this.gtfsDatabase.queryRows('trips', {
+        service_id: service_id,
+      });
+      if (!tripsData || !Array.isArray(tripsData)) {
+        return [];
+      }
+
+      return tripsData.map((trip) => ({
+        id: trip.trip_id,
+        trip_id: trip.trip_id,
+        route_id: trip.route_id,
+        service_id: trip.service_id,
+        headsign: trip.trip_headsign,
+        trip_headsign: trip.trip_headsign,
+        shortName: trip.trip_short_name,
+        trip_short_name: trip.trip_short_name,
+        direction_id: trip.direction_id,
+        block_id: trip.block_id,
+        shape_id: trip.shape_id,
+        wheelchairAccessible: trip.wheelchair_accessible,
+        bikesAllowed: trip.bikes_allowed,
+      }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting trips for service from IndexedDB:', error);
+      return [];
+    }
+  }
 }
