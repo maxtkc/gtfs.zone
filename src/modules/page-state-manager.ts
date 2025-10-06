@@ -317,6 +317,23 @@ export class PageStateManager {
           break;
         }
 
+        case 'service': {
+          const serviceName = await this.getObjectName(
+            'service',
+            pageState.service_id
+          );
+
+          breadcrumbs.push({
+            label: 'Home',
+            pageState: { type: 'home' },
+          });
+          breadcrumbs.push({
+            label: serviceName,
+            pageState: { type: 'service', service_id: pageState.service_id },
+          });
+          break;
+        }
+
         default:
           // Unknown page state - return just Home
           breadcrumbs.push({
@@ -400,6 +417,10 @@ export class PageStateManager {
         params.set('stop', pageState.stop_id);
         return `/?${params.toString()}`;
 
+      case 'service':
+        params.set('service', pageState.service_id);
+        return `/?${params.toString()}`;
+
       default:
         return '/';
     }
@@ -418,6 +439,13 @@ export class PageStateManager {
         return {
           type: 'stop',
           stop_id: params.get('stop')!,
+        };
+      }
+
+      if (params.has('service') && !params.has('route')) {
+        return {
+          type: 'service',
+          service_id: params.get('service')!,
         };
       }
 

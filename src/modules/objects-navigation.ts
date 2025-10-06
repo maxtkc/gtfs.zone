@@ -10,6 +10,7 @@ import {
   navigateToAgency,
   navigateToRoute,
   navigateToStop,
+  navigateToService,
   navigateToTimetable,
   addNavigationListener,
   getCurrentPageState,
@@ -50,6 +51,12 @@ export class ObjectsNavigation {
     getAgencyByIdAsync?: (
       agency_id: string
     ) => Promise<Record<string, unknown> | null>;
+    getRoutesForServiceAsync?: (
+      service_id: string
+    ) => Promise<Record<string, unknown>[]>;
+    getTripsForServiceAsync?: (
+      service_id: string
+    ) => Promise<Record<string, unknown>[]>;
   };
   private gtfsRelationshipsInstance: import('./gtfs-relationships.js').GTFSRelationships; // The actual GTFSRelationships instance for database access
   private mapController: {
@@ -183,6 +190,12 @@ export class ObjectsNavigation {
           Promise.resolve(null),
         getRouteAsync: (route_id: string) =>
           this.relationships.getRouteByIdAsync(route_id),
+        getRoutesForService: (service_id: string) =>
+          this.relationships.getRoutesForServiceAsync?.(service_id) ||
+          Promise.resolve([]),
+        getTripsForService: (service_id: string) =>
+          this.relationships.getTripsForServiceAsync?.(service_id) ||
+          Promise.resolve([]),
       },
       // Provide access to the actual database for StopViewController
       gtfsDatabase: this.gtfsRelationshipsInstance?.gtfsDatabase
@@ -201,6 +214,21 @@ export class ObjectsNavigation {
                 tableName,
                 key,
                 data
+              ),
+            getRow: (tableName: string, key: string) =>
+              this.gtfsRelationshipsInstance.gtfsDatabase.getRow(
+                tableName,
+                key
+              ),
+            getAllRows: (tableName: string) =>
+              this.gtfsRelationshipsInstance.gtfsDatabase.getAllRows(tableName),
+            insertRows: <T extends Record<string, unknown>>(
+              tableName: string,
+              rows: T[]
+            ) =>
+              this.gtfsRelationshipsInstance.gtfsDatabase.insertRows(
+                tableName,
+                rows
               ),
           }
         : undefined,
@@ -225,11 +253,13 @@ export class ObjectsNavigation {
       onAgencyClick: (agency_id: string) => navigateToAgency(agency_id),
       onRouteClick: (route_id: string) => navigateToRoute(route_id),
       onStopClick: (stop_id: string) => navigateToStop(stop_id),
+      onServiceClick: (service_id: string) => navigateToService(service_id),
       onTimetableClick: (
         route_id: string,
         service_id: string,
         direction_id?: string
       ) => navigateToTimetable(route_id, service_id, direction_id),
+      onEntityCreated: () => this.render(),
     };
 
     this.contentRenderer = new PageContentRenderer(dependencies);

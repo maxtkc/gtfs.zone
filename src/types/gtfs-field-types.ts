@@ -387,12 +387,24 @@ export function mapGTFSTypeString(typeString: string): GTFSFieldType {
     return normalized as GTFSFieldType;
   }
 
-  // Handle special cases
+  // Handle special cases and variations
   if (normalized.startsWith('Foreign ID')) {
     return GTFSFieldType.ForeignID;
   }
   if (normalized === 'Unique ID') {
     return GTFSFieldType.UniqueID;
+  }
+  if (normalized === 'Language code') {
+    return GTFSFieldType.LanguageCode;
+  }
+  if (normalized === 'Phone number') {
+    return GTFSFieldType.PhoneNumber;
+  }
+  if (normalized === 'Currency code') {
+    return GTFSFieldType.CurrencyCode;
+  }
+  if (normalized === 'Currency amount') {
+    return GTFSFieldType.CurrencyAmount;
   }
   if (normalized.includes('Non-negative') && normalized.includes('integer')) {
     return GTFSFieldType.NonNegativeInteger;
@@ -400,11 +412,25 @@ export function mapGTFSTypeString(typeString: string): GTFSFieldType {
   if (normalized.includes('Positive') && normalized.includes('integer')) {
     return GTFSFieldType.PositiveInteger;
   }
+  if (normalized.includes('Non-zero') && normalized.includes('integer')) {
+    return GTFSFieldType.PositiveInteger; // Non-zero is same as positive
+  }
+  if (normalized.includes('Non-null') && normalized.includes('integer')) {
+    return GTFSFieldType.Integer; // Non-null just means it can be negative
+  }
   if (normalized.includes('Non-negative') && normalized.includes('float')) {
     return GTFSFieldType.NonNegativeFloat;
   }
   if (normalized.includes('Positive') && normalized.includes('float')) {
     return GTFSFieldType.PositiveFloat;
+  }
+  // Check for Enum type by looking for enum value patterns (e.g., "0 - ", "1 - ")
+  if (
+    normalized.includes('0 - ') ||
+    normalized.includes('1 - ') ||
+    normalized.match(/\d+\s*-\s*/)
+  ) {
+    return GTFSFieldType.Enum;
   }
 
   // Default to Text for unknown types

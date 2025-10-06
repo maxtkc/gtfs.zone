@@ -323,6 +323,236 @@ function generateZodSchemaForFile(filename: string, fields: any[], relationships
   return { schemaName, schemaCode };
 }
 
+// Extract field type mappings from GTFS spec
+function extractFieldTypeMappings(gtfsSpec: any): Record<string, Record<string, string>> {
+  const fieldTypes: Record<string, Record<string, string>> = {};
+
+  for (const [filename, fields] of Object.entries(gtfsSpec.fieldDefinitions)) {
+    if (!fields || !Array.isArray(fields)) continue;
+
+    fieldTypes[filename] = {};
+    for (const field of fields) {
+      // Store the raw GTFS type string which will be mapped to GTFSFieldType enum
+      fieldTypes[filename][field.fieldName] = field.type;
+    }
+  }
+
+  return fieldTypes;
+}
+
+// Extract enum definitions from GTFS spec
+interface EnumOption {
+  value: number | string;
+  label: string;
+  description?: string;
+}
+
+function extractEnumDefinitions(gtfsSpec: any): Record<string, EnumOption[]> {
+  const enums: Record<string, EnumOption[]> = {};
+
+  for (const [filename, fields] of Object.entries(gtfsSpec.fieldDefinitions)) {
+    if (!fields || !Array.isArray(fields)) continue;
+
+    for (const field of fields) {
+      // Check if field type is Enum or contains enum values
+      const isEnum = field.type === 'Enum' ||
+                     field.type.includes('0 - ') ||
+                     field.type.includes('1 - ') ||
+                     (field.description && /\n\d+\s*-\s*.+/m.test(field.description));
+
+      if (isEnum) {
+        const options: EnumOption[] = [];
+
+        // Try to parse enum values from type field first
+        let enumText = field.type;
+
+        // If type is just "Enum", look in description
+        if (field.type === 'Enum' && field.description) {
+          enumText = field.description;
+        }
+
+        // Parse enum values with format: "NUMBER - Label text. Description text."
+        // Split on newlines first, then parse each line
+        const lines = enumText.split('\n');
+        let currentOption: EnumOption | null = null;
+
+        for (const line of lines) {
+          // Check if this line starts a new enum option (starts with NUMBER -)
+          const optionMatch = line.match(/^(\d+)\s*-\s*(.+)/);
+
+          if (optionMatch) {
+            // Save previous option if exists
+            if (currentOption) {
+              options.push(currentOption);
+            }
+
+            const value = parseInt(optionMatch[1], 10);
+            const rest = optionMatch[2].trim();
+
+            // Split label and description by first sentence-ending period
+            // This regex looks for a period followed by:
+            // - Optional closing parenthesis
+            // - Optional space
+            // - A capital letter (start of new sentence/example)
+            // But NOT abbreviations like "e.g." or "i.e."
+            const labelMatch = rest.match(/^(.*?(?:e\.g\.|i\.e\.|[^.])+)\.\)?\s*([A-Z].*|$)/);
+
+            let label: string;
+            let description: string | undefined;
+
+            if (labelMatch) {
+              // Found a clear sentence boundary
+              label = labelMatch[1].trim();
+              // If there's a closing paren after the period, include it in the label
+              if (rest.charAt(labelMatch[1].length + 1) === ')') {
+                label += ')';
+              }
+              description = labelMatch[2]?.trim();
+            } else {
+              // No clear boundary, check if there's a period at the end
+              const endPeriodMatch = rest.match(/^(.+)\.\)?\s*$/);
+              if (endPeriodMatch) {
+                // Has period at end, use everything as label
+                label = endPeriodMatch[1].trim();
+                // Include closing paren if present
+                if (rest.endsWith(')')) {
+                  label += ')';
+                }
+                description = undefined;
+              } else {
+                // No period, use entire text as label
+                label = rest;
+                description = undefined;
+              }
+            }
+
+            currentOption = {
+              value,
+              label,
+              description: description && description.length > 0 ? description : undefined,
+            };
+          } else if (currentOption && line.trim()) {
+            // Continuation of description from previous line
+            const desc = currentOption.description || '';
+            currentOption.description = desc ? `${desc}\n${line.trim()}` : line.trim();
+          }
+        }
+
+        // Push the last option
+        if (currentOption) {
+          options.push(currentOption);
+        }
+
+        // Only add to enums if we found valid options
+        if (options.length > 0) {
+          enums[field.fieldName] = options;
+        }
+      }
+    }
+  }
+
+  return enums;
+}
+
+// Generate gtfs-enums.ts file content
+function generateGTFSEnums(
+  enums: Record<string, EnumOption[]>,
+  gtfsSpec: any
+): string {
+  let content = `/**
+ * GTFS Enumeration Definitions
+ *
+ * Generated from ${gtfsSpec.sourceUrl}
+ * Scraped at: ${gtfsSpec.scrapedAt}
+ *
+ * Defines all valid enum values for GTFS fields based on the official specification.
+ */
+
+export interface GTFSEnumOption {
+  value: number | string;
+  label: string;
+  description?: string;
+}
+
+/**
+ * Registry of all GTFS enum fields and their valid values
+ */
+export const GTFS_ENUMS: Record<string, GTFSEnumOption[]> = {\n`;
+
+  // Sort enum fields alphabetically for consistency
+  const sortedEnumKeys = Object.keys(enums).sort();
+
+  for (const fieldName of sortedEnumKeys) {
+    const options = enums[fieldName];
+
+    content += `  ${fieldName}: [\n`;
+
+    for (const option of options) {
+      content += `    {\n`;
+      content += `      value: ${typeof option.value === 'string' ? `'${option.value}'` : option.value},\n`;
+
+      // Escape single quotes in label
+      const escapedLabel = option.label.replace(/'/g, "\\'");
+      content += `      label: '${escapedLabel}',\n`;
+
+      if (option.description) {
+        // Escape single quotes and newlines in description
+        const escapedDesc = option.description
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/\n/g, '\\n');
+        content += `      description: '${escapedDesc}',\n`;
+      }
+
+      content += `    },\n`;
+    }
+
+    content += `  ],\n\n`;
+  }
+
+  content += `};\n\n`;
+
+  // Add helper functions
+  content += `/**
+ * Get enum options for a specific field
+ */
+export function getEnumOptions(fieldName: string): GTFSEnumOption[] | undefined {
+  return GTFS_ENUMS[fieldName];
+}
+
+/**
+ * Check if a field is an enum field
+ */
+export function isEnumField(fieldName: string): boolean {
+  return fieldName in GTFS_ENUMS;
+}
+
+/**
+ * Get the label for a specific enum value
+ */
+export function getEnumLabel(fieldName: string, value: number | string): string | undefined {
+  const options = GTFS_ENUMS[fieldName];
+  if (!options) return undefined;
+
+  const option = options.find(opt => opt.value === value);
+  return option?.label;
+}
+
+/**
+ * Get the description for a specific enum value
+ */
+export function getEnumDescription(fieldName: string, value: number | string): string | undefined {
+  const options = GTFS_ENUMS[fieldName];
+  if (!options) return undefined;
+
+  const option = options.find(opt => opt.value === value);
+  return option?.description;
+}
+`;
+
+  return content;
+}
+
 async function generateGTFSTypes(): Promise<string> {
   console.log('Generating TypeScript definitions and Zod schemas from GTFS specification...');
 
@@ -339,6 +569,14 @@ async function generateGTFSTypes(): Promise<string> {
     // Extract primary keys from the specification
     const primaryKeys = extractPrimaryKeys(gtfsSpec);
     console.log(`Generated primary key mappings for ${Object.keys(primaryKeys).length} GTFS files`);
+
+    // Extract field type mappings from the specification
+    const fieldTypeMappings = extractFieldTypeMappings(gtfsSpec);
+    console.log(`Generated field type mappings for ${Object.keys(fieldTypeMappings).length} GTFS files`);
+
+    // Extract enum definitions from the specification
+    const enumDefinitions = extractEnumDefinitions(gtfsSpec);
+    console.log(`Found ${Object.keys(enumDefinitions).length} enum fields`);
 
     let typeDefinitions = `/**
  * GTFS (General Transit Feed Specification) TypeScript definitions and Zod schemas
@@ -357,6 +595,10 @@ export const GTFS_RELATIONSHIPS = ${JSON.stringify(relationships, null, 2)} as c
 
 // Primary key mappings for GTFS files
 export const GTFS_PRIMARY_KEYS = ${JSON.stringify(primaryKeys, null, 2)} as const;
+
+// Field type mappings extracted from GTFS specification
+// Maps filename -> fieldName -> GTFS type string (e.g., "Text", "Integer", "Enum")
+export const GTFS_FIELD_TYPES = ${JSON.stringify(fieldTypeMappings, null, 2)} as const;
 
 // Validation context interface for foreign key checking
 export interface GTFSValidationContext {
@@ -545,15 +787,21 @@ export function validateForeignKey(
     
     // Write the TypeScript definitions file
     const outputPath = path.join(process.cwd(), 'src', 'types', 'gtfs.ts');
-    
+
     // Ensure types directory exists
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    
+
     await fs.writeFile(outputPath, typeDefinitions);
-    
+
     console.log(`TypeScript definitions and Zod schemas saved to ${outputPath}`);
     console.log(`Generated ${interfaces.length} interfaces and ${schemas.length} Zod schemas for GTFS files`);
-    
+
+    // Generate gtfs-enums.ts file
+    const enumsContent = generateGTFSEnums(enumDefinitions, gtfsSpec);
+    const enumsPath = path.join(process.cwd(), 'src', 'types', 'gtfs-enums.ts');
+    await fs.writeFile(enumsPath, enumsContent);
+    console.log(`GTFS enum definitions saved to ${enumsPath}`);
+
     return typeDefinitions;
     
   } catch (error) {

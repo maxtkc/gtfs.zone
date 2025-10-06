@@ -84,7 +84,7 @@ export class AgencyViewController {
       const html = `
         <div class="p-4 space-y-4">
           ${this.renderAgencyProperties(agency)}
-          ${this.renderRoutesList(routes)}
+          ${this.renderRoutesList(routes, agency_id)}
         </div>
       `;
       console.log('Agency view HTML length:', html.length);
@@ -127,37 +127,38 @@ export class AgencyViewController {
   /**
    * Render routes list section
    */
-  private renderRoutesList(routes: Routes[]): string {
-    if (routes.length === 0) {
-      return `
-        <div class="space-y-4">
-          <h2 class="text-lg font-semibold">Routes</h2>
-          <div class="card bg-base-100 shadow-lg">
-            <div class="card-body p-4">
-              <div class="text-center py-6 opacity-70">
-                No routes found for this agency.
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
+  private renderRoutesList(routes: Routes[], agency_id: string): string {
     const routeItems = routes
       .map((route) => this.renderRouteItem(route))
       .join('');
 
     return `
       <div class="space-y-4">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <h2 class="text-lg font-semibold">Routes</h2>
-          <div class="badge badge-outline">${routes.length} route${routes.length !== 1 ? 's' : ''}</div>
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              class="input input-sm input-bordered"
+              placeholder="New Route ID"
+              data-inline-create="route"
+              data-agency-id="${agency_id}"
+              style="width: 150px;"
+            />
+            <div class="badge badge-outline">${routes.length} route${routes.length !== 1 ? 's' : ''}</div>
+          </div>
         </div>
         <div class="card bg-base-100 shadow-lg">
           <div class="card-body p-4">
-            <div class="space-y-2">
-              ${routeItems}
-            </div>
+            ${
+              routes.length === 0
+                ? `<div class="text-center py-6 opacity-70">
+                    No routes found for this agency.
+                  </div>`
+                : `<div class="space-y-2">
+                    ${routeItems}
+                  </div>`
+            }
           </div>
         </div>
       </div>

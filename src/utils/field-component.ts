@@ -9,12 +9,13 @@
  */
 
 import { getGTFSFieldDescription } from './zod-tooltip-helper.js';
-import { GTFS_PRIMARY_KEYS } from '../types/gtfs.js';
+import { GTFS_PRIMARY_KEYS, GTFS_FIELD_TYPES } from '../types/gtfs.js';
 import type { z } from 'zod';
 import {
   GTFSFieldType,
   getInputTypeForFieldType,
   getInputAttributesForFieldType,
+  mapGTFSTypeString,
 } from '../types/gtfs-field-types.js';
 import {
   formatValueForDisplay,
@@ -394,91 +395,27 @@ export function attachFieldEventListeners(
  * ```
  */
 /**
- * Detect GTFS field type from field name and Zod schema
+ * Detect GTFS field type from tableName and field name using generated field type mappings
  */
 function detectGTFSFieldType(
+  tableName: string,
   fieldName: string,
   _innerSchema: z.ZodTypeAny
 ): GTFSFieldType | undefined {
-  // Check schema description for type hints (unused for now)
-  // const description = innerSchema._def?.description;
-
-  // Check for common field name patterns
-  if (
-    fieldName.includes('_color') ||
-    fieldName === 'route_color' ||
-    fieldName === 'route_text_color'
-  ) {
-    return GTFSFieldType.Color;
-  }
-  if (
-    fieldName.includes('_date') ||
-    fieldName === 'start_date' ||
-    fieldName === 'end_date' ||
-    fieldName === 'date'
-  ) {
-    return GTFSFieldType.Date;
-  }
-  if (
-    fieldName.includes('_time') ||
-    fieldName === 'arrival_time' ||
-    fieldName === 'departure_time'
-  ) {
-    return GTFSFieldType.Time;
-  }
-  if (fieldName.includes('_email') || fieldName === 'agency_email') {
-    return GTFSFieldType.Email;
-  }
-  if (
-    fieldName.includes('_url') ||
-    fieldName === 'agency_url' ||
-    fieldName === 'stop_url' ||
-    fieldName === 'route_url'
-  ) {
-    return GTFSFieldType.URL;
-  }
-  if (fieldName.includes('_phone') || fieldName === 'agency_phone') {
-    return GTFSFieldType.PhoneNumber;
-  }
-  if (
-    fieldName.includes('_lang') ||
-    fieldName === 'agency_lang' ||
-    fieldName === 'feed_lang'
-  ) {
-    return GTFSFieldType.LanguageCode;
-  }
-  if (
-    fieldName.includes('_timezone') ||
-    fieldName === 'agency_timezone' ||
-    fieldName === 'stop_timezone'
-  ) {
-    return GTFSFieldType.Timezone;
-  }
-  if (
-    fieldName.includes('_lat') ||
-    fieldName === 'stop_lat' ||
-    fieldName === 'shape_pt_lat'
-  ) {
-    return GTFSFieldType.Latitude;
-  }
-  if (
-    fieldName.includes('_lon') ||
-    fieldName === 'stop_lon' ||
-    fieldName === 'shape_pt_lon'
-  ) {
-    return GTFSFieldType.Longitude;
-  }
-  if (fieldName.includes('_id')) {
-    return GTFSFieldType.ID;
-  }
-  if (fieldName.includes('price') || fieldName.includes('fare_amount')) {
-    return GTFSFieldType.CurrencyAmount;
-  }
-  if (fieldName === 'currency_type') {
-    return GTFSFieldType.CurrencyCode;
+  // Look up the field type from the generated GTFS_FIELD_TYPES mapping
+  const tableTypes =
+    GTFS_FIELD_TYPES[tableName as keyof typeof GTFS_FIELD_TYPES];
+  if (!tableTypes) {
+    return undefined;
   }
 
-  return undefined;
+  const gtfsTypeString = tableTypes[fieldName as keyof typeof tableTypes];
+  if (!gtfsTypeString) {
+    return undefined;
+  }
+
+  // Map the GTFS type string to the GTFSFieldType enum
+  return mapGTFSTypeString(gtfsTypeString);
 }
 
 export function generateFieldConfigsFromSchema(
@@ -506,7 +443,11 @@ export function generateFieldConfigsFromSchema(
     const isOptional = fieldSchema.isOptional?.() ?? false;
 
     // Detect GTFS field type for specialized handling
-    const gtfsFieldType = detectGTFSFieldType(fieldName, innerSchema);
+    const gtfsFieldType = detectGTFSFieldType(
+      tableName,
+      fieldName,
+      innerSchema
+    );
 
     let fieldType:
       | 'text'
