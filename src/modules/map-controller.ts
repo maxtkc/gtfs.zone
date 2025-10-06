@@ -10,6 +10,7 @@ import {
 import { PageStateManager } from './page-state-manager.js';
 import { GTFSDatabaseRecord } from './gtfs-database.js';
 import { GTFS } from '../types/gtfs.js';
+import { BasemapControl } from './basemap-control.js';
 
 // Map interaction modes
 export enum MapMode {
@@ -57,6 +58,7 @@ export class MapController {
   private routeRenderer: RouteRenderer | null = null;
   private layerManager: LayerManager | null = null;
   private interactionHandler: InteractionHandler | null = null;
+  private basemapControl: BasemapControl | null = null;
 
   // Dependencies (injected)
   private gtfsParser: MapControllerDependencies | null = null;
@@ -68,6 +70,7 @@ export class MapController {
   // State
   private isInitialized = false;
   private resizeTimeout: NodeJS.Timeout | null = null;
+  private basemapChangeHandlerSet = false;
 
   // Highlight state management - ensures mutual exclusivity
   private currentHighlight: {
@@ -148,6 +151,10 @@ export class MapController {
     this.layerManager = new LayerManager(this.map, this.gtfsParser);
     this.routeRenderer = new RouteRenderer(this.map, this.gtfsParser);
     this.interactionHandler = new InteractionHandler(this.map, this.gtfsParser);
+    this.basemapControl = new BasemapControl(this.map);
+
+    // Setup basemap change handler to re-add layers
+    this.setupBasemapChangeHandler();
 
     // Wait for RouteRenderer to be ready
     await this.routeRenderer.ensureInitialized();
@@ -171,6 +178,73 @@ export class MapController {
     };
 
     this.interactionHandler.setCallbacks(interactionCallbacks);
+  }
+
+  /**
+   * Setup basemap change handler to re-add GTFS layers
+   */
+  private setupBasemapChangeHandler(): void {
+    if (!this.map || this.basemapChangeHandlerSet) {
+      return;
+    }
+
+    this.basemapChangeHandlerSet = true;
+
+    this.map.on('basemap:changed', async () => {
+      console.log('🗺️ Re-adding GTFS layers after basemap change...');
+
+      // Check if we have GTFS data loaded
+      if (!this.gtfsParser || !this.gtfsParser.getFileDataSync('stops.txt')) {
+        console.log('⏭️ No GTFS data loaded, skipping layer re-add');
+        return;
+      }
+
+      // Re-render routes and stops after basemap change
+      if (this.routeRenderer && this.layerManager) {
+        try {
+          // Wait for style to load
+          await this.routeRenderer.ensureInitialized();
+
+          // Clear existing layers first
+          this.layerManager.clearAllLayers();
+          this.routeRenderer.clearRoutes();
+
+          // Re-render routes
+          await this.routeRenderer.renderRoutes({
+            lineWidth: 3,
+            opacity: 0.8,
+            enableBlending: true,
+            pickable: true,
+          });
+
+          // Re-add stops layer
+          this.layerManager.addStopsLayer({
+            showBackground: true,
+            showClickArea: true,
+            enableHover: true,
+            backgroundColor: '#ffffff',
+            strokeColor: '#000000',
+            strokeWidth: 2,
+            radius: 4,
+            clickAreaRadius: 15,
+          });
+
+          // Restore highlights if any
+          const currentHighlight = this.getCurrentHighlight();
+          if (currentHighlight.type === 'route' && currentHighlight.id) {
+            this.routeRenderer.highlightRoute(currentHighlight.id);
+          } else if (currentHighlight.type === 'stop' && currentHighlight.id) {
+            this.layerManager.highlightStop(currentHighlight.id);
+          } else if (currentHighlight.type === 'trip' && currentHighlight.id) {
+            this.layerManager.highlightTrip(currentHighlight.id);
+          }
+
+          console.log('✅ GTFS layers re-added after basemap change');
+        } catch (error) {
+          console.error('❌ Failed to re-add GTFS layers:', error);
+        }
+      }
+    });
   }
 
   /**
@@ -815,6 +889,7 @@ export class MapController {
     // Destroy modules
     this.routeRenderer?.destroy();
     this.interactionHandler?.destroy();
+    this.basemapControl?.destroy();
     // LayerManager doesn't need explicit cleanup as it's tied to the map
 
     // Clean up map
@@ -827,6 +902,7 @@ export class MapController {
     this.routeRenderer = null;
     this.layerManager = null;
     this.interactionHandler = null;
+    this.basemapControl = null;
     this.gtfsParser = null;
     this.pageStateManager = null;
     this.callbacks = {};
@@ -847,13 +923,33 @@ export class MapController {
       hasRouteRenderer: !!this.routeRenderer,
       hasLayerManager: !!this.layerManager,
       hasInteractionHandler: !!this.interactionHandler,
+      hasBasemapControl: !!this.basemapControl,
       hasGtfsParser: !!this.gtfsParser,
       hasPageStateManager: !!this.pageStateManager,
       currentMode: this.getCurrentMode(),
+      currentBasemap: this.basemapControl?.getCurrentBasemap(),
       mapCenter: this.map?.getCenter(),
       mapZoom: this.map?.getZoom(),
       routeDataCount: this.routeRenderer?.getRouteFeatures().length || 0,
       currentHighlight: this.currentHighlight,
     };
+  }
+
+  // ========================================
+  // BASEMAP CONTROL METHODS
+  // ========================================
+
+  /**
+   * Get the basemap control instance
+   */
+  public getBasemapControl(): BasemapControl | null {
+    return this.basemapControl;
+  }
+
+  /**
+   * Set basemap style
+   */
+  public setBasemap(basemapId: string): void {
+    this.basemapControl?.setBasemap(basemapId);
   }
 }

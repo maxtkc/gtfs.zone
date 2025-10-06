@@ -40,16 +40,19 @@ export class RouteRenderer {
     this.gtfsParser = gtfsParser;
 
     // Start initialization and store promise
-    if (this.map.isStyleLoaded()) {
-      this.initializationPromise = this.initializeMapLayers();
-    } else {
-      this.initializationPromise = new Promise((resolve) => {
+    // Always wait for the 'load' event to ensure style is fully loaded
+    this.initializationPromise = new Promise((resolve) => {
+      if (this.map.isStyleLoaded() && this.map.loaded()) {
+        // Map and style are already loaded
+        this.initializeMapLayers().then(resolve);
+      } else {
+        // Wait for both map and style to load
         this.map.once('load', async () => {
           await this.initializeMapLayers();
           resolve();
         });
-      });
-    }
+      }
+    });
   }
 
   /**
@@ -57,11 +60,16 @@ export class RouteRenderer {
    * @returns Promise that resolves when initialization is complete
    */
   public async ensureInitialized(): Promise<void> {
-    if (this.initialized) {
-      return;
+    // First, always wait for initial initialization to complete
+    if (this.initializationPromise && !this.initialized) {
+      await this.initializationPromise;
     }
 
-    if (this.initializationPromise) {
+    // Then check if source still exists (may have been removed by style change)
+    if (this.initialized && !this.map.getSource('routes')) {
+      console.log('🔄 Routes source missing, re-initializing...');
+      this.initialized = false;
+      this.initializationPromise = this.initializeMapLayers();
       await this.initializationPromise;
     }
   }

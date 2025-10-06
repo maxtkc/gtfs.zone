@@ -115,10 +115,13 @@ export class LayerManager {
       })),
     };
 
-    this.map.addSource('stops', {
-      type: 'geojson',
-      data: stopsGeoJSONWithIds,
-    });
+    // Check if source already exists before adding
+    if (!this.map.getSource('stops')) {
+      this.map.addSource('stops', {
+        type: 'geojson',
+        data: stopsGeoJSONWithIds,
+      });
+    }
 
     // Add background stops layer if enabled
     if (finalOptions.showBackground) {
@@ -191,6 +194,11 @@ export class LayerManager {
    * Add background stops layer
    */
   private addStopsBackgroundLayer(options: StopLayerOptions): void {
+    // Check if layer already exists
+    if (this.map.getLayer('stops-background')) {
+      return;
+    }
+
     this.map.addLayer({
       id: 'stops-background',
       type: 'circle',
@@ -221,6 +229,11 @@ export class LayerManager {
    * Add invisible click areas for stops
    */
   private addStopsClickAreaLayer(options: StopLayerOptions): void {
+    // Check if layer already exists
+    if (this.map.getLayer('stops-clickarea')) {
+      return;
+    }
+
     this.map.addLayer({
       id: 'stops-clickarea',
       type: 'circle',
