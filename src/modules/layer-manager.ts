@@ -38,7 +38,7 @@ export class LayerManager {
 
   private defaultHighlightOptions: HighlightLayerOptions = {
     color: '#e74c3c',
-    radius: 12,
+    radius: 8,
     strokeColor: '#ffffff',
     strokeWidth: 3,
   };
@@ -309,15 +309,16 @@ export class LayerManager {
       data: highlightGeoJSON,
     });
 
+    // Use size increase instead of color change - keep white background and black stroke like normal stops
     this.map.addLayer({
       id: 'stops-highlight',
       type: 'circle',
       source: 'stops-highlight',
       paint: {
-        'circle-radius': finalOptions.radius,
-        'circle-color': finalOptions.color,
-        'circle-stroke-color': finalOptions.strokeColor,
-        'circle-stroke-width': finalOptions.strokeWidth,
+        'circle-radius': finalOptions.radius, // Use larger radius (default 12 vs normal 4)
+        'circle-color': '#ffffff', // Keep white background like normal stops
+        'circle-stroke-color': '#000000', // Keep black stroke like normal stops
+        'circle-stroke-width': finalOptions.strokeWidth, // Use thicker stroke (default 3 vs normal 2)
         'circle-opacity': 1,
         'circle-stroke-opacity': 1,
       },

@@ -145,9 +145,9 @@ export class RouteRenderer {
       source: 'routes',
       filter: ['==', 'route_id', ''], // Initially matches nothing
       paint: {
-        'line-color': '#FFFF00', // Yellow highlight
-        'line-width': 5,
-        'line-opacity': 0.9,
+        'line-color': ['get', 'color'], // Use route's original color
+        'line-width': 8, // Thicker than normal (normal is 3)
+        'line-opacity': 1,
       },
       layout: {
         'line-cap': 'round',
@@ -394,6 +394,25 @@ export class RouteRenderer {
     this.map.setFilter('routes-highlight', ['==', 'route_id', route_id]);
 
     console.log(`✅ Route highlight applied: ${route_id}`);
+  }
+
+  /**
+   * Update route highlighting for multiple routes
+   */
+  public highlightRoutes(route_ids: string[]): void {
+    if (this.routeFeatures.length === 0 || route_ids.length === 0) {
+      return;
+    }
+
+    console.log(`🎯 Highlighting ${route_ids.length} routes`);
+
+    // Store first route as the primary highlighted route
+    this.highlightedRouteId = route_ids[0];
+
+    // Update the highlight filter to match any of the route IDs
+    this.map.setFilter('routes-highlight', ['in', 'route_id', ...route_ids]);
+
+    console.log(`✅ Route highlights applied for ${route_ids.length} routes`);
   }
 
   /**

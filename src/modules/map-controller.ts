@@ -128,6 +128,7 @@ export class MapController {
       },
       center: [-74.006, 40.7128], // NYC default
       zoom: 10,
+      antialias: true, // Enable antialiasing for smoother lines
     });
 
     // Keep welcome overlay visible initially
@@ -375,7 +376,7 @@ export class MapController {
   /**
    * Highlight specific stop
    */
-  public highlightStop(stop_id: string, color = '#e74c3c', radius = 12): void {
+  public highlightStop(stop_id: string, color = '#e74c3c', radius = 8): void {
     // Clear any existing highlights first
     this.clearHighlights();
 
@@ -383,6 +384,13 @@ export class MapController {
     this.currentHighlight = { type: 'stop', id: stop_id };
 
     this.layerManager?.highlightStop(stop_id, { color, radius });
+
+    // Get routes that serve this stop and highlight them
+    const routesAtStop = this.gtfsParser?.getRoutesForStop?.(stop_id) || [];
+    if (routesAtStop.length > 0) {
+      const route_ids = routesAtStop.map((route) => route.route_id as string);
+      this.routeRenderer?.highlightRoutes(route_ids);
+    }
 
     // Smoothly fly to stop location
     const stops =
