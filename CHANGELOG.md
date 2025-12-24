@@ -1,3 +1,9 @@
+## v0.4.1 (2025-12-24)
+
+### Fix
+
+- slight styling improvements to the map
+
 ## v0.4.0 (2025-10-06)
 
 ### Feat
