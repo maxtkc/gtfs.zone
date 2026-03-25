@@ -1,3 +1,9 @@
+MOVED TO https://git.kcfam.us/gtfs.zone/coloring-book
+
+Hosted version: https://edit.gtfs.zone/
+
+This is out-ah-date ☠️
+
 # GTFS.zone
 
 A web-based GTFS (General Transit Feed Specification) editor inspired by geojson.io. Upload, visualize, edit, and export GTFS transit data with no login required.
